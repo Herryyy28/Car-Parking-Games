@@ -1,10 +1,22 @@
-import { Direction, GameState, GameStatus, PassengerState, VehicleColor, VehicleState, VehicleStateType, VehicleType } from './types.ts';
+import {
+  Difficulty,
+  DIFFICULTY_CONFIGS,
+  Direction,
+  GameState,
+  GameStatus,
+  PassengerState,
+  VehicleColor,
+  VehicleState,
+  VehicleStateType,
+  VehicleType,
+} from './types.ts';
 
 export interface LevelData {
   id: number;
   name: string;
   world: number;
   parMoves: number;
+  timeLimit: number; // in seconds
   grid: {
     rows: number;
     cols: number;
@@ -34,6 +46,7 @@ export const LEVELS_DATA: LevelData[] = [
     name: 'First Commute',
     world: 1,
     parMoves: 15,
+    timeLimit: 60,
     grid: { rows: 7, cols: 7 },
     vehicles: [
       { id: 'l1_v1', type: VehicleType.BUS, color: 'RED', row: 1, col: 3, direction: Direction.UP, length: 3, capacity: 4 },
@@ -62,6 +75,7 @@ export const LEVELS_DATA: LevelData[] = [
     name: 'Lane Unlocking',
     world: 1,
     parMoves: 20,
+    timeLimit: 75,
     grid: { rows: 7, cols: 7 },
     vehicles: [
       // Top car opens path
@@ -102,6 +116,7 @@ export const LEVELS_DATA: LevelData[] = [
     name: 'Spiral Downtown',
     world: 2,
     parMoves: 26,
+    timeLimit: 90,
     grid: { rows: 7, cols: 7 },
     vehicles: [
       { id: 'l3_v1', type: VehicleType.BUS, color: 'PINK', row: 0, col: 3, direction: Direction.UP, length: 3, capacity: 4 },
@@ -133,6 +148,7 @@ export const LEVELS_DATA: LevelData[] = [
     name: 'Butterfly Logic',
     world: 2,
     parMoves: 30,
+    timeLimit: 105,
     grid: { rows: 7, cols: 7 },
     vehicles: [
       { id: 'l4_v1', type: VehicleType.CAR, color: 'ORANGE', row: 0, col: 0, direction: Direction.LEFT, length: 2, capacity: 3 },
@@ -166,6 +182,7 @@ export const LEVELS_DATA: LevelData[] = [
     name: 'Crossroad Crisis',
     world: 3,
     parMoves: 34,
+    timeLimit: 120,
     grid: { rows: 7, cols: 7 },
     vehicles: [
       { id: 'l5_v1', type: VehicleType.BUS, color: 'RED', row: 0, col: 2, direction: Direction.UP, length: 3, capacity: 4 },
@@ -201,6 +218,7 @@ export const LEVELS_DATA: LevelData[] = [
     name: 'Grand Terminal Jam',
     world: 3,
     parMoves: 40,
+    timeLimit: 135,
     grid: { rows: 7, cols: 7 },
     vehicles: [
       { id: 'l6_v1', type: VehicleType.BUS, color: 'PURPLE', row: 0, col: 1, direction: Direction.UP, length: 3, capacity: 4 },
@@ -242,7 +260,11 @@ export class LevelRepository {
     return LEVELS_DATA.find((l) => l.id === id) || LEVELS_DATA[0];
   }
 
-  public static createInitialGameState(levelId: number, coins = 1000): GameState {
+  public static createInitialGameState(
+    levelId: number,
+    coins = 1000,
+    difficulty: Difficulty = Difficulty.HARD
+  ): GameState {
     const data = this.getLevel(levelId);
 
     const vehicles: VehicleState[] = data.vehicles.map((v) => ({
@@ -273,11 +295,20 @@ export class LevelRepository {
       { index: 5, isUnlocked: false, vehicleId: null },
     ];
 
+    const diffConfig = DIFFICULTY_CONFIGS[difficulty] || DIFFICULTY_CONFIGS[Difficulty.HARD];
+    const baseTime = data.timeLimit || 75;
+    const adjustedTime = Math.max(25, Math.round(baseTime * diffConfig.timeMultiplier));
+    const baseMoves = data.parMoves;
+    const adjustedMoves = Math.max(10, Math.round(baseMoves * diffConfig.moveMultiplier));
+
     return {
       levelId: data.id,
       levelName: data.name,
-      moves: data.parMoves,
-      parMoves: data.parMoves,
+      worldId: data.world || 1,
+      moves: adjustedMoves,
+      parMoves: adjustedMoves,
+      timeLeft: adjustedTime,
+      totalTime: adjustedTime,
       coins,
       score: 0,
       gridRows: data.grid.rows,
@@ -293,6 +324,7 @@ export class LevelRepository {
         passengerSwap: 2,
       },
       status: GameStatus.READY,
+      difficulty,
       activeHintVehicleId: null,
       hintMessage: 'Tap an unblocked vehicle pointing to an open road!',
       comboCount: 0,

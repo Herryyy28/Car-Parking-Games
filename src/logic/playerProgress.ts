@@ -1,8 +1,11 @@
+import { Difficulty, DIFFICULTY_CONFIGS } from './types.ts';
+
 export interface PlayerProgressData {
   currentLevel: number;
   unlockedLevel: number;
   stars: Record<number, number>; // levelId -> stars 1..3
   coins: number;
+  preferredDifficulty: Difficulty;
   soundEnabled: boolean;
   vibrationEnabled: boolean;
   tutorialCompleted: boolean;
@@ -17,7 +20,11 @@ export class PlayerProgress {
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
       if (saved) {
-        return JSON.parse(saved);
+        const parsed = JSON.parse(saved);
+        if (!parsed.preferredDifficulty) {
+          parsed.preferredDifficulty = Difficulty.HARD;
+        }
+        return parsed;
       }
     } catch {
       // Fallback
@@ -28,6 +35,7 @@ export class PlayerProgress {
       unlockedLevel: 1,
       stars: {},
       coins: 1000,
+      preferredDifficulty: Difficulty.HARD,
       soundEnabled: true,
       vibrationEnabled: true,
       tutorialCompleted: false,
@@ -46,7 +54,17 @@ export class PlayerProgress {
     }
   }
 
-  public static recordLevelVictory(levelId: number, movesLeft: number, parMoves: number): { stars: number; rewardCoins: number } {
+  public static setPreferredDifficulty(difficulty: Difficulty): void {
+    this.data.preferredDifficulty = difficulty;
+    this.save();
+  }
+
+  public static recordLevelVictory(
+    levelId: number,
+    movesLeft: number,
+    parMoves: number,
+    difficulty: Difficulty = Difficulty.HARD
+  ): { stars: number; rewardCoins: number } {
     let stars = 1;
     if (movesLeft >= Math.floor(parMoves * 0.4)) stars = 3;
     else if (movesLeft >= Math.floor(parMoves * 0.15)) stars = 2;
@@ -61,7 +79,9 @@ export class PlayerProgress {
       this.data.unlockedLevel = levelId + 1;
     }
 
-    const rewardCoins = 100 + stars * 50;
+    const diffConfig = DIFFICULTY_CONFIGS[difficulty] || DIFFICULTY_CONFIGS[Difficulty.HARD];
+    const baseRewardCoins = 100 + stars * 50;
+    const rewardCoins = Math.round(baseRewardCoins * diffConfig.coinMultiplier);
     this.data.coins += rewardCoins;
     this.save();
 

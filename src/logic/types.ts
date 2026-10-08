@@ -1,3 +1,57 @@
+export enum Difficulty {
+  CASUAL = 'CASUAL',
+  HARD = 'HARD',
+  EXPERT = 'EXPERT',
+}
+
+export interface DifficultyConfig {
+  id: Difficulty;
+  label: string;
+  badge: string;
+  description: string;
+  timeMultiplier: number;
+  moveMultiplier: number;
+  starMultiplier: number;
+  coinMultiplier: number;
+  colorClass: string;
+}
+
+export const DIFFICULTY_CONFIGS: Record<Difficulty, DifficultyConfig> = {
+  [Difficulty.CASUAL]: {
+    id: Difficulty.CASUAL,
+    label: 'Casual',
+    badge: 'Relaxed',
+    description: '+35% Extra Time & +40% More Moves. Perfect for relaxed sorting!',
+    timeMultiplier: 1.35,
+    moveMultiplier: 1.4,
+    starMultiplier: 1.0,
+    coinMultiplier: 1.0,
+    colorClass: 'emerald',
+  },
+  [Difficulty.HARD]: {
+    id: Difficulty.HARD,
+    label: 'Hard',
+    badge: 'Standard',
+    description: 'Original arcade balance. Standard timer & strict move limits.',
+    timeMultiplier: 1.0,
+    moveMultiplier: 1.0,
+    starMultiplier: 1.0,
+    coinMultiplier: 1.25,
+    colorClass: 'blue',
+  },
+  [Difficulty.EXPERT]: {
+    id: Difficulty.EXPERT,
+    label: 'Expert',
+    badge: 'Master Rush',
+    description: '-30% Tight Timer & -25% Moves! +50% Bonus Coins for master drivers.',
+    timeMultiplier: 0.7,
+    moveMultiplier: 0.75,
+    starMultiplier: 1.0,
+    coinMultiplier: 1.5,
+    colorClass: 'amber',
+  },
+};
+
 export enum GameStatus {
   LOADING = 'LOADING',
   READY = 'READY',
@@ -7,6 +61,7 @@ export enum GameStatus {
   PAUSED = 'PAUSED',
   COMPLETED = 'COMPLETED',
   FAILED = 'FAILED',
+  OUT_OF_TIME = 'OUT_OF_TIME',
 }
 
 export enum Direction {
@@ -87,6 +142,7 @@ export interface BoosterState {
 export interface GameState {
   levelId: number;
   levelName: string;
+  worldId: number;
   moves: number;
   parMoves: number;
   coins: number;
@@ -98,6 +154,9 @@ export interface GameState {
   parkingSlots: ParkingSlotState[];
   availableBoosters: BoosterState;
   status: GameStatus;
+  difficulty: Difficulty;
+  timeLeft: number;
+  totalTime: number;
   activeHintVehicleId: string | null;
   hintMessage: string;
   comboCount: number;

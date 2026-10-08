@@ -1,4 +1,14 @@
-import { BoosterState, GameState, GameStatus, PassengerState, VehicleColor, VehicleState, VehicleStateType } from './types.ts';
+import {
+  BoosterState,
+  Difficulty,
+  DIFFICULTY_CONFIGS,
+  GameState,
+  GameStatus,
+  PassengerState,
+  VehicleColor,
+  VehicleState,
+  VehicleStateType,
+} from './types.ts';
 import { LogicalGrid } from './logicalGrid.ts';
 import { PathFinder } from './pathFinder.ts';
 import { PuzzleSolver } from './puzzleSolver.ts';
@@ -8,12 +18,14 @@ type StateListener = (state: GameState) => void;
 
 export class GameController {
   private state: GameState;
+  private currentDifficulty: Difficulty = Difficulty.HARD;
   private historyStack: GameState[] = [];
   private listeners: Set<StateListener> = new Set();
   private grid: LogicalGrid;
 
-  constructor(initialLevelId = 1) {
-    this.state = LevelRepository.createInitialGameState(initialLevelId);
+  constructor(initialLevelId = 1, initialDifficulty: Difficulty = Difficulty.HARD) {
+    this.currentDifficulty = initialDifficulty;
+    this.state = LevelRepository.createInitialGameState(initialLevelId, 1000, initialDifficulty);
     this.grid = new LogicalGrid(this.state.gridRows, this.state.gridCols);
     this.grid.rebuild(this.state.vehicles);
     this.updateHint();
@@ -21,6 +33,17 @@ export class GameController {
 
   public getState(): GameState {
     return this.state;
+  }
+
+  public getDifficulty(): Difficulty {
+    return this.currentDifficulty;
+  }
+
+  public setDifficulty(difficulty: Difficulty): void {
+    if (this.currentDifficulty === difficulty && this.state.difficulty === difficulty) return;
+    this.currentDifficulty = difficulty;
+    // Reload current level with newly selected difficulty
+    this.loadLevel(this.state.levelId, difficulty);
   }
 
   public subscribe(listener: StateListener): () => void {
@@ -48,9 +71,16 @@ export class GameController {
   /**
    * Load a new level into the controller.
    */
-  public loadLevel(levelId: number): void {
+  public loadLevel(levelId: number, difficulty?: Difficulty): void {
+    if (difficulty) {
+      this.currentDifficulty = difficulty;
+    }
     this.historyStack = [];
-    this.state = LevelRepository.createInitialGameState(levelId, this.state.coins);
+    this.state = LevelRepository.createInitialGameState(
+      levelId,
+      this.state.coins,
+      this.currentDifficulty
+    );
     this.state.status = GameStatus.READY;
     this.grid = new LogicalGrid(this.state.gridRows, this.state.gridCols);
     this.grid.rebuild(this.state.vehicles);
@@ -70,6 +100,7 @@ export class GameController {
     if (
       this.state.status === GameStatus.COMPLETED ||
       this.state.status === GameStatus.FAILED ||
+      this.state.status === GameStatus.OUT_OF_TIME ||
       this.state.status === GameStatus.VEHICLE_MOVING
     ) {
       return { success: false, blockerId: null, reason: 'Game busy' };
@@ -152,6 +183,10 @@ export class GameController {
     vehicleId?: string;
     passengerId?: string;
   } {
+    if (this.state.status === GameStatus.OUT_OF_TIME) {
+      return { type: 'NONE' };
+    }
+
     // 1. Check if any docked bus is fully loaded -> Depart!
     for (let i = 0; i < this.state.unlockedDocksCount; i++) {
       const slot = this.state.parkingSlots[i];
@@ -380,5 +415,61 @@ export class GameController {
       this.state.status = GameStatus.PLAYING;
     }
     this.notify();
+  }
+
+  /**
+   * Ticks down the countdown timer by 1 second.
+   */
+  public tickTimer(): { type: 'TICK' | 'OUT_OF_TIME'; timeLeft: number } {
+    if (
+      this.state.status === GameStatus.COMPLETED ||
+      this.state.status === GameStatus.FAILED ||
+      this.state.status === GameStatus.OUT_OF_TIME ||
+      this.state.status === GameStatus.PAUSED
+    ) {
+      return {
+        type: this.state.status === GameStatus.OUT_OF_TIME ? 'OUT_OF_TIME' : 'TICK',
+        timeLeft: this.state.timeLeft,
+      };
+    }
+
+    if (this.state.timeLeft > 1) {
+      this.state.timeLeft -= 1;
+      this.notify();
+      return { type: 'TICK', timeLeft: this.state.timeLeft };
+    } else {
+      this.state.timeLeft = 0;
+      if (!this.isLevelComplete()) {
+        this.state.status = GameStatus.OUT_OF_TIME;
+        this.notify();
+        return { type: 'OUT_OF_TIME', timeLeft: 0 };
+      }
+      this.notify();
+      return { type: 'TICK', timeLeft: 0 };
+    }
+  }
+
+  /**
+   * Adds extra time to the current level countdown timer.
+   */
+  public addTime(seconds: number): void {
+    this.state.timeLeft += seconds;
+    this.state.totalTime = Math.max(this.state.totalTime, this.state.timeLeft);
+    if (this.state.status === GameStatus.OUT_OF_TIME) {
+      this.state.status = GameStatus.PLAYING;
+    }
+    this.notify();
+  }
+
+  /**
+   * Purchases extra time using player coins.
+   */
+  public buyExtraTime(seconds: number, coinCost: number): boolean {
+    if (this.state.coins < coinCost) {
+      return false;
+    }
+    this.state.coins -= coinCost;
+    this.addTime(seconds);
+    return true;
   }
 }

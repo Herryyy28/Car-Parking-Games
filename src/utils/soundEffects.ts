@@ -216,6 +216,72 @@ class SoundManager {
       osc.stop(time + 0.35);
     });
   }
+
+  // Countdown clock tick
+  playTick() {
+    if (!this.soundEnabled) return;
+    this.initCtx();
+    if (!this.ctx) return;
+    this.triggerHaptic(10);
+
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(880, this.ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(440, this.ctx.currentTime + 0.03);
+
+    gain.gain.setValueAtTime(0.12, this.ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.03);
+
+    osc.connect(gain);
+    gain.connect(this.ctx.destination);
+    osc.start();
+    osc.stop(this.ctx.currentTime + 0.03);
+  }
+
+  // Danger zone warning sound (< 10 seconds remaining)
+  playTimeWarning() {
+    if (!this.soundEnabled) return;
+    this.initCtx();
+    if (!this.ctx) return;
+    this.triggerHaptic([30, 30]);
+
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(740, this.ctx.currentTime);
+    osc.frequency.setValueAtTime(880, this.ctx.currentTime + 0.06);
+
+    gain.gain.setValueAtTime(0.15, this.ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.12);
+
+    osc.connect(gain);
+    gain.connect(this.ctx.destination);
+    osc.start();
+    osc.stop(this.ctx.currentTime + 0.12);
+  }
+
+  // Playful car/bus horn beep
+  playHonk() {
+    if (!this.soundEnabled) return;
+    this.initCtx();
+    if (!this.ctx) return;
+    this.triggerHaptic([40, 30, 60]);
+
+    [360, 440].forEach((freq) => {
+      const osc = this.ctx!.createOscillator();
+      const gain = this.ctx!.createGain();
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(freq, this.ctx!.currentTime);
+      gain.gain.setValueAtTime(0.22, this.ctx!.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.01, this.ctx!.currentTime + 0.28);
+
+      osc.connect(gain);
+      gain.connect(this.ctx!.destination);
+      osc.start();
+      osc.stop(this.ctx!.currentTime + 0.28);
+    });
+  }
 }
 
 export const sounds = new SoundManager();

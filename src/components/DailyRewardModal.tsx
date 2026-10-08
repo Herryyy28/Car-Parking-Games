@@ -99,15 +99,15 @@ export const DailyRewardModal: React.FC<DailyRewardModalProps> = ({
   const format2Digits = (num: number) => num.toString().padStart(2, '0');
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-in fade-in duration-200">
-      <div className="relative w-full max-w-md bg-gradient-to-b from-slate-900 to-slate-950 rounded-3xl border-4 border-amber-400/90 shadow-2xl p-5 text-white overflow-hidden">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-4 animate-in fade-in duration-200">
+      <div className="relative w-full max-w-md game-modal-3d rounded-[36px] border-4 border-amber-400/90 shadow-2xl p-5 text-white overflow-hidden">
         {/* Ambient Top Glow */}
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-48 h-20 bg-amber-500/20 blur-3xl pointer-events-none"></div>
 
         {/* Close Button */}
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 w-9 h-9 rounded-full bg-slate-800/80 hover:bg-slate-700 flex items-center justify-center text-slate-300 hover:text-white transition-colors z-10"
+          className="absolute top-4 right-4 w-9 h-9 rounded-xl game-btn game-btn-dark flex items-center justify-center text-slate-300 hover:text-white transition-colors z-10"
         >
           <X className="w-5 h-5" />
         </button>
@@ -115,16 +115,16 @@ export const DailyRewardModal: React.FC<DailyRewardModalProps> = ({
         {/* Modal Header */}
         <div className="text-center mb-4">
           <div className="relative w-16 h-16 mx-auto mb-2 flex items-center justify-center">
-            <div className="w-16 h-16 rounded-3xl bg-gradient-to-tr from-amber-500 to-yellow-300 flex items-center justify-center shadow-lg shadow-amber-500/30">
+            <div className="w-16 h-16 rounded-3xl bg-gradient-to-tr from-amber-500 to-yellow-300 flex items-center justify-center shadow-lg shadow-amber-500/30 border-2 border-yellow-200 animate-float-3d">
               <Gift className="w-9 h-9 text-slate-950 animate-bounce" />
             </div>
             <Sparkles className="absolute -top-1 -right-1 w-6 h-6 text-amber-300 animate-spin" />
           </div>
 
-          <h2 className="text-2xl font-black tracking-wide text-transparent bg-clip-text bg-gradient-to-r from-amber-200 via-yellow-300 to-amber-400">
+          <h2 className="text-2xl sm:text-3xl font-black tracking-wide text-transparent bg-clip-text bg-gradient-to-r from-amber-200 via-yellow-300 to-amber-400">
             DAILY REWARD
           </h2>
-          <p className="text-xs font-semibold text-slate-400 mt-0.5">
+          <p className="text-xs font-semibold text-slate-300 mt-0.5">
             Claim free coins & boosters every 24 hours to keep your streak alive!
           </p>
         </div>
@@ -144,10 +144,10 @@ export const DailyRewardModal: React.FC<DailyRewardModalProps> = ({
                   isMegaDay ? 'col-span-2' : 'col-span-1'
                 } ${
                   isCurrent
-                    ? 'bg-gradient-to-b from-amber-500/25 to-yellow-500/10 border-2 border-amber-400 shadow-md shadow-amber-500/20'
+                    ? 'bg-gradient-to-b from-amber-500/30 to-yellow-500/15 border-2 border-amber-400 shadow-md shadow-amber-500/30 scale-102 ring-2 ring-amber-400/40'
                     : isCompleted
-                    ? 'bg-slate-800/50 border border-emerald-500/50 opacity-75'
-                    : 'bg-slate-800/40 border border-slate-700/60 opacity-60'
+                    ? 'bg-slate-950/60 border border-emerald-500/60 opacity-80'
+                    : 'bg-slate-950/40 border border-slate-800 opacity-60'
                 }`}
               >
                 {/* Day Header Badge */}
@@ -204,7 +204,7 @@ export const DailyRewardModal: React.FC<DailyRewardModalProps> = ({
             <button
               onClick={handleClaimClick}
               disabled={claimedAnimation}
-              className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-amber-400 via-yellow-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-slate-950 font-black text-sm tracking-wide shadow-lg shadow-amber-400/30 active:scale-95 transition-all flex items-center justify-center gap-2"
+              className="w-full py-4 rounded-2xl game-btn game-btn-amber shine-sweep text-slate-950 font-black text-sm tracking-wide shadow-xl flex items-center justify-center gap-2"
             >
               <Gift className="w-5 h-5" />
               <span>
@@ -212,7 +212,7 @@ export const DailyRewardModal: React.FC<DailyRewardModalProps> = ({
               </span>
             </button>
           ) : (
-            <div className="p-3 rounded-2xl bg-slate-800/70 border border-slate-700/80 flex flex-col items-center justify-center text-center">
+            <div className="p-3.5 rounded-2xl bg-slate-950/70 border border-slate-800 flex flex-col items-center justify-center text-center">
               <div className="flex items-center gap-1.5 text-xs font-bold text-slate-400 mb-1">
                 <Clock className="w-4 h-4 text-amber-400 animate-spin" />
                 <span>Next Reward Available In:</span>
@@ -220,7 +220,7 @@ export const DailyRewardModal: React.FC<DailyRewardModalProps> = ({
               <div className="font-mono font-black text-xl text-amber-300 tracking-wider">
                 {format2Digits(timeLeft.hours)}:{format2Digits(timeLeft.minutes)}:{format2Digits(timeLeft.seconds)}
               </div>
-              <span className="text-[10px] text-slate-500 mt-1">
+              <span className="text-[10px] text-slate-400 mt-1">
                 Streak: Day {streakDay} • Come back when the 24h timer expires!
               </span>
             </div>

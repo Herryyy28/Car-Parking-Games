@@ -2,6 +2,12 @@ import React, { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import { Direction, GameState, GameStatus, PassengerState, VehicleColor, VehicleState, VehicleStateType, COLOR_MAP } from '../logic/types.ts';
 import { sounds } from '../utils/soundEffects.ts';
+import { BackgroundEnvironmentManager } from '../logic/backgroundManager.ts';
+import { getWorldIdForLevel } from '../logic/worldThemes.ts';
+import { OrganicRoadSystem } from '../logic/organicRoadSystem.ts';
+import { NaturalVehiclePhysics, NaturalPhysicsState } from '../logic/vehiclePhysics.ts';
+import { DynamicCameraController } from '../logic/dynamicCamera.ts';
+import { SplinePathGenerator } from '../logic/splinePathGenerator.ts';
 
 interface BusMadnessArenaProps {
   gameState: GameState;
@@ -76,6 +82,8 @@ export const BusMadnessArena: React.FC<BusMadnessArenaProps> = ({
   const passengersGroupRef = useRef<THREE.Group | null>(null);
   const hintBeaconRef = useRef<THREE.Group | null>(null);
   const blockerFlashRef = useRef<{ id: string; until: number } | null>(null);
+  const bgManagerRef = useRef<BackgroundEnvironmentManager | null>(null);
+  const dynamicCameraRef = useRef<DynamicCameraController | null>(null);
 
   // Confetti Particle System Reference
   const confettiSystemRef = useRef<{
@@ -99,6 +107,8 @@ export const BusMadnessArena: React.FC<BusMadnessArenaProps> = ({
       duration: number;
       startPos: THREE.Vector3;
       waypoints?: THREE.Vector3[];
+      curve?: THREE.CatmullRomCurve3;
+      physics?: NaturalPhysicsState;
       forwardDir: THREE.Vector3;
       dockIdx?: number;
     };
@@ -113,13 +123,18 @@ export const BusMadnessArena: React.FC<BusMadnessArenaProps> = ({
 
     const scene = new THREE.Scene();
     sceneRef.current = scene;
-    scene.background = new THREE.Color(0xdce7f6);
-    scene.fog = new THREE.FogExp2(0xdce7f6, 0.015);
+    scene.background = new THREE.Color(0x0a101d);
+    scene.fog = new THREE.FogExp2(0x0a101d, 0.012);
 
     const camera = new THREE.PerspectiveCamera(52, width / height, 0.5, 160);
-    camera.position.set(0, 25, 20);
+    camera.position.set(0, 36, 32);
     camera.lookAt(0, 0, 1.2);
     cameraRef.current = camera;
+
+    // Instantiate Dynamic Camera Controller
+    const dynamicCamera = new DynamicCameraController(camera);
+    dynamicCameraRef.current = dynamicCamera;
+    dynamicCamera.triggerLevelEntrance();
 
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'high-performance' });
     renderer.setSize(width, height);
@@ -128,10 +143,10 @@ export const BusMadnessArena: React.FC<BusMadnessArenaProps> = ({
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     container.appendChild(renderer.domElement);
 
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.9);
+    const ambientLight = new THREE.AmbientLight(0xffffff, 1.1);
     scene.add(ambientLight);
 
-    const sunLight = new THREE.DirectionalLight(0xfffef0, 1.4);
+    const sunLight = new THREE.DirectionalLight(0xfff8db, 1.8);
     sunLight.position.set(16, 32, 16);
     sunLight.castShadow = true;
     sunLight.shadow.mapSize.width = 1024;
@@ -145,25 +160,72 @@ export const BusMadnessArena: React.FC<BusMadnessArenaProps> = ({
     sunLight.shadow.bias = -0.0008;
     scene.add(sunLight);
 
-    const skyFill = new THREE.DirectionalLight(0xbcd7f8, 0.5);
+    const skyFill = new THREE.DirectionalLight(0x38bdf8, 0.8);
     skyFill.position.set(-14, 14, -12);
     scene.add(skyFill);
 
     // Ground
     const groundGeo = new THREE.PlaneGeometry(70, 70);
-    const groundMat = new THREE.MeshStandardMaterial({ color: 0xe2e8f0, roughness: 0.9 });
+    const groundMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.95 });
     const ground = new THREE.Mesh(groundGeo, groundMat);
     ground.rotation.x = -Math.PI / 2;
     ground.position.y = -0.02;
     ground.receiveShadow = true;
     scene.add(ground);
 
+    // Decorative Street Lamps with soft glow
+    const lampPositions = [
+      [-12, 0, -4],
+      [12, 0, -4],
+      [-12, 0, 14],
+      [12, 0, 14],
+    ];
+    lampPositions.forEach(([lx, ly, lz]) => {
+      const lampGroup = new THREE.Group();
+      lampGroup.position.set(lx, ly, lz);
+
+      const pole = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.12, 0.16, 5, 8),
+        new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.6 })
+      );
+      pole.position.y = 2.5;
+      pole.castShadow = true;
+
+      const bulb = new THREE.Mesh(
+        new THREE.SphereGeometry(0.35, 12, 12),
+        new THREE.MeshStandardMaterial({ color: 0xffedd5, emissive: 0xfef08a, emissiveIntensity: 2.0 })
+      );
+      bulb.position.y = 5.1;
+
+      lampGroup.add(pole, bulb);
+      scene.add(lampGroup);
+    });
+
+    // Decorative Safety Cones around grid boundary
+    const conePositions = [
+      [-10.2, 0.25, -2.8],
+      [10.2, 0.25, -2.8],
+      [-10.2, 0.25, 14.5],
+      [10.2, 0.25, 14.5],
+    ];
+    const createdCones: THREE.Mesh[] = [];
+    conePositions.forEach(([cx, cy, cz]) => {
+      const cone = new THREE.Mesh(
+        new THREE.ConeGeometry(0.3, 0.7, 12),
+        new THREE.MeshStandardMaterial({ color: 0xf97316, roughness: 0.3 })
+      );
+      cone.position.set(cx, cy, cz);
+      cone.castShadow = true;
+      scene.add(cone);
+      createdCones.push(cone);
+    });
+
     // Terminal Station Facade
     const stationGroup = new THREE.Group();
     stationGroup.position.set(0, 0, -11.5);
 
     const buildingGeo = new THREE.BoxGeometry(24, 4.5, 4);
-    const buildingMat = new THREE.MeshStandardMaterial({ color: 0x38bdf8, roughness: 0.35 });
+    const buildingMat = new THREE.MeshStandardMaterial({ color: 0x0284c7, roughness: 0.35 });
     const building = new THREE.Mesh(buildingGeo, buildingMat);
     building.position.set(0, 2.25, -2);
     building.castShadow = true;
@@ -177,21 +239,112 @@ export const BusMadnessArena: React.FC<BusMadnessArenaProps> = ({
     stationGroup.add(roofEave);
 
     const sidewalkGeo = new THREE.BoxGeometry(24, 0.3, 3.2);
-    const sidewalkMat = new THREE.MeshStandardMaterial({ color: 0xf1f5f9, roughness: 0.6 });
+    const sidewalkMat = new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.6 });
     const sidewalk = new THREE.Mesh(sidewalkGeo, sidewalkMat);
     sidewalk.position.set(0, 0.15, 1.6);
     sidewalk.receiveShadow = true;
     stationGroup.add(sidewalk);
     scene.add(stationGroup);
 
+    // Organic Curved Road System (Spline curves, smooth intersections, curbs, drainage)
+    const naturalRoadGroup = new THREE.Group();
+    naturalRoadGroup.name = 'NaturalRoadSystem';
+
+    // Main East-West curved arterial boulevard connecting docks to escape route
+    const mainArterialCurve = new THREE.CatmullRomCurve3([
+      new THREE.Vector3(-15, 0.08, DOCK_Z),
+      new THREE.Vector3(-6, 0.08, DOCK_Z - 0.2),
+      new THREE.Vector3(0, 0.08, DOCK_Z),
+      new THREE.Vector3(6, 0.08, DOCK_Z + 0.1),
+      new THREE.Vector3(15, 0.08, DOCK_Z),
+    ]);
+    const mainArterialRoad = OrganicRoadSystem.createCurvedRoadMesh(mainArterialCurve, 6.2, 32, 0x1e293b);
+    const mainStripes = OrganicRoadSystem.createCurvedStripes(mainArterialCurve, 0.22, 32, 0xfacc15);
+    const mainCurbNorth = OrganicRoadSystem.createRaisedCurbMesh(mainArterialCurve, -3.1, 0.4, 0.2, 32, 0x64748b);
+    naturalRoadGroup.add(mainArterialRoad, mainStripes, mainCurbNorth);
+
+    // Curved sweeping feeder road connecting south lot into the main arterial
+    const feederCurveLeft = new THREE.CatmullRomCurve3([
+      new THREE.Vector3(-11, 0.08, 14.5),
+      new THREE.Vector3(-12.8, 0.08, 6.0),
+      new THREE.Vector3(-12.0, 0.08, -1.0),
+      new THREE.Vector3(-8.5, 0.08, DOCK_Z + 1.2),
+    ]);
+    const feederRoadLeft = OrganicRoadSystem.createCurvedRoadMesh(feederCurveLeft, 4.4, 32, 0x1e293b);
+    const feederCurbLeft = OrganicRoadSystem.createRaisedCurbMesh(feederCurveLeft, -2.2, 0.35, 0.18, 32, 0x64748b);
+    naturalRoadGroup.add(feederRoadLeft, feederCurbLeft);
+
+    const feederCurveRight = new THREE.CatmullRomCurve3([
+      new THREE.Vector3(11, 0.08, 14.5),
+      new THREE.Vector3(12.8, 0.08, 6.0),
+      new THREE.Vector3(12.0, 0.08, -1.0),
+      new THREE.Vector3(8.5, 0.08, DOCK_Z + 1.2),
+    ]);
+    const feederRoadRight = OrganicRoadSystem.createCurvedRoadMesh(feederCurveRight, 4.4, 32, 0x1e293b);
+    const feederCurbRight = OrganicRoadSystem.createRaisedCurbMesh(feederCurveRight, 2.2, 0.35, 0.18, 32, 0x64748b);
+    naturalRoadGroup.add(feederRoadRight, feederCurbRight);
+
+    // Natural curved asphalt parking pad with soft rounded bevel edges
+    const parkingLotCurve = new THREE.CatmullRomCurve3([
+      new THREE.Vector3(-10.2, 0.08, 14.8),
+      new THREE.Vector3(-10.2, 0.08, -1.8),
+      new THREE.Vector3(0, 0.08, -2.4),
+      new THREE.Vector3(10.2, 0.08, -1.8),
+      new THREE.Vector3(10.2, 0.08, 14.8),
+    ]);
+    const perimeterCurb = OrganicRoadSystem.createRaisedCurbMesh(parkingLotCurve, 0.2, 0.45, 0.22, 48, 0x475569);
+    naturalRoadGroup.add(perimeterCurb);
+
+    // Organic asphalt main parking ground
+    const asphaltPadGeo = new THREE.BoxGeometry(20.4, 0.16, 17.6);
+    const asphaltPadMat = new THREE.MeshStandardMaterial({
+      color: 0x334155,
+      roughness: 0.92,
+      metalness: 0.08,
+    });
+    const puzzlePad = new THREE.Mesh(asphaltPadGeo, asphaltPadMat);
+    puzzlePad.position.set(0, 0.08, GRID_OFFSET_Z);
+    puzzlePad.receiveShadow = true;
+    naturalRoadGroup.add(puzzlePad);
+
+    // Subtle Natural Environmental Details: Metallic Manhole Covers & Drainage Storm Grates
+    const manholeGeo = new THREE.CylinderGeometry(0.55, 0.55, 0.04, 16);
+    const manholeMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.6, metalness: 0.65 });
+    const manhole1 = new THREE.Mesh(manholeGeo, manholeMat);
+    manhole1.position.set(-8.5, 0.17, 3.5);
+    const manhole2 = new THREE.Mesh(manholeGeo, manholeMat);
+    manhole2.position.set(8.5, 0.17, 8.5);
+    naturalRoadGroup.add(manhole1, manhole2);
+
+    const grateGeo = new THREE.BoxGeometry(0.7, 0.03, 1.2);
+    const grateMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.5, metalness: 0.7 });
+    const grate1 = new THREE.Mesh(grateGeo, grateMat);
+    grate1.position.set(-9.8, 0.17, -1.2);
+    const grate2 = new THREE.Mesh(grateGeo, grateMat);
+    grate2.position.set(9.8, 0.17, -1.2);
+    naturalRoadGroup.add(grate1, grate2);
+
+    // Natural Painted Parking Space T-Markings instead of artificial wireframe boxes
+    const lineMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.4 });
+    const stallGroup = new THREE.Group();
+    stallGroup.position.set(0, 0.17, GRID_OFFSET_Z);
+
+    for (let r = 0; r <= 7; r++) {
+      for (let c = 0; c <= 7; c++) {
+        // Subtle dotted intersection crosses
+        const crossH = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.02, 0.06), lineMat);
+        const crossV = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.02, 0.24), lineMat);
+        const cross = new THREE.Group();
+        cross.position.set((c - 3.5) * CELL_SIZE, 0, (r - 3.5) * CELL_SIZE);
+        cross.add(crossH, crossV);
+        stallGroup.add(cross);
+      }
+    }
+    naturalRoadGroup.add(stallGroup);
+    scene.add(naturalRoadGroup);
+
     // Waiting Docks Road
-    const roadStrip = new THREE.Mesh(
-      new THREE.BoxGeometry(26, 0.18, 5.8),
-      new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.8 })
-    );
-    roadStrip.position.set(0, 0.09, DOCK_Z);
-    roadStrip.receiveShadow = true;
-    scene.add(roadStrip);
+    const roadStrip = mainArterialRoad;
 
     // Docks Bay Markings
     const bayMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.3 });
@@ -223,19 +376,25 @@ export const BusMadnessArena: React.FC<BusMadnessArenaProps> = ({
       scene.add(bayGroup);
     });
 
-    // Main Parking Grid Asphalt Pad
-    const puzzlePad = new THREE.Mesh(
-      new THREE.BoxGeometry(19, 0.18, 19),
-      new THREE.MeshStandardMaterial({ color: 0x475569, roughness: 0.85 })
-    );
-    puzzlePad.position.set(0, 0.09, GRID_OFFSET_Z);
-    puzzlePad.receiveShadow = true;
-    scene.add(puzzlePad);
+    // Initialize Dynamic Background Environment Manager
+    const bgManager = new BackgroundEnvironmentManager(scene);
+    bgManagerRef.current = bgManager;
+    bgManager.registerArenaElements({
+      ground,
+      road: roadStrip,
+      puzzlePad,
+      terminalBuilding: building,
+      terminalRoof: roofEave,
+      sidewalk,
+      sunLight,
+      ambientLight,
+      skyFill,
+      cones: createdCones,
+    });
 
-    // Grid Floor Markings (Grid Lines)
-    const gridHelper = new THREE.GridHelper(15.4, 7, 0x64748b, 0x334155);
-    gridHelper.position.set(0, 0.19, GRID_OFFSET_Z);
-    scene.add(gridHelper);
+    // Apply active World theme dynamically
+    const initialWorldId = gameStateRef.current.worldId || getWorldIdForLevel(gameStateRef.current.levelId);
+    bgManager.applyWorldTheme(initialWorldId);
 
     // Passengers Group
     const passengersGroup = new THREE.Group();
@@ -414,6 +573,11 @@ export const BusMadnessArena: React.FC<BusMadnessArenaProps> = ({
       const delta = clock.getDelta();
       const elapsed = clock.getElapsedTime();
 
+      // Dynamic 3D environmental props animations (balloons, radar, windsocks, totems)
+      if (bgManagerRef.current) {
+        bgManagerRef.current.update(elapsed, delta);
+      }
+
       // Stickman idle bobbing
       if (passengersGroupRef.current) {
         passengersGroupRef.current.children.forEach((child, idx) => {
@@ -459,7 +623,9 @@ export const BusMadnessArena: React.FC<BusMadnessArenaProps> = ({
         }
       }
 
-      // Active vehicle driving animations
+      // Active vehicle driving animations (Natural physics, spline trajectory, wheel spin, body roll, brake lights)
+      let activeMovingVehicle: { pos: THREE.Vector3; speed: number; heading: number } | null = null;
+
       Object.keys(activeAnimRef.current).forEach((vid) => {
         const anim = activeAnimRef.current[vid];
         const group = vehicleMeshesRef.current.get(vid);
@@ -475,47 +641,120 @@ export const BusMadnessArena: React.FC<BusMadnessArenaProps> = ({
             const t = anim.progress / 0.35;
             group.position.x = anim.startPos.x + anim.forwardDir.x * 0.45 * t;
             group.position.z = anim.startPos.z + anim.forwardDir.z * 0.45 * t;
+            // Small chassis squat on sudden bump
+            group.rotation.x = 0.05 * Math.sin(t * Math.PI);
           } else if (anim.progress < 1.0) {
             const t = (anim.progress - 0.35) / 0.65;
             group.position.x = anim.startPos.x + anim.forwardDir.x * 0.45 * (1 - t);
             group.position.z = anim.startPos.z + anim.forwardDir.z * 0.45 * (1 - t);
+            group.rotation.x = -0.03 * Math.sin((1 - t) * Math.PI);
           } else {
             group.position.copy(anim.startPos);
+            group.rotation.x = 0;
             delete activeAnimRef.current[vid];
           }
         } else if (anim.type === 'drive_to_dock') {
-          const t = Math.min(anim.progress, 1);
-          const easeT = t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
+          if (anim.physics && anim.curve) {
+            // Update natural physics state
+            const reachedDestination = NaturalVehiclePhysics.update(anim.physics, delta, elapsed);
 
-          if (anim.waypoints && anim.waypoints.length > 0) {
-            const totalSegments = anim.waypoints.length;
-            const segmentT = easeT * totalSegments;
-            const segIdx = Math.min(Math.floor(segmentT), totalSegments - 1);
-            const subT = segmentT - segIdx;
+            // Apply position with natural suspension bounce
+            const baseY = group.userData?.baseY ?? 0.72;
+            group.position.x = anim.physics.position.x;
+            group.position.y = baseY + anim.physics.suspensionOffset;
+            group.position.z = anim.physics.position.z;
 
-            const p0 = segIdx === 0 ? anim.startPos : anim.waypoints[segIdx - 1];
-            const p1 = anim.waypoints[segIdx];
+            // Apply heading orientation, steering roll, and pitch
+            group.rotation.y = anim.physics.headingAngle;
+            group.rotation.z = anim.physics.bodyRollAngle;
+            group.rotation.x = anim.physics.bodyPitchAngle;
 
-            group.position.lerpVectors(p0, p1, subT);
-
-            const moveDelta = new THREE.Vector3().subVectors(p1, p0).normalize();
-            if (moveDelta.lengthSq() > 0.01) {
-              const targetYaw = Math.atan2(moveDelta.x, -moveDelta.z);
-              group.rotation.y = targetYaw;
+            // Animate front wheel steering rotation
+            if (group.userData?.frontWheels) {
+              group.userData.frontWheels.forEach((w: THREE.Group) => {
+                w.rotation.y = anim.physics!.steeringAngle;
+              });
             }
-          }
 
-          if (anim.progress >= 1.0) {
-            const finalPos = anim.waypoints ? anim.waypoints[anim.waypoints.length - 1] : anim.startPos;
-            group.position.copy(finalPos);
-            group.rotation.y = 0; // Parked bus faces North
-            delete activeAnimRef.current[vid];
-            if (anim.dockIdx !== undefined) {
-              onVehicleArrivedAtDock(vid, anim.dockIdx);
+            // Animate rolling tires spinning
+            if (group.userData?.wheelTires) {
+              group.userData.wheelTires.forEach((tire: THREE.Mesh) => {
+                tire.rotation.x = anim.physics!.wheelRotation;
+              });
+            }
+
+            // Dynamic brake lights illumination
+            if (group.userData?.brakeLightMat) {
+              const isBraking = anim.physics.motionState === 'BRAKING' || anim.physics.motionState === 'PARKING';
+              group.userData.brakeLightMat.emissiveIntensity = isBraking ? 3.0 : 1.0;
+            }
+
+            // Dynamic turn indicators blinking during steering
+            if (group.userData?.indicatorMat) {
+              const isTurning = Math.abs(anim.physics.steeringAngle) > 0.12;
+              const blink = isTurning ? (Math.sin(elapsed * 12) > 0 ? 2.5 : 0.2) : 0.2;
+              group.userData.indicatorMat.emissiveIntensity = blink;
+            }
+
+            // Record active vehicle for dynamic cinematic camera tracking
+            activeMovingVehicle = {
+              pos: anim.physics.position,
+              speed: anim.physics.velocity,
+              heading: anim.physics.headingAngle,
+            };
+
+            if (reachedDestination) {
+              const finalPos = anim.curve.getPointAt(1.0);
+              group.position.set(finalPos.x, baseY, finalPos.z);
+              group.rotation.set(0, 0, 0); // Parked bus faces North
+
+              // Reset steering, lights and suspension
+              if (group.userData?.frontWheels) {
+                group.userData.frontWheels.forEach((w: THREE.Group) => {
+                  w.rotation.y = 0;
+                });
+              }
+              if (group.userData?.brakeLightMat) {
+                group.userData.brakeLightMat.emissiveIntensity = 1.0;
+              }
+              if (group.userData?.indicatorMat) {
+                group.userData.indicatorMat.emissiveIntensity = 0.2;
+              }
+
+              delete activeAnimRef.current[vid];
+              if (anim.dockIdx !== undefined) {
+                onVehicleArrivedAtDock(vid, anim.dockIdx);
+              }
+            }
+          } else {
+            // Fallback for simple interpolation
+            const t = Math.min(anim.progress, 1);
+            if (anim.progress >= 1.0) {
+              delete activeAnimRef.current[vid];
+              if (anim.dockIdx !== undefined) {
+                onVehicleArrivedAtDock(vid, anim.dockIdx);
+              }
             }
           }
         }
       });
+
+      // Update Dynamic Cinematic Camera
+      if (dynamicCameraRef.current) {
+        const targetVehicle = activeMovingVehicle as { pos: THREE.Vector3; speed: number; heading: number } | null;
+        if (targetVehicle) {
+          dynamicCameraRef.current.followMovingVehicle(
+            targetVehicle.pos,
+            targetVehicle.speed,
+            targetVehicle.heading
+          );
+        } else if (gameStateRef.current.status === GameStatus.COMPLETED) {
+          dynamicCameraRef.current.focusCelebrationView();
+        } else {
+          dynamicCameraRef.current.returnToNeutralView();
+        }
+        dynamicCameraRef.current.update(delta, isDragging);
+      }
 
       // Confetti Physics & Instanced Matrix Updates
       const confetti = confettiSystemRef.current;
@@ -606,12 +845,29 @@ export const BusMadnessArena: React.FC<BusMadnessArenaProps> = ({
       }
       confettiSystemRef.current = null;
 
+      // Dispose 3D Environmental Props
+      if (bgManagerRef.current) {
+        bgManagerRef.current.dispose();
+        bgManagerRef.current = null;
+      }
+
       if (container.contains(renderer.domElement)) {
         container.removeChild(renderer.domElement);
       }
       renderer.dispose();
     };
   }, []);
+
+  // Dynamically update World environmental props when worldId or levelId changes
+  useEffect(() => {
+    if (bgManagerRef.current) {
+      const targetWorldId = gameState.worldId || getWorldIdForLevel(gameState.levelId);
+      bgManagerRef.current.applyWorldTheme(targetWorldId);
+    }
+    if (dynamicCameraRef.current) {
+      dynamicCameraRef.current.triggerLevelEntrance();
+    }
+  }, [gameState.worldId, gameState.levelId]);
 
   // Update/rebuild vehicles when gameState.vehicles changes
   useEffect(() => {
@@ -694,23 +950,94 @@ export const BusMadnessArena: React.FC<BusMadnessArenaProps> = ({
         }
       }
 
-      // Wheels
+      // Headlights (Front: -length3D / 2)
+      const headlightMat = new THREE.MeshStandardMaterial({
+        color: 0xffffff,
+        emissive: 0xfef08a,
+        emissiveIntensity: 1.6,
+      });
+      const hlLeft = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 0.05, 12), headlightMat);
+      hlLeft.rotation.x = Math.PI / 2;
+      hlLeft.position.set(-width3D * 0.32, -height3D * 0.1, -length3D * 0.5 - 0.02);
+      const hlRight = hlLeft.clone();
+      hlRight.position.x = width3D * 0.32;
+      vGroup.add(hlLeft, hlRight);
+
+      // Taillights (Rear: +length3D / 2) - Dynamic Brake Lights
+      const taillightMat = new THREE.MeshStandardMaterial({
+        color: 0xffffff,
+        emissive: 0xef4444,
+        emissiveIntensity: 1.2,
+      });
+      const tlLeft = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 0.05, 12), taillightMat);
+      tlLeft.rotation.x = Math.PI / 2;
+      tlLeft.position.set(-width3D * 0.32, -height3D * 0.1, length3D * 0.5 + 0.02);
+      const tlRight = tlLeft.clone();
+      tlRight.position.x = width3D * 0.32;
+      tlLeft.name = 'brake_light_left';
+      tlRight.name = 'brake_light_right';
+      vGroup.add(tlLeft, tlRight);
+
+      // Turn Indicators (Amber lights on corners)
+      const indicatorMat = new THREE.MeshStandardMaterial({
+        color: 0xf59e0b,
+        emissive: 0xf59e0b,
+        emissiveIntensity: 0.2,
+      });
+      const indFrontL = new THREE.Mesh(new THREE.SphereGeometry(0.08, 8, 8), indicatorMat);
+      indFrontL.position.set(-width3D * 0.44, -height3D * 0.05, -length3D * 0.48);
+      indFrontL.name = 'indicator_fl';
+      const indFrontR = indFrontL.clone();
+      indFrontR.position.x = width3D * 0.44;
+      indFrontR.name = 'indicator_fr';
+      vGroup.add(indFrontL, indFrontR);
+
+      // Wheels with Chrome Hubcaps (Tracked for steering & roll physics)
       const wheelMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.85 });
-      const wheelGeo = new THREE.CylinderGeometry(0.35, 0.35, 0.22, 12);
+      const rimMat = new THREE.MeshStandardMaterial({ color: 0xe2e8f0, roughness: 0.25, metalness: 0.7 });
+      const wheelGeo = new THREE.CylinderGeometry(0.35, 0.35, 0.22, 14);
+      const rimGeo = new THREE.CylinderGeometry(0.18, 0.18, 0.23, 14);
+
       const wx = width3D * 0.52;
       const wz = length3D * 0.32;
+      const frontWheels: THREE.Group[] = [];
+      const allWheelTires: THREE.Mesh[] = [];
+
       [
-        [wx, -height3D * 0.25, wz],
-        [-wx, -height3D * 0.25, wz],
-        [wx, -height3D * 0.25, -wz],
-        [-wx, -height3D * 0.25, -wz],
-      ].forEach(([x, y, z]) => {
-        const w = new THREE.Mesh(wheelGeo, wheelMat);
-        w.rotation.z = Math.PI / 2;
-        w.position.set(x, y, z);
-        w.castShadow = true;
-        vGroup.add(w);
+        { pos: [wx, -height3D * 0.25, -wz], isFront: true },
+        { pos: [-wx, -height3D * 0.25, -wz], isFront: true },
+        { pos: [wx, -height3D * 0.25, wz], isFront: false },
+        { pos: [-wx, -height3D * 0.25, wz], isFront: false },
+      ].forEach(({ pos: [x, y, z], isFront }) => {
+        const wGroup = new THREE.Group();
+        wGroup.position.set(x, y, z);
+
+        const tire = new THREE.Mesh(wheelGeo, wheelMat);
+        tire.rotation.z = Math.PI / 2;
+        tire.castShadow = true;
+
+        const rim = new THREE.Mesh(rimGeo, rimMat);
+        rim.rotation.z = Math.PI / 2;
+
+        wGroup.add(tire, rim);
+        vGroup.add(wGroup);
+
+        allWheelTires.push(tire);
+        if (isFront) {
+          frontWheels.push(wGroup);
+        }
       });
+
+      // Save physics rigging handles
+      vGroup.userData = {
+        vehicleId: v.id,
+        isBus: v.type === 'BUS',
+        frontWheels,
+        wheelTires: allWheelTires,
+        brakeLightMat: taillightMat,
+        indicatorMat,
+        baseY: 0.72,
+      };
 
       scene.add(vGroup);
       vehicleMeshesRef.current.set(v.id, vGroup);
@@ -797,38 +1124,34 @@ export const BusMadnessArena: React.FC<BusMadnessArenaProps> = ({
     if (!v) return;
 
     const dockX = DOCK_X_POSITIONS[dockIdx];
-    const dockTarget = new THREE.Vector3(dockX, 0.72, DOCK_Z);
-    const waypoints: THREE.Vector3[] = [];
+    const isBus = v.type === 'BUS';
 
-    if (v.direction === Direction.UP) {
-      waypoints.push(new THREE.Vector3(dockX, 0.72, -4.5));
-      waypoints.push(dockTarget);
-    } else if (v.direction === Direction.RIGHT) {
-      waypoints.push(new THREE.Vector3(12.5, 0.72, mesh.position.z));
-      waypoints.push(new THREE.Vector3(12.5, 0.72, -4.5));
-      waypoints.push(new THREE.Vector3(dockX, 0.72, -4.5));
-      waypoints.push(dockTarget);
-    } else if (v.direction === Direction.LEFT) {
-      waypoints.push(new THREE.Vector3(-12.5, 0.72, mesh.position.z));
-      waypoints.push(new THREE.Vector3(-12.5, 0.72, -4.5));
-      waypoints.push(new THREE.Vector3(dockX, 0.72, -4.5));
-      waypoints.push(dockTarget);
-    } else {
-      // DOWN
-      const sideX = mesh.position.x >= 0 ? 12.5 : -12.5;
-      waypoints.push(new THREE.Vector3(mesh.position.x, 0.72, 14.5));
-      waypoints.push(new THREE.Vector3(sideX, 0.72, 14.5));
-      waypoints.push(new THREE.Vector3(sideX, 0.72, -4.5));
-      waypoints.push(new THREE.Vector3(dockX, 0.72, -4.5));
-      waypoints.push(dockTarget);
-    }
+    // Generate smooth, continuous Catmull-Rom spline path connecting current location to dock
+    const spline = SplinePathGenerator.generatePathToDock(
+      mesh.position.clone(),
+      v.direction,
+      dockX,
+      DOCK_Z
+    );
+
+    // Initial heading angle matching vehicle orientation
+    const initHeading = directionToAngle(v.direction);
+
+    // Initialize physical motion simulation state
+    const physics = NaturalVehiclePhysics.initMotion(
+      mesh.position.clone(),
+      spline,
+      isBus,
+      initHeading
+    );
 
     activeAnimRef.current[vid] = {
       type: 'drive_to_dock',
       progress: 0,
-      duration: 0.85,
+      duration: 1.2,
       startPos: mesh.position.clone(),
-      waypoints,
+      curve: spline,
+      physics,
       forwardDir: new THREE.Vector3(0, 0, -1),
       dockIdx,
     };
@@ -918,7 +1241,7 @@ export const BusMadnessArena: React.FC<BusMadnessArenaProps> = ({
   });
 
   return (
-    <div className="relative w-full h-full select-none overflow-hidden rounded-3xl bg-gradient-to-b from-sky-100 via-blue-50 to-indigo-100">
+    <div className="relative w-full h-full select-none overflow-hidden rounded-3xl bg-slate-950">
       <div ref={mountRef} className="w-full h-full cursor-grab active:cursor-grabbing" />
     </div>
   );
