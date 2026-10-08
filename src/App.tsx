@@ -215,6 +215,13 @@ export default function App() {
     controller.onVehicleArrivedAtDock(vehicleId, dockIndex);
   };
 
+  const handleParkingEvaluated = (grade: { bonusCoins: number; grade: string }) => {
+    if (grade.bonusCoins > 0) {
+      controller.addCoins(grade.bonusCoins);
+      sounds.playCoin();
+    }
+  };
+
   // Daily Claim
   const handleClaimDaily = (reward: DailyRewardDay) => {
     controller.addCoins(reward.coins);
@@ -290,10 +297,10 @@ export default function App() {
               <div>
                 <div className="flex items-center gap-1.5">
                   <span className="font-black text-white text-sm sm:text-base tracking-wide drop-shadow-sm">
-                    TRAFFIC JAM <span className="text-amber-400">3D</span>
+                    BUS GAME <span className="text-amber-400">3D</span>
                   </span>
-                  <span className="hidden sm:inline-block bg-emerald-500/20 border border-emerald-400/40 text-emerald-300 font-bold text-[9px] px-1.5 py-0.5 rounded-full uppercase">
-                    3D ARCADE
+                  <span className="hidden sm:inline-block bg-amber-500/20 border border-amber-400/40 text-amber-300 font-bold text-[9px] px-1.5 py-0.5 rounded-full uppercase">
+                    BUS JAM
                   </span>
                 </div>
               </div>
@@ -413,10 +420,10 @@ export default function App() {
             {/* Game Title with 3D Depth */}
             <div className="mb-4">
               <h1 className="text-3xl sm:text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-amber-300 via-yellow-200 to-amber-400 tracking-wide drop-shadow-md">
-                TRAFFIC JAM 3D
+                BUS GAME 3D
               </h1>
               <p className="text-xs font-bold text-sky-300 tracking-wide mt-0.5">
-                BUS ESCAPE & PASSENGER SORT
+                BUS JAM & PASSENGER SORT
               </p>
             </div>
 
@@ -859,6 +866,7 @@ export default function App() {
                   onDockUnlockClicked={() => controller.useBooster('extraSpace')}
                   activeHintId={gameState.activeHintVehicleId}
                   isCompleted={!!victoryData || gameState.status === GameStatus.COMPLETED}
+                  onParkingEvaluated={handleParkingEvaluated}
                 />
               </div>
 
@@ -1375,16 +1383,19 @@ export default function App() {
           </div>
         )}
 
-        {/* 4.5. HOW TO PLAY GUIDE MODAL */}
+        {/* 4.5. HOW TO PLAY & FAQ GUIDE MODAL */}
         {showHelpModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-4">
-            <div className="w-full max-w-md game-modal-3d border-2 border-sky-400/80 rounded-[36px] p-6 shadow-2xl text-left">
-              <div className="flex items-center justify-between mb-4">
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-4 overflow-y-auto">
+            <div className="w-full max-w-lg game-modal-3d border-2 border-sky-400/80 rounded-[36px] p-5 sm:p-6 shadow-2xl text-left my-8 max-h-[90vh] overflow-y-auto">
+              <div className="flex items-center justify-between mb-4 sticky top-0 bg-slate-900/90 pb-2 z-10">
                 <div className="flex items-center gap-2">
                   <div className="w-8 h-8 rounded-xl bg-sky-500/20 border border-sky-400/40 flex items-center justify-center">
                     <HelpCircle className="w-5 h-5 text-sky-400" />
                   </div>
-                  <h3 className="font-black text-white text-base">How to Play</h3>
+                  <div>
+                    <h3 className="font-black text-white text-base">Bus Game 3D Guide & FAQ</h3>
+                    <p className="text-[10px] text-sky-300 font-bold">Smart Bus Jam & Color Match Rules</p>
+                  </div>
                 </div>
                 <button
                   onClick={() => setShowHelpModal(false)}
@@ -1394,13 +1405,18 @@ export default function App() {
                 </button>
               </div>
 
-              <div className="space-y-3 mb-5 text-xs text-slate-300">
+              {/* HOW TO PLAY SECTION */}
+              <div className="space-y-2.5 mb-5 text-xs text-slate-300">
+                <h4 className="font-black text-amber-400 text-xs uppercase tracking-wider mb-1 flex items-center gap-1.5">
+                  <span>🚗</span> How to Play This Bus Game
+                </h4>
+
                 <div className="p-3 bg-slate-950/70 border border-slate-800 rounded-2xl flex items-start gap-3">
                   <span className="text-xl shrink-0">🚦</span>
                   <div>
-                    <h4 className="font-black text-white mb-0.5">1. Clear Exit Paths</h4>
-                    <p className="text-[11px] text-slate-400">
-                      Buses only drive in the direction of their roof arrows. Tap unblocked vehicles to send them to the waiting docks.
+                    <h5 className="font-black text-white mb-0.5">1. Tap to Move Vehicles</h5>
+                    <p className="text-[11px] text-slate-400 leading-relaxed">
+                      Tap any unblocked vehicle to dispatch it along its direction arrows to the waiting docks. Organize the bus traffic carefully!
                     </p>
                   </div>
                 </div>
@@ -1408,9 +1424,9 @@ export default function App() {
                 <div className="p-3 bg-slate-950/70 border border-slate-800 rounded-2xl flex items-start gap-3">
                   <span className="text-xl shrink-0">👥</span>
                   <div>
-                    <h4 className="font-black text-white mb-0.5">2. Match Passenger Colors</h4>
-                    <p className="text-[11px] text-slate-400">
-                      Passengers in line will only board docked buses that match their color (Red, Blue, Green, Yellow, Purple).
+                    <h5 className="font-black text-white mb-0.5">2. Match Passengers by Color</h5>
+                    <p className="text-[11px] text-slate-400 leading-relaxed">
+                      Color stickmen queue up at the terminal. They only board buses with matching colors (Red, Blue, Green, Yellow, Purple). Efficient seat sorting is key!
                     </p>
                   </div>
                 </div>
@@ -1418,22 +1434,88 @@ export default function App() {
                 <div className="p-3 bg-slate-950/70 border border-slate-800 rounded-2xl flex items-start gap-3">
                   <span className="text-xl shrink-0">🅿️</span>
                   <div>
-                    <h4 className="font-black text-white mb-0.5">3. Avoid Bay Gridlock</h4>
-                    <p className="text-[11px] text-slate-400">
-                      You have 5 docks (unlock up to 6). If all docks are filled with colors that don't match the current passenger, you jam!
+                    <h5 className="font-black text-white mb-0.5">3. Avoid Traffic Jam Gridlock</h5>
+                    <p className="text-[11px] text-slate-400 leading-relaxed">
+                      You have 5 active waiting docks (unlock up to 6). If all bays are full with buses that don't match the front waiting passenger, you get gridlocked!
                     </p>
                   </div>
                 </div>
 
                 <div className="p-3 bg-slate-950/70 border border-slate-800 rounded-2xl flex items-start gap-3">
-                  <span className="text-xl shrink-0">⏱️</span>
+                  <span className="text-xl shrink-0">🔧</span>
                   <div>
-                    <h4 className="font-black text-white mb-0.5">4. Beat the Timer & Moves</h4>
-                    <p className="text-[11px] text-slate-400">
-                      Choose Casual, Hard, or Expert difficulty to test your skills and earn multiplier coin rewards!
+                    <h5 className="font-black text-white mb-0.5">4. Helpful Boosters</h5>
+                    <p className="text-[11px] text-slate-400 leading-relaxed">
+                      Stuck in a jam? Use <strong>Shuffle</strong> to rearrange passengers, <strong>Magnet</strong> to auto-fill seats, or <strong>Helicopter Rescue</strong> to lift blocked buses out!
                     </p>
                   </div>
                 </div>
+              </div>
+
+              {/* WHY YOU'LL LOVE THIS LOGIC GAME */}
+              <div className="mb-5 p-3.5 bg-gradient-to-br from-indigo-950/50 to-slate-950/80 border border-indigo-500/30 rounded-2xl">
+                <h4 className="font-black text-indigo-300 text-xs uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                  <span>🧠</span> Senior-Friendly & ASMR Relaxing Vibe
+                </h4>
+                <div className="grid grid-cols-2 gap-2 text-[11px] text-slate-300">
+                  <div className="p-2 bg-slate-900/60 rounded-xl border border-slate-800">
+                    <span className="font-black text-white block mb-0.5">🥰 Senior-Friendly</span>
+                    <span className="text-slate-400 text-[10px]">Big bold colors, tactile feedback, and accessible controls for all ages.</span>
+                  </div>
+                  <div className="p-2 bg-slate-900/60 rounded-xl border border-slate-800">
+                    <span className="font-black text-white block mb-0.5">⚡ Offline Play</span>
+                    <span className="text-slate-400 text-[10px]">No Wi-Fi needed! Solve traffic puzzles and train your brain anywhere.</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* FAQ SECTION */}
+              <div className="space-y-2 mb-5">
+                <h4 className="font-black text-emerald-400 text-xs uppercase tracking-wider mb-1 flex items-center gap-1.5">
+                  <span>❓</span> Frequently Asked Questions (FAQ)
+                </h4>
+
+                <div className="p-2.5 bg-slate-950/60 border border-slate-800 rounded-xl text-left">
+                  <div className="font-black text-white text-[11px] mb-0.5">Q: Is this a difficult sorting game?</div>
+                  <div className="text-[10px] text-slate-400 leading-relaxed">
+                    A: It starts easy but gets tricky! As you progress, the Bus Jam levels become challenging brain teasers that test your logic and strategy skills.
+                  </div>
+                </div>
+
+                <div className="p-2.5 bg-slate-950/60 border border-slate-800 rounded-xl text-left">
+                  <div className="font-black text-white text-[11px] mb-0.5">Q: Can I play this Bus Game offline?</div>
+                  <div className="text-[10px] text-slate-400 leading-relaxed">
+                    A: Yes! This is one of the best offline bus games. You can solve traffic puzzles and sort passengers without Wi-Fi or an active internet connection.
+                  </div>
+                </div>
+
+                <div className="p-2.5 bg-slate-950/60 border border-slate-800 rounded-xl text-left">
+                  <div className="font-black text-white text-[11px] mb-0.5">Q: Is this puzzle game suitable for seniors?</div>
+                  <div className="text-[10px] text-slate-400 leading-relaxed">
+                    A: Absolutely! With big, bold colors and simple tap controls, it is a great brain training game for seniors that helps memory and logical thinking in a relaxing environment.
+                  </div>
+                </div>
+              </div>
+
+              {/* LEGAL LINKS */}
+              <div className="pt-3 border-t border-slate-800/80 mb-4 flex items-center justify-center gap-4 text-[11px] font-bold text-slate-400">
+                <a
+                  href="https://busmadness.gurugame.ai/policy.html"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="hover:text-sky-400 underline underline-offset-2 transition-colors"
+                >
+                  Privacy Policy
+                </a>
+                <span>•</span>
+                <a
+                  href="https://busmadness.gurugame.ai/termsofservice.html"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="hover:text-sky-400 underline underline-offset-2 transition-colors"
+                >
+                  Terms of Service
+                </a>
               </div>
 
               <button
@@ -1443,7 +1525,7 @@ export default function App() {
                 }}
                 className="w-full py-3.5 rounded-2xl game-btn game-btn-emerald shine-sweep text-white text-xs font-black flex items-center justify-center gap-2"
               >
-                <span>GOT IT! LET'S PLAY</span>
+                <span>GOT IT! START THE PUZZLE</span>
               </button>
             </div>
           </div>
@@ -1466,6 +1548,36 @@ export default function App() {
           }}
         />
       </main>
+
+      {/* FOOTER WITH LEGAL LINKS & GAME COPY */}
+      <footer className="w-full border-t border-slate-800/60 bg-slate-950/90 py-3 px-4 text-center text-xs text-slate-500">
+        <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2">
+          <div className="flex items-center gap-2 font-bold text-slate-400 text-[11px]">
+            <span>🚌 Bus Game 3D: Color Jam & Traffic Puzzle</span>
+            <span className="hidden sm:inline">•</span>
+            <span className="text-slate-500 hidden sm:inline">Clear the Bus Jam & Sort Passengers</span>
+          </div>
+          <div className="flex items-center gap-3 text-[11px] font-bold">
+            <a
+              href="https://busmadness.gurugame.ai/policy.html"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-slate-400 hover:text-sky-400 transition-colors"
+            >
+              Privacy Policy
+            </a>
+            <span className="text-slate-700">•</span>
+            <a
+              href="https://busmadness.gurugame.ai/termsofservice.html"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-slate-400 hover:text-sky-400 transition-colors"
+            >
+              Terms of Service
+            </a>
+          </div>
+        </div>
+      </footer>
     </div>
   );
 }

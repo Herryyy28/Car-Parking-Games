@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import { Direction, GameState, GameStatus, PassengerState, VehicleColor, VehicleState, VehicleStateType, COLOR_MAP } from '../logic/types.ts';
 import { sounds } from '../utils/soundEffects.ts';
@@ -6,8 +6,38 @@ import { BackgroundEnvironmentManager } from '../logic/backgroundManager.ts';
 import { getWorldIdForLevel } from '../logic/worldThemes.ts';
 import { OrganicRoadSystem } from '../logic/organicRoadSystem.ts';
 import { NaturalVehiclePhysics, NaturalPhysicsState } from '../logic/vehiclePhysics.ts';
-import { DynamicCameraController } from '../logic/dynamicCamera.ts';
+import { DynamicCameraController, CameraMode, CAMERA_MODE_METADATA } from '../logic/dynamicCamera.ts';
 import { SplinePathGenerator } from '../logic/splinePathGenerator.ts';
+import { AmbientTrafficSystem } from '../logic/ambientTrafficSystem.ts';
+import { WeatherTimeSystem, WeatherType, WEATHER_CONDITIONS, getDefaultWeatherForWorld } from '../logic/weatherTimeSystem.ts';
+import { WorldRoadMarkingsSystem } from '../logic/worldRoadMarkings.ts';
+import { AdvancedParkingEvaluator, ParkingGrade } from '../logic/parkingEvaluator.ts';
+import { inCabRadio, RADIO_STATIONS, RadioStation } from '../utils/radioSynthesizer.ts';
+import { LIVERIES, UNDERGLOWS, RIMS, HORNS } from '../logic/garageCustomization.ts';
+import { PlayerProgress } from '../logic/playerProgress.ts';
+import {
+  Camera,
+  Compass,
+  Video,
+  RotateCcw,
+  ZoomIn,
+  ZoomOut,
+  Sparkles,
+  CloudRain,
+  Sun,
+  Cloud,
+  Snowflake,
+  Radio,
+  Volume2,
+  VolumeX,
+  Image as ImageIcon,
+  Download,
+  Sliders,
+  Palette,
+  X,
+  Check,
+  Disc,
+} from 'lucide-react';
 
 interface BusMadnessArenaProps {
   gameState: GameState;
@@ -17,6 +47,7 @@ interface BusMadnessArenaProps {
   activeHintId: string | null;
   isCompleted?: boolean;
   onConfettiComplete?: () => void;
+  onParkingEvaluated?: (grade: ParkingGrade) => void;
 }
 
 const DOCK_X_POSITIONS = [-7.5, -4.5, -1.5, 1.5, 4.5, 7.5];
@@ -62,10 +93,14 @@ export const BusMadnessArena: React.FC<BusMadnessArenaProps> = ({
   activeHintId,
   isCompleted = false,
   onConfettiComplete,
+  onParkingEvaluated,
 }) => {
   const mountRef = useRef<HTMLDivElement>(null);
   const gameStateRef = useRef(gameState);
   gameStateRef.current = gameState;
+
+  const onParkingEvaluatedRef = useRef(onParkingEvaluated);
+  onParkingEvaluatedRef.current = onParkingEvaluated;
 
   const hintRef = useRef(activeHintId);
   hintRef.current = activeHintId;
@@ -84,6 +119,28 @@ export const BusMadnessArena: React.FC<BusMadnessArenaProps> = ({
   const blockerFlashRef = useRef<{ id: string; until: number } | null>(null);
   const bgManagerRef = useRef<BackgroundEnvironmentManager | null>(null);
   const dynamicCameraRef = useRef<DynamicCameraController | null>(null);
+  const roadMarkingsRef = useRef<WorldRoadMarkingsSystem | null>(null);
+  const ambientTrafficRef = useRef<AmbientTrafficSystem | null>(null);
+  const weatherSystemRef = useRef<WeatherTimeSystem | null>(null);
+  const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
+  const [parkingToast, setParkingToast] = useState<{ grade: string; message: string } | null>(null);
+  const [cameraMode, setCameraMode] = useState<CameraMode>('CINEMATIC_INTRO');
+  const [isAutoDirector, setIsAutoDirector] = useState(true);
+  const [showCamControls, setShowCamControls] = useState(false);
+  const [currentWeather, setCurrentWeather] = useState<WeatherType>('SUNNY');
+  const [showWeatherControls, setShowWeatherControls] = useState(false);
+
+  // Live In-Cab Radio State
+  const [radioStation, setRadioStation] = useState<RadioStation>(() => inCabRadio.getStation());
+  const [showRadioControls, setShowRadioControls] = useState(false);
+  const [radioVolume, setRadioVolume] = useState<number>(() => inCabRadio.getVolume());
+
+  // Cinematic Photo Mode State
+  const [isPhotoMode, setIsPhotoMode] = useState(false);
+  const [photoFilter, setPhotoFilter] = useState<'NORMAL' | 'CYBER' | 'GOLDEN' | 'NOIR' | 'VINTAGE'>('NORMAL');
+  const [photoVignette, setPhotoVignette] = useState(true);
+  const [photoWatermark, setPhotoWatermark] = useState(true);
+  const [photoFlash, setPhotoFlash] = useState(false);
 
   // Confetti Particle System Reference
   const confettiSystemRef = useRef<{
@@ -134,9 +191,18 @@ export const BusMadnessArena: React.FC<BusMadnessArenaProps> = ({
     // Instantiate Dynamic Camera Controller
     const dynamicCamera = new DynamicCameraController(camera);
     dynamicCameraRef.current = dynamicCamera;
+    dynamicCamera.setOnModeChange((newMode) => {
+      setCameraMode(newMode);
+    });
     dynamicCamera.triggerLevelEntrance();
 
-    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'high-performance' });
+    const renderer = new THREE.WebGLRenderer({
+      antialias: true,
+      alpha: true,
+      powerPreference: 'high-performance',
+      preserveDrawingBuffer: true, // required for Photo Mode 4K snapshot export
+    });
+    rendererRef.current = renderer;
     renderer.setSize(width, height);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.shadowMap.enabled = true;
@@ -396,6 +462,30 @@ export const BusMadnessArena: React.FC<BusMadnessArenaProps> = ({
     const initialWorldId = gameStateRef.current.worldId || getWorldIdForLevel(gameStateRef.current.levelId);
     bgManager.applyWorldTheme(initialWorldId);
 
+    // Initialize 3D-Projected Themed Road Markings (Zebra crosswalks, Bus Stop bays, Chevrons)
+    const roadMarkings = new WorldRoadMarkingsSystem();
+    roadMarkingsRef.current = roadMarkings;
+    roadMarkings.updateMarkings(initialWorldId);
+    scene.add(roadMarkings.markingsGroup);
+
+    // Initialize Advanced Ambient Traffic AI (Surrounding cars circulating perimeter bypass)
+    const ambientTraffic = new AmbientTrafficSystem(scene);
+    ambientTrafficRef.current = ambientTraffic;
+
+    // Initialize Weather & Time System (Wet asphalt, rain/snow/fog particles, storm lightning, dynamic sun & ambient lighting)
+    const weatherSystem = new WeatherTimeSystem(scene);
+    weatherSystemRef.current = weatherSystem;
+    weatherSystem.registerElements({
+      roadMaterial: roadStrip.material as THREE.MeshStandardMaterial,
+      asphaltMaterial: puzzlePad.material as THREE.MeshStandardMaterial,
+      sunLight,
+      ambientLight,
+      skyFill,
+    });
+    const initialWeather = getDefaultWeatherForWorld(initialWorldId);
+    weatherSystem.setWeather(initialWeather);
+    setCurrentWeather(initialWeather);
+
     // Passengers Group
     const passengersGroup = new THREE.Group();
     passengersGroupRef.current = passengersGroup;
@@ -480,89 +570,172 @@ export const BusMadnessArena: React.FC<BusMadnessArenaProps> = ({
     const raycaster = new THREE.Raycaster();
     const mouse = new THREE.Vector2();
 
-    const handlePointerDown = (event: MouseEvent | TouchEvent) => {
-      const rect = container.getBoundingClientRect();
-      const clientX = 'touches' in event ? event.touches[0].clientX : event.clientX;
-      const clientY = 'touches' in event ? event.touches[0].clientY : event.clientY;
+    // Unified Smooth Pointer & Camera Orbit / Pan / Zoom Controller
+    let isPointerDown = false;
+    let isDraggingCamera = false;
+    let pointerStartX = 0;
+    let pointerStartY = 0;
+    let lastPointerX = 0;
+    let lastPointerY = 0;
+    let pointerDownTime = 0;
+    let isPanMode = false;
+    let initialTouchDistance = 0;
 
-      mouse.x = ((clientX - rect.left) / rect.width) * 2 - 1;
-      mouse.y = -((clientY - rect.top) / rect.height) * 2 + 1;
+    const onPointerDown = (event: MouseEvent | TouchEvent) => {
+      isPointerDown = true;
+      isDraggingCamera = false;
+      pointerDownTime = performance.now();
 
-      raycaster.setFromCamera(mouse, camera);
+      if ('touches' in event) {
+        if (event.touches.length === 1) {
+          pointerStartX = event.touches[0].clientX;
+          pointerStartY = event.touches[0].clientY;
+          lastPointerX = pointerStartX;
+          lastPointerY = pointerStartY;
+          isPanMode = false;
+        } else if (event.touches.length === 2) {
+          isPanMode = true;
+          const dx = event.touches[0].clientX - event.touches[1].clientX;
+          const dy = event.touches[0].clientY - event.touches[1].clientY;
+          initialTouchDistance = Math.hypot(dx, dy);
+          lastPointerX = (event.touches[0].clientX + event.touches[1].clientX) / 2;
+          lastPointerY = (event.touches[0].clientY + event.touches[1].clientY) / 2;
+        }
+      } else {
+        pointerStartX = event.clientX;
+        pointerStartY = event.clientY;
+        lastPointerX = pointerStartX;
+        lastPointerY = pointerStartY;
+        isPanMode = event.button === 2 || event.shiftKey; // Right-click or Shift-drag = Pan
+      }
+    };
 
-      // Check click on unlocked bay lock icon
-      DOCK_X_POSITIONS.forEach((dx, idx) => {
-        if (idx >= gameStateRef.current.unlockedDocksCount) {
-          const lockObj = scene.getObjectByName(`dock_lock_${idx}`);
-          if (lockObj) {
-            const hits = raycaster.intersectObjects(lockObj.children, true);
-            if (hits.length > 0) {
-              onDockUnlockClicked();
-              return;
+    const onPointerMove = (event: MouseEvent | TouchEvent) => {
+      if (!isPointerDown) return;
+
+      let currentX = 0;
+      let currentY = 0;
+
+      if ('touches' in event) {
+        if (event.touches.length === 1) {
+          currentX = event.touches[0].clientX;
+          currentY = event.touches[0].clientY;
+        } else if (event.touches.length === 2) {
+          const dxTouch = event.touches[0].clientX - event.touches[1].clientX;
+          const dyTouch = event.touches[0].clientY - event.touches[1].clientY;
+          const currentDist = Math.hypot(dxTouch, dyTouch);
+          const pinchDelta = (initialTouchDistance - currentDist) * 0.08;
+          initialTouchDistance = currentDist;
+          dynamicCamera.onZoom(pinchDelta);
+
+          currentX = (event.touches[0].clientX + event.touches[1].clientX) / 2;
+          currentY = (event.touches[0].clientY + event.touches[1].clientY) / 2;
+        }
+      } else {
+        currentX = event.clientX;
+        currentY = event.clientY;
+      }
+
+      const totalDist = Math.hypot(currentX - pointerStartX, currentY - pointerStartY);
+      if (totalDist > 6) {
+        isDraggingCamera = true;
+      }
+
+      if (isDraggingCamera) {
+        const deltaX = currentX - lastPointerX;
+        const deltaY = currentY - lastPointerY;
+
+        if (isPanMode) {
+          dynamicCamera.onPointerPan(deltaX, deltaY);
+        } else {
+          dynamicCamera.onPointerDrag(deltaX, deltaY);
+        }
+      }
+
+      lastPointerX = currentX;
+      lastPointerY = currentY;
+    };
+
+    const onPointerUp = (event: MouseEvent | TouchEvent) => {
+      if (!isPointerDown) return;
+      const elapsed = performance.now() - pointerDownTime;
+      const wasDrag = isDraggingCamera;
+      isPointerDown = false;
+      isDraggingCamera = false;
+
+      // If it was a quick tap/click (not a camera drag), handle raycast tap
+      if (!wasDrag && elapsed < 400) {
+        const rect = container.getBoundingClientRect();
+        let clientX = pointerStartX;
+        let clientY = pointerStartY;
+        if ('changedTouches' in event && event.changedTouches.length > 0) {
+          clientX = event.changedTouches[0].clientX;
+          clientY = event.changedTouches[0].clientY;
+        }
+
+        mouse.x = ((clientX - rect.left) / rect.width) * 2 - 1;
+        mouse.y = -((clientY - rect.top) / rect.height) * 2 + 1;
+
+        raycaster.setFromCamera(mouse, camera);
+
+        // Check dock lock unlock tap
+        let hitDockLock = false;
+        DOCK_X_POSITIONS.forEach((dx, idx) => {
+          if (idx >= gameStateRef.current.unlockedDocksCount) {
+            const lockObj = scene.getObjectByName(`dock_lock_${idx}`);
+            if (lockObj) {
+              const hits = raycaster.intersectObjects(lockObj.children, true);
+              if (hits.length > 0) {
+                hitDockLock = true;
+                onDockUnlockClicked();
+              }
             }
           }
-        }
-      });
+        });
+        if (hitDockLock) return;
 
-      const clickable: THREE.Object3D[] = [];
-      vehicleMeshesRef.current.forEach((g) => {
-        clickable.push(...g.children);
-      });
+        // Check vehicle tap
+        const clickable: THREE.Object3D[] = [];
+        vehicleMeshesRef.current.forEach((g) => {
+          clickable.push(...g.children);
+        });
 
-      const hits = raycaster.intersectObjects(clickable, true);
-      if (hits.length > 0) {
-        let vid: string | null = null;
-        let curr: THREE.Object3D | null = hits[0].object;
-        while (curr) {
-          if (curr.userData?.vehicleId) {
-            vid = curr.userData.vehicleId;
-            break;
+        const hits = raycaster.intersectObjects(clickable, true);
+        if (hits.length > 0) {
+          let vid: string | null = null;
+          let curr: THREE.Object3D | null = hits[0].object;
+          while (curr) {
+            if (curr.userData?.vehicleId) {
+              vid = curr.userData.vehicleId;
+              break;
+            }
+            curr = curr.parent;
           }
-          curr = curr.parent;
-        }
 
-        if (vid) {
-          onVehicleTapRequest(vid);
+          if (vid) {
+            onVehicleTapRequest(vid);
+          }
         }
       }
     };
 
-    container.addEventListener('mousedown', handlePointerDown);
-    container.addEventListener('touchstart', handlePointerDown, { passive: true });
-
-    // Camera Orbit Drag
-    let isDragging = false;
-    let prevMousePos = { x: 0, y: 0 };
-    let spherical = { radius: 32, theta: 0, phi: Math.PI / 4.2 };
-
-    const onMouseDownDrag = (e: MouseEvent) => {
-      if (e.button === 0) {
-        isDragging = true;
-        prevMousePos = { x: e.clientX, y: e.clientY };
-      }
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      dynamicCamera.onZoom(e.deltaY * 0.02);
     };
 
-    const onMouseMoveDrag = (e: MouseEvent) => {
-      if (!isDragging) return;
-      const dx = (e.clientX - prevMousePos.x) * 0.004;
-      const dy = (e.clientY - prevMousePos.y) * 0.004;
-      prevMousePos = { x: e.clientX, y: e.clientY };
-
-      spherical.theta = Math.max(-0.4, Math.min(0.4, spherical.theta - dx));
-      spherical.phi = Math.max(0.45, Math.min(Math.PI / 2.4, spherical.phi - dy));
-
-      camera.position.x = spherical.radius * Math.sin(spherical.phi) * Math.sin(spherical.theta);
-      camera.position.y = spherical.radius * Math.cos(spherical.phi);
-      camera.position.z = 1.2 + spherical.radius * Math.sin(spherical.phi) * Math.cos(spherical.theta);
-      camera.lookAt(0, 0, 1.2);
+    const onContextMenu = (e: MouseEvent) => {
+      e.preventDefault();
     };
 
-    const onMouseUpDrag = () => {
-      isDragging = false;
-    };
-
-    container.addEventListener('mousemove', onMouseMoveDrag);
-    window.addEventListener('mouseup', onMouseUpDrag);
+    container.addEventListener('mousedown', onPointerDown);
+    window.addEventListener('mousemove', onPointerMove);
+    window.addEventListener('mouseup', onPointerUp);
+    container.addEventListener('touchstart', onPointerDown, { passive: true });
+    window.addEventListener('touchmove', onPointerMove, { passive: true });
+    window.addEventListener('touchend', onPointerUp);
+    container.addEventListener('wheel', onWheel, { passive: false });
+    container.addEventListener('contextmenu', onContextMenu);
 
     // Animation Loop
     let animId: number;
@@ -576,6 +749,16 @@ export const BusMadnessArena: React.FC<BusMadnessArenaProps> = ({
       // Dynamic 3D environmental props animations (balloons, radar, windsocks, totems)
       if (bgManagerRef.current) {
         bgManagerRef.current.update(elapsed, delta);
+      }
+
+      // Advanced Ambient Traffic AI updates (Cars circulating perimeter)
+      if (ambientTrafficRef.current) {
+        ambientTrafficRef.current.update(delta, elapsed);
+      }
+
+      // Weather & Particle system updates (Rain, wind drift)
+      if (weatherSystemRef.current) {
+        weatherSystemRef.current.update(delta);
       }
 
       // Stickman idle bobbing
@@ -624,7 +807,13 @@ export const BusMadnessArena: React.FC<BusMadnessArenaProps> = ({
       }
 
       // Active vehicle driving animations (Natural physics, spline trajectory, wheel spin, body roll, brake lights)
-      let activeMovingVehicle: { pos: THREE.Vector3; speed: number; heading: number } | null = null;
+      let activeMovingVehicle: {
+        pos: THREE.Vector3;
+        speed: number;
+        heading: number;
+        steering: number;
+        progress: number;
+      } | null = null;
 
       Object.keys(activeAnimRef.current).forEach((vid) => {
         const anim = activeAnimRef.current[vid];
@@ -701,12 +890,36 @@ export const BusMadnessArena: React.FC<BusMadnessArenaProps> = ({
               pos: anim.physics.position,
               speed: anim.physics.velocity,
               heading: anim.physics.headingAngle,
+              steering: anim.physics.steeringAngle,
+              progress: anim.progress,
             };
 
             if (reachedDestination) {
               const finalPos = anim.curve.getPointAt(1.0);
               group.position.set(finalPos.x, baseY, finalPos.z);
               group.rotation.set(0, 0, 0); // Parked bus faces North
+
+              // Advanced Parking Evaluator: calculate alignment, clearance & orientation
+              if (anim.dockIdx !== undefined) {
+                const targetDockX = DOCK_X_POSITIONS[anim.dockIdx];
+                const grade = AdvancedParkingEvaluator.evaluateDocking(
+                  finalPos,
+                  targetDockX,
+                  DOCK_Z,
+                  anim.physics.headingAngle,
+                  anim.physics.steeringAngle
+                );
+
+                setParkingToast({
+                  grade: grade.grade,
+                  message: grade.message,
+                });
+                setTimeout(() => setParkingToast(null), 1800);
+
+                if (onParkingEvaluatedRef.current) {
+                  onParkingEvaluatedRef.current(grade);
+                }
+              }
 
               // Reset steering, lights and suspension
               if (group.userData?.frontWheels) {
@@ -741,19 +954,27 @@ export const BusMadnessArena: React.FC<BusMadnessArenaProps> = ({
 
       // Update Dynamic Cinematic Camera
       if (dynamicCameraRef.current) {
-        const targetVehicle = activeMovingVehicle as { pos: THREE.Vector3; speed: number; heading: number } | null;
+        const targetVehicle = activeMovingVehicle as {
+          pos: THREE.Vector3;
+          speed: number;
+          heading: number;
+          steering: number;
+          progress: number;
+        } | null;
         if (targetVehicle) {
           dynamicCameraRef.current.followMovingVehicle(
             targetVehicle.pos,
             targetVehicle.speed,
-            targetVehicle.heading
+            targetVehicle.heading,
+            targetVehicle.steering,
+            targetVehicle.progress
           );
         } else if (gameStateRef.current.status === GameStatus.COMPLETED) {
           dynamicCameraRef.current.focusCelebrationView();
         } else {
           dynamicCameraRef.current.returnToNeutralView();
         }
-        dynamicCameraRef.current.update(delta, isDragging);
+        dynamicCameraRef.current.update(delta, isDraggingCamera);
       }
 
       // Confetti Physics & Instanced Matrix Updates
@@ -829,10 +1050,14 @@ export const BusMadnessArena: React.FC<BusMadnessArenaProps> = ({
     return () => {
       cancelAnimationFrame(animId);
       window.removeEventListener('resize', handleResize);
-      container.removeEventListener('mousedown', handlePointerDown);
-      container.removeEventListener('touchstart', handlePointerDown);
-      container.removeEventListener('mousemove', onMouseMoveDrag);
-      window.removeEventListener('mouseup', onMouseUpDrag);
+      container.removeEventListener('mousedown', onPointerDown);
+      window.removeEventListener('mousemove', onPointerMove);
+      window.removeEventListener('mouseup', onPointerUp);
+      container.removeEventListener('touchstart', onPointerDown);
+      window.removeEventListener('touchmove', onPointerMove);
+      window.removeEventListener('touchend', onPointerUp);
+      container.removeEventListener('wheel', onWheel);
+      container.removeEventListener('contextmenu', onContextMenu);
 
       // Clean up celebratory confetti particle system and dispose GPU resources
       if (confettiInstancedMesh) {
@@ -845,10 +1070,22 @@ export const BusMadnessArena: React.FC<BusMadnessArenaProps> = ({
       }
       confettiSystemRef.current = null;
 
-      // Dispose 3D Environmental Props
+      // Dispose 3D Environmental Props, Road Markings, Traffic AI, and Weather
       if (bgManagerRef.current) {
         bgManagerRef.current.dispose();
         bgManagerRef.current = null;
+      }
+      if (roadMarkingsRef.current) {
+        roadMarkingsRef.current.dispose();
+        roadMarkingsRef.current = null;
+      }
+      if (ambientTrafficRef.current) {
+        ambientTrafficRef.current.dispose();
+        ambientTrafficRef.current = null;
+      }
+      if (weatherSystemRef.current) {
+        weatherSystemRef.current.dispose();
+        weatherSystemRef.current = null;
       }
 
       if (container.contains(renderer.domElement)) {
@@ -858,11 +1095,19 @@ export const BusMadnessArena: React.FC<BusMadnessArenaProps> = ({
     };
   }, []);
 
-  // Dynamically update World environmental props when worldId or levelId changes
+  // Dynamically update World environmental props, 3D road markings, weather & camera when worldId or levelId changes
   useEffect(() => {
+    const targetWorldId = gameState.worldId || getWorldIdForLevel(gameState.levelId);
     if (bgManagerRef.current) {
-      const targetWorldId = gameState.worldId || getWorldIdForLevel(gameState.levelId);
       bgManagerRef.current.applyWorldTheme(targetWorldId);
+    }
+    if (roadMarkingsRef.current) {
+      roadMarkingsRef.current.updateMarkings(targetWorldId);
+    }
+    if (weatherSystemRef.current) {
+      const targetWeather = getDefaultWeatherForWorld(targetWorldId);
+      weatherSystemRef.current.setWeather(targetWeather);
+      setCurrentWeather(targetWeather);
     }
     if (dynamicCameraRef.current) {
       dynamicCameraRef.current.triggerLevelEntrance();
@@ -878,6 +1123,10 @@ export const BusMadnessArena: React.FC<BusMadnessArenaProps> = ({
     vehicleMeshesRef.current.clear();
 
     const arrowMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+    const prog = PlayerProgress.get();
+    const activeLiveryCfg = LIVERIES.find((l) => l.id === prog.activeLivery) || LIVERIES[0];
+    const activeUnderglowCfg = UNDERGLOWS.find((u) => u.id === prog.activeUnderglow) || UNDERGLOWS[0];
+    const activeRimCfg = RIMS.find((r) => r.id === prog.activeRim) || RIMS[0];
 
     gameState.vehicles.forEach((v) => {
       if (v.state === VehicleStateType.EXITED) return;
@@ -886,6 +1135,7 @@ export const BusMadnessArena: React.FC<BusMadnessArenaProps> = ({
       const length3D = v.length * 1.05;
       const width3D = 1.6;
       const height3D = v.type === 'BUS' ? 1.35 : 1.0;
+      const isBus = v.type === 'BUS';
 
       // Position
       if (v.state === VehicleStateType.DOCKED && v.dockIndex !== undefined) {
@@ -902,11 +1152,14 @@ export const BusMadnessArena: React.FC<BusMadnessArenaProps> = ({
 
       const hex = COLOR_MAP[v.color].hex;
 
-      // Body
+      // Custom Finish from Active Livery
+      const bodyRoughness = isBus ? activeLiveryCfg.roughness : 0.28;
+      const bodyMetalness = isBus ? activeLiveryCfg.metalness : 0.25;
+
       const bodyMat = new THREE.MeshStandardMaterial({
         color: new THREE.Color(hex),
-        roughness: 0.28,
-        metalness: 0.25,
+        roughness: bodyRoughness,
+        metalness: bodyMetalness,
       });
       const body = new THREE.Mesh(new THREE.BoxGeometry(width3D, height3D * 0.75, length3D), bodyMat);
       body.castShadow = true;
@@ -915,8 +1168,9 @@ export const BusMadnessArena: React.FC<BusMadnessArenaProps> = ({
       vGroup.add(body);
 
       // Cabin Roof
+      const cabinColor = isBus && activeLiveryCfg.id === 'LONDON_RED' ? 0xffffff : 0x1e293b;
       const cabinMat = new THREE.MeshStandardMaterial({
-        color: 0x1e293b,
+        color: cabinColor,
         roughness: 0.15,
         metalness: 0.35,
       });
@@ -925,6 +1179,64 @@ export const BusMadnessArena: React.FC<BusMadnessArenaProps> = ({
       cabin.castShadow = true;
       cabin.userData = { vehicleId: v.id };
       vGroup.add(cabin);
+
+      // Custom Livery Decals for Buses
+      if (isBus) {
+        if (activeLiveryCfg.patternType === 'racing_stripes') {
+          // Dual white/red GT racing stripes on hood & roof
+          [-0.32, 0.32].forEach((xOff) => {
+            const stripeGeo = new THREE.BoxGeometry(0.18, 0.02, length3D * 0.85);
+            const stripeMat = new THREE.MeshBasicMaterial({ color: activeLiveryCfg.stripeColor });
+            const stripe = new THREE.Mesh(stripeGeo, stripeMat);
+            stripe.position.set(xOff, height3D * 0.74, 0);
+            vGroup.add(stripe);
+          });
+        } else if (activeLiveryCfg.patternType === 'cyber_circuit') {
+          // Glowing circuit line accents along sides
+          [-width3D * 0.51, width3D * 0.51].forEach((xSide) => {
+            const lineGeo = new THREE.BoxGeometry(0.02, 0.08, length3D * 0.75);
+            const lineMat = new THREE.MeshBasicMaterial({ color: activeLiveryCfg.stripeColor });
+            const line = new THREE.Mesh(lineGeo, lineMat);
+            line.position.set(xSide, height3D * 0.25, 0);
+            vGroup.add(line);
+          });
+        } else if (activeLiveryCfg.patternType === 'school_bus') {
+          // Classic black protective rub rails
+          [-width3D * 0.51, width3D * 0.51].forEach((xSide) => {
+            const railGeo = new THREE.BoxGeometry(0.04, 0.08, length3D * 0.8);
+            const railMat = new THREE.MeshBasicMaterial({ color: 0x111827 });
+            const rail = new THREE.Mesh(railGeo, railMat);
+            rail.position.set(xSide, 0.05, 0);
+            vGroup.add(rail);
+          });
+        } else if (activeLiveryCfg.patternType === 'gold_chrome') {
+          // Gold metallic emblem on roof
+          const goldCrownGeo = new THREE.BoxGeometry(0.35, 0.08, length3D * 0.3);
+          const goldCrownMat = new THREE.MeshStandardMaterial({ color: 0xfef08a, metalness: 0.95, roughness: 0.08 });
+          const goldCrown = new THREE.Mesh(goldCrownGeo, goldCrownMat);
+          goldCrown.position.set(0, height3D * 0.78, 0);
+          vGroup.add(goldCrown);
+        }
+
+        // Underglow Neon Lighting for Bus fleet
+        if (activeUnderglowCfg.intensity > 0) {
+          const ugLight = new THREE.PointLight(activeUnderglowCfg.colorHex, activeUnderglowCfg.intensity * 1.5, 3.8);
+          ugLight.position.set(0, -height3D * 0.28, 0);
+          vGroup.add(ugLight);
+
+          const ugPlateGeo = new THREE.PlaneGeometry(width3D * 0.9, length3D * 0.85);
+          const ugPlateMat = new THREE.MeshBasicMaterial({
+            color: activeUnderglowCfg.colorHex,
+            transparent: true,
+            opacity: 0.65,
+            depthWrite: false,
+          });
+          const ugPlate = new THREE.Mesh(ugPlateGeo, ugPlateMat);
+          ugPlate.rotation.x = -Math.PI / 2;
+          ugPlate.position.y = -height3D * 0.32;
+          vGroup.add(ugPlate);
+        }
+      }
 
       // White Direction Arrow on Roof
       const arrowGroup = new THREE.Group();
@@ -992,9 +1304,13 @@ export const BusMadnessArena: React.FC<BusMadnessArenaProps> = ({
       indFrontR.name = 'indicator_fr';
       vGroup.add(indFrontL, indFrontR);
 
-      // Wheels with Chrome Hubcaps (Tracked for steering & roll physics)
+      // Wheels with Custom Rims from Garage
       const wheelMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.85 });
-      const rimMat = new THREE.MeshStandardMaterial({ color: 0xe2e8f0, roughness: 0.25, metalness: 0.7 });
+      const rimMat = new THREE.MeshStandardMaterial({
+        color: isBus ? activeRimCfg.colorHex : 0xe2e8f0,
+        roughness: isBus ? activeRimCfg.roughness : 0.25,
+        metalness: isBus ? activeRimCfg.metalness : 0.7,
+      });
       const wheelGeo = new THREE.CylinderGeometry(0.35, 0.35, 0.22, 14);
       const rimGeo = new THREE.CylinderGeometry(0.18, 0.18, 0.23, 14);
 
@@ -1084,6 +1400,7 @@ export const BusMadnessArena: React.FC<BusMadnessArenaProps> = ({
     if (!mesh) return;
 
     sounds.playBlocked();
+    dynamicCameraRef.current?.addShake(0.65);
 
     // Flash blocker vehicle in bright red
     if (blockerId) {
@@ -1119,12 +1436,12 @@ export const BusMadnessArena: React.FC<BusMadnessArenaProps> = ({
     if (!mesh) return;
 
     sounds.playEscape();
+    dynamicCameraRef.current?.addShake(0.25);
 
     const v = gameStateRef.current.vehicles.find((item) => item.id === vid);
     if (!v) return;
 
     const dockX = DOCK_X_POSITIONS[dockIdx];
-    const isBus = v.type === 'BUS';
 
     // Generate smooth, continuous Catmull-Rom spline path connecting current location to dock
     const spline = SplinePathGenerator.generatePathToDock(
@@ -1137,11 +1454,11 @@ export const BusMadnessArena: React.FC<BusMadnessArenaProps> = ({
     // Initial heading angle matching vehicle orientation
     const initHeading = directionToAngle(v.direction);
 
-    // Initialize physical motion simulation state
+    // Initialize physical motion simulation state with vehicle type personality
     const physics = NaturalVehiclePhysics.initMotion(
       mesh.position.clone(),
       spline,
-      isBus,
+      v.type,
       initHeading
     );
 
@@ -1243,6 +1560,209 @@ export const BusMadnessArena: React.FC<BusMadnessArenaProps> = ({
   return (
     <div className="relative w-full h-full select-none overflow-hidden rounded-3xl bg-slate-950">
       <div ref={mountRef} className="w-full h-full cursor-grab active:cursor-grabbing" />
+
+      {/* Dynamic 3D Parking Precision Feedback Badge */}
+      {parkingToast && (
+        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20 pointer-events-none animate-in fade-in slide-in-from-top-4 duration-200">
+          <div
+            className={`px-4 py-2 rounded-2xl shadow-xl font-black text-xs sm:text-sm tracking-wide border flex items-center gap-2 backdrop-blur-md ${
+              parkingToast.grade === 'PERFECT'
+                ? 'bg-amber-500/90 border-yellow-300 text-slate-950 ring-4 ring-amber-400/40 animate-pulse'
+                : parkingToast.grade === 'GOOD'
+                ? 'bg-emerald-600/90 border-emerald-300 text-white ring-4 ring-emerald-500/30'
+                : 'bg-slate-800/90 border-slate-600 text-slate-200'
+            }`}
+          >
+            <span>{parkingToast.message}</span>
+          </div>
+        </div>
+      )}
+
+      {/* Bottom Floating Control Bar (Camera + Weather Controls) */}
+      <div className="absolute bottom-3 right-3 z-20 flex flex-col items-end gap-1.5 pointer-events-auto">
+        {/* Expanded Weather Selector Menu */}
+        {showWeatherControls && (
+          <div className="bg-slate-900/95 backdrop-blur-md border border-slate-700/80 rounded-2xl p-2.5 shadow-2xl flex flex-col gap-1 text-xs w-52 animate-in fade-in slide-in-from-bottom-2 duration-150">
+            <div className="px-2 py-1 text-[10px] font-black uppercase tracking-wider text-sky-400 flex items-center justify-between border-b border-slate-800 pb-1 mb-1">
+              <span className="flex items-center gap-1.5">
+                <CloudRain className="w-3.5 h-3.5 text-sky-400" />
+                Weather Manager
+              </span>
+              <button
+                onClick={() => {
+                  const targetWorldId = gameState.worldId || getWorldIdForLevel(gameState.levelId);
+                  const def = getDefaultWeatherForWorld(targetWorldId);
+                  weatherSystemRef.current?.setWeather(def);
+                  setCurrentWeather(def);
+                }}
+                className="text-[9px] font-black px-1.5 py-0.5 rounded bg-slate-800 text-slate-300 hover:text-white"
+                title="Reset to world theme default"
+              >
+                THEME SYNC
+              </button>
+            </div>
+
+            <div className="flex flex-col gap-1 max-h-48 overflow-y-auto pr-0.5 scrollbar-thin">
+              {(Object.keys(WEATHER_CONDITIONS) as WeatherType[]).map((wKey) => {
+                const cond = WEATHER_CONDITIONS[wKey];
+                const isActive = currentWeather === wKey;
+                return (
+                  <button
+                    key={wKey}
+                    onClick={() => {
+                      weatherSystemRef.current?.setWeather(wKey);
+                      setCurrentWeather(wKey);
+                    }}
+                    className={`flex items-center gap-2 px-2.5 py-1.5 rounded-xl text-left transition-all font-medium ${
+                      isActive
+                        ? 'bg-sky-500/20 text-sky-300 border border-sky-400/40 shadow-sm'
+                        : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+                    }`}
+                  >
+                    <span className="text-base">{cond.icon}</span>
+                    <div className="flex-1 min-w-0">
+                      <div className="font-bold leading-none truncate text-[11px]">{cond.name}</div>
+                      <div className="text-[9px] text-slate-400 mt-0.5">
+                        {cond.particleType !== 'none' ? `${cond.particleType.replace('_', ' ')} particles` : 'clear skies'}
+                      </div>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Expanded Camera Preset Angles Menu */}
+        {showCamControls && (
+          <div className="bg-slate-900/90 backdrop-blur-md border border-slate-700/80 rounded-2xl p-2 shadow-2xl flex flex-col gap-1 text-xs w-44 animate-in fade-in slide-in-from-bottom-2 duration-150">
+            <div className="px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400 flex items-center justify-between border-b border-slate-800 pb-1 mb-0.5">
+              <span>Dynamic Camera</span>
+              <button
+                onClick={() => {
+                  const next = !isAutoDirector;
+                  setIsAutoDirector(next);
+                  dynamicCameraRef.current?.setAutoDirector(next);
+                }}
+                className={`px-1.5 py-0.5 rounded text-[9px] font-black transition-colors ${
+                  isAutoDirector
+                    ? 'bg-amber-500 text-slate-950'
+                    : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+                }`}
+              >
+                {isAutoDirector ? 'DIRECTOR ON' : 'MANUAL'}
+              </button>
+            </div>
+
+            {(['EXPLORATION', 'VEHICLE_FOLLOW', 'TURN_CAM', 'PARKING_CAM', 'COMPLETION'] as CameraMode[]).map((m) => {
+              const meta = CAMERA_MODE_METADATA[m];
+              const isActive = cameraMode === m;
+              return (
+                <button
+                  key={m}
+                  onClick={() => {
+                    setIsAutoDirector(false);
+                    dynamicCameraRef.current?.setAutoDirector(false);
+                    dynamicCameraRef.current?.setMode(m);
+                  }}
+                  className={`flex items-center gap-2 px-2.5 py-1.5 rounded-xl text-left transition-all font-medium ${
+                    isActive
+                      ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40 shadow-sm'
+                      : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+                  }`}
+                >
+                  <span className="text-sm">{meta.icon}</span>
+                  <div className="flex-1 min-w-0">
+                    <div className="font-bold leading-none">{meta.label}</div>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        )}
+
+        {/* Compact Floating Camera & Weather Bar */}
+        <div className="flex items-center gap-1 bg-slate-900/85 backdrop-blur-md border border-slate-700/70 rounded-full px-2 py-1 shadow-lg text-slate-200">
+          {/* Weather Manager Toggle Pill */}
+          <button
+            onClick={() => {
+              setShowWeatherControls(!showWeatherControls);
+              if (showCamControls) setShowCamControls(false);
+            }}
+            title="Weather Conditions: Rain, Snow, Fog, Sun"
+            className="flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-bold text-sky-300 hover:bg-slate-800/80 transition-colors"
+          >
+            <span>{WEATHER_CONDITIONS[currentWeather]?.icon || '⛅'}</span>
+            <span className="hidden sm:inline text-[11px] font-semibold text-sky-200">
+              {WEATHER_CONDITIONS[currentWeather]?.name.split(' ')[0] || currentWeather}
+            </span>
+          </button>
+
+          <div className="w-[1px] h-4 bg-slate-700/80 mx-0.5" />
+
+          {/* Active Camera Mode Pill Indicator */}
+          <button
+            onClick={() => {
+              setShowCamControls(!showCamControls);
+              if (showWeatherControls) setShowWeatherControls(false);
+            }}
+            title="Toggle dynamic camera angles menu"
+            className="flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-bold text-amber-300 hover:bg-slate-800/80 transition-colors"
+          >
+            <span>{CAMERA_MODE_METADATA[cameraMode]?.icon || '🎥'}</span>
+            <span className="hidden sm:inline text-[11px] font-semibold text-slate-200">
+              {CAMERA_MODE_METADATA[cameraMode]?.label || cameraMode}
+            </span>
+          </button>
+
+          <div className="w-[1px] h-4 bg-slate-700/80 mx-0.5" />
+
+          {/* Reset View Button */}
+          <button
+            onClick={() => dynamicCameraRef.current?.resetView()}
+            title="Reset isometric view"
+            aria-label="Reset isometric view"
+            className="p-1.5 rounded-full hover:bg-slate-800 text-slate-300 hover:text-white transition-colors"
+          >
+            <RotateCcw className="w-3.5 h-3.5" />
+          </button>
+
+          {/* Zoom In Button */}
+          <button
+            onClick={() => dynamicCameraRef.current?.onZoom(-3.5)}
+            title="Zoom in"
+            aria-label="Zoom in"
+            className="p-1.5 rounded-full hover:bg-slate-800 text-slate-300 hover:text-white transition-colors"
+          >
+            <ZoomIn className="w-3.5 h-3.5" />
+          </button>
+
+          {/* Zoom Out Button */}
+          <button
+            onClick={() => dynamicCameraRef.current?.onZoom(3.5)}
+            title="Zoom out"
+            aria-label="Zoom out"
+            className="p-1.5 rounded-full hover:bg-slate-800 text-slate-300 hover:text-white transition-colors"
+          >
+            <ZoomOut className="w-3.5 h-3.5" />
+          </button>
+
+          {/* Camera Menu Toggle */}
+          <button
+            onClick={() => {
+              setShowCamControls(!showCamControls);
+              if (showWeatherControls) setShowWeatherControls(false);
+            }}
+            title="Camera modes"
+            aria-label="Camera modes"
+            className={`p-1.5 rounded-full transition-colors ${
+              showCamControls ? 'bg-amber-500 text-slate-950 font-bold' : 'hover:bg-slate-800 text-slate-300 hover:text-white'
+            }`}
+          >
+            <Camera className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      </div>
     </div>
   );
 };

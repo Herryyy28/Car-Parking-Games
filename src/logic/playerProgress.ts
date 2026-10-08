@@ -1,4 +1,5 @@
 import { Difficulty, DIFFICULTY_CONFIGS } from './types.ts';
+import { RadioStation } from '../utils/radioSynthesizer.ts';
 
 export interface PlayerProgressData {
   currentLevel: number;
@@ -9,21 +10,50 @@ export interface PlayerProgressData {
   soundEnabled: boolean;
   vibrationEnabled: boolean;
   tutorialCompleted: boolean;
+  // Garage Customization & Tuning
+  activeLivery: string;
+  activeUnderglow: string;
+  activeRim: string;
+  activeHorn: string;
+  engineTuningLevel: number; // 0-3
+  turningTuningLevel: number; // 0-3
+  boardingTuningLevel: number; // 0-3
+  unlockedLiveries: string[];
+  unlockedUnderglows: string[];
+  unlockedRims: string[];
+  unlockedHorns: string[];
+  // Radio
+  radioStation: RadioStation;
+  radioVolume: number;
 }
 
-const STORAGE_KEY = 'bus_game_player_progress_v2';
+const STORAGE_KEY = 'bus_game_player_progress_v3';
 
 export class PlayerProgress {
   private static data: PlayerProgressData = PlayerProgress.load();
 
   private static load(): PlayerProgressData {
     try {
-      const saved = localStorage.getItem(STORAGE_KEY);
+      const saved = localStorage.getItem(STORAGE_KEY) || localStorage.getItem('bus_game_player_progress_v2');
       if (saved) {
         const parsed = JSON.parse(saved);
         if (!parsed.preferredDifficulty) {
           parsed.preferredDifficulty = Difficulty.HARD;
         }
+        // Defaults for new fields
+        parsed.activeLivery = parsed.activeLivery || 'DEFAULT';
+        parsed.activeUnderglow = parsed.activeUnderglow || 'NONE';
+        parsed.activeRim = parsed.activeRim || 'STANDARD';
+        parsed.activeHorn = parsed.activeHorn || 'STANDARD';
+        parsed.engineTuningLevel = parsed.engineTuningLevel ?? 0;
+        parsed.turningTuningLevel = parsed.turningTuningLevel ?? 0;
+        parsed.boardingTuningLevel = parsed.boardingTuningLevel ?? 0;
+        parsed.unlockedLiveries = parsed.unlockedLiveries || ['DEFAULT'];
+        parsed.unlockedUnderglows = parsed.unlockedUnderglows || ['NONE'];
+        parsed.unlockedRims = parsed.unlockedRims || ['STANDARD'];
+        parsed.unlockedHorns = parsed.unlockedHorns || ['STANDARD'];
+        parsed.radioStation = parsed.radioStation || 'OFF';
+        parsed.radioVolume = parsed.radioVolume ?? 0.25;
         return parsed;
       }
     } catch {
@@ -39,6 +69,19 @@ export class PlayerProgress {
       soundEnabled: true,
       vibrationEnabled: true,
       tutorialCompleted: false,
+      activeLivery: 'DEFAULT',
+      activeUnderglow: 'NONE',
+      activeRim: 'STANDARD',
+      activeHorn: 'STANDARD',
+      engineTuningLevel: 0,
+      turningTuningLevel: 0,
+      boardingTuningLevel: 0,
+      unlockedLiveries: ['DEFAULT'],
+      unlockedUnderglows: ['NONE'],
+      unlockedRims: ['STANDARD'],
+      unlockedHorns: ['STANDARD'],
+      radioStation: 'OFF',
+      radioVolume: 0.25,
     };
   }
 
@@ -52,6 +95,47 @@ export class PlayerProgress {
     } catch {
       // Ignore
     }
+  }
+
+  public static setCustomization(updates: Partial<PlayerProgressData>): void {
+    this.data = { ...this.data, ...updates };
+    this.save();
+  }
+
+  public static unlockItem(type: 'livery' | 'underglow' | 'rim' | 'horn', itemId: string, cost: number): boolean {
+    if (this.data.coins < cost) return false;
+    this.data.coins -= cost;
+
+    if (type === 'livery' && !this.data.unlockedLiveries.includes(itemId)) {
+      this.data.unlockedLiveries.push(itemId);
+      this.data.activeLivery = itemId;
+    } else if (type === 'underglow' && !this.data.unlockedUnderglows.includes(itemId)) {
+      this.data.unlockedUnderglows.push(itemId);
+      this.data.activeUnderglow = itemId;
+    } else if (type === 'rim' && !this.data.unlockedRims.includes(itemId)) {
+      this.data.unlockedRims.push(itemId);
+      this.data.activeRim = itemId;
+    } else if (type === 'horn' && !this.data.unlockedHorns.includes(itemId)) {
+      this.data.unlockedHorns.push(itemId);
+      this.data.activeHorn = itemId;
+    }
+    this.save();
+    return true;
+  }
+
+  public static upgradeTune(tuneType: 'engine' | 'turning' | 'boarding', cost: number): boolean {
+    if (this.data.coins < cost) return false;
+    this.data.coins -= cost;
+
+    if (tuneType === 'engine' && this.data.engineTuningLevel < 3) {
+      this.data.engineTuningLevel += 1;
+    } else if (tuneType === 'turning' && this.data.turningTuningLevel < 3) {
+      this.data.turningTuningLevel += 1;
+    } else if (tuneType === 'boarding' && this.data.boardingTuningLevel < 3) {
+      this.data.boardingTuningLevel += 1;
+    }
+    this.save();
+    return true;
   }
 
   public static setPreferredDifficulty(difficulty: Difficulty): void {

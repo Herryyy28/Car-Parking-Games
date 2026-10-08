@@ -1,6 +1,6 @@
 {
-  "name": "Traffic Jam 3D - Parking Puzzle",
-  "description": "Polished 3D traffic parking puzzle game built with Kotlin & LibGDX architecture, perspective 3D rendering, and touch controls.",
+  "name": "Bus Game 3D - Bus Jam & Traffic Puzzle",
+  "description": "Clear the chaotic Bus Jam, sort colorful passengers, and master this brain-burning 3D traffic escape puzzle with realistic physics and 8 dynamic worlds.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

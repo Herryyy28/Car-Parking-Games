@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { getVehiclePhysicsConfig, VehiclePhysicsConfig } from './vehiclePhysicsPresets.ts';
 
 export enum VehicleMotionState {
   IDLE = 'IDLE',
@@ -27,6 +28,7 @@ export interface NaturalPhysicsState {
   curve: THREE.CatmullRomCurve3 | null;
   pathT: number;               // parameter 0..1 along curve
   pathLength: number;
+  config: VehiclePhysicsConfig;
 }
 
 export class NaturalVehiclePhysics {
@@ -36,9 +38,10 @@ export class NaturalVehiclePhysics {
   public static initMotion(
     startPos: THREE.Vector3,
     curve: THREE.CatmullRomCurve3,
-    isBus: boolean,
+    vehicleType: string,
     initialHeading = 0
   ): NaturalPhysicsState {
+    const config = getVehiclePhysicsConfig(vehicleType);
     const points = curve.getPoints(50);
     let totalLen = 0;
     for (let i = 0; i < points.length - 1; i++) {
@@ -48,19 +51,20 @@ export class NaturalVehiclePhysics {
     return {
       position: startPos.clone(),
       velocity: 0.2,
-      targetSpeed: isBus ? 14.0 : 17.5,
-      acceleration: isBus ? 18.0 : 25.0,
-      brakingPower: isBus ? 22.0 : 30.0,
+      targetSpeed: config.targetSpeed,
+      acceleration: config.acceleration,
+      brakingPower: config.brakingPower,
       headingAngle: initialHeading,
       steeringAngle: 0,
       bodyRollAngle: 0,
-      bodyPitchAngle: -0.06, // initial acceleration squat
+      bodyPitchAngle: -0.06 * (config.mass / 2000), // initial acceleration squat
       suspensionOffset: 0,
       wheelRotation: 0,
       motionState: VehicleMotionState.ACCELERATING,
       curve,
       pathT: 0,
       pathLength: Math.max(1, totalLen),
+      config,
     };
   }
 
@@ -74,6 +78,8 @@ export class NaturalVehiclePhysics {
   ): boolean {
     if (!physics.curve) return true;
 
+    const cfg = physics.config;
+
     // 1. Calculate remaining distance to destination
     const remainingDist = (1 - physics.pathT) * physics.pathLength;
     const stoppingDist = (physics.velocity * physics.velocity) / (2 * physics.brakingPower);
@@ -85,10 +91,10 @@ export class NaturalVehiclePhysics {
     } else if (remainingDist <= stoppingDist * 1.35) {
       physics.motionState = VehicleMotionState.BRAKING;
       physics.targetSpeed = 1.0;
-    } else if (Math.abs(physics.steeringAngle) > 0.15) {
+    } else if (Math.abs(physics.steeringAngle) > 0.12) {
       physics.motionState = VehicleMotionState.STEERING;
-      physics.targetSpeed = physics.targetSpeed * 0.85;
-    } else if (physics.velocity > 8.0) {
+      physics.targetSpeed = cfg.targetSpeed * 0.85;
+    } else if (physics.velocity > 7.0) {
       physics.motionState = VehicleMotionState.CRUISING;
     }
 
@@ -126,16 +132,16 @@ export class NaturalVehiclePhysics {
       moveDir.normalize();
       const targetHeading = Math.atan2(moveDir.x, -moveDir.z);
 
-      // Smooth heading interpolation
+      // Smooth heading interpolation based on vehicle steering speed
       const angleDiff = THREE.MathUtils.euclideanModulo(targetHeading - physics.headingAngle + Math.PI, Math.PI * 2) - Math.PI;
-      physics.headingAngle += angleDiff * Math.min(1.0, delta * 14.0);
+      physics.headingAngle += angleDiff * Math.min(1.0, delta * cfg.steeringSpeed);
 
-      // Front wheels turn in the direction of curvature
-      const desiredSteer = Math.max(-0.48, Math.min(0.48, angleDiff * 3.5));
+      // Front wheels turn in the direction of curvature clamped to maxSteerAngle
+      const desiredSteer = Math.max(-cfg.maxSteerAngle, Math.min(cfg.maxSteerAngle, angleDiff * 3.5));
       physics.steeringAngle = THREE.MathUtils.lerp(physics.steeringAngle, desiredSteer, delta * 12.0);
 
-      // Chassis roll (lean outward into the turn centrifugal force)
-      const targetRoll = -desiredSteer * (physics.velocity / 18.0) * 0.16;
+      // Chassis roll (lean outward into the turn centrifugal force multiplied by bodyRollFactor)
+      const targetRoll = -desiredSteer * (physics.velocity / 18.0) * cfg.bodyRollFactor * 1.5;
       physics.bodyRollAngle = THREE.MathUtils.lerp(physics.bodyRollAngle, targetRoll, delta * 8.0);
     } else {
       physics.steeringAngle = THREE.MathUtils.lerp(physics.steeringAngle, 0, delta * 8.0);
@@ -143,7 +149,7 @@ export class NaturalVehiclePhysics {
     }
 
     // 6. Natural suspension bounce & tire rotation
-    const suspensionFrequency = 16.0;
+    const suspensionFrequency = cfg.suspensionStiffness;
     physics.suspensionOffset = Math.sin(elapsed * suspensionFrequency + physics.pathT * 20.0) * 0.015 * (physics.velocity / 12.0);
 
     const tireRadius = 0.35;
