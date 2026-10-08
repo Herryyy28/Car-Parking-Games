@@ -1,0 +1,6 @@
+{
+  "name": "Traffic Jam 3D - Parking Puzzle",
+  "description": "Polished 3D traffic parking puzzle game built with Kotlin & LibGDX architecture, perspective 3D rendering, and touch controls.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

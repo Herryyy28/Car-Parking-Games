@@ -1,0 +1,21 @@
+plugins {
+    id("java-library")
+    id("org.jetbrains.kotlin.jvm")
+}
+
+val gdxVersion: String by rootProject.extra
+
+dependencies {
+    implementation("org.jetbrains.kotlin:kotlin-stdlib:1.9.23")
+    api("com.badlogicgames.gdx:gdx:$gdxVersion")
+    api("com.badlogicgames.gdx:gdx-box2d:$gdxVersion")
+}
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_17
+    targetCompatibility = JavaVersion.VERSION_17
+}
+
+kotlin {
+    jvmToolchain(17)
+}
