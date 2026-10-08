@@ -246,6 +246,47 @@ export class DynamicCameraController {
   }
 
   /**
+   * Automatically calibrate camera distance and FOV based on screen aspect ratio.
+   * On tall mobile phone screens (aspect < 0.6), scales orbit radius to keep entire
+   * puzzle board, curbs, and bus bays in view without horizontal clipping.
+   */
+  public updateAspect(aspect: number): void {
+    if (aspect < 0.6) {
+      this.orbitRadius = 35.5;
+      this.targetOrbitRadius = 35.5;
+      this.defaultFOV = 54;
+    } else {
+      this.orbitRadius = 31.0;
+      this.targetOrbitRadius = 31.0;
+      this.defaultFOV = 52;
+    }
+    if (this.mode === 'EXPLORATION') {
+      this.computeExplorationTarget();
+    }
+  }
+
+  /**
+   * Dynamically calibrates camera distance, pitch, and focus target based on board size & aspect ratio.
+   * Ensures puzzle area, passenger docks, and escape roads remain fully visible on all mobile devices.
+   */
+  public setBoardDimensions(rows: number, cols: number, aspect: number): void {
+    const maxDim = Math.max(rows, cols);
+    const dimScale = maxDim / 7.0;
+    const baseRadius = (aspect < 0.6 ? 35.5 : aspect < 0.85 ? 33.0 : 31.0) * Math.max(0.85, Math.min(1.45, dimScale));
+    this.orbitRadius = baseRadius;
+    this.targetOrbitRadius = baseRadius;
+    this.defaultFOV = aspect < 0.6 ? 54 : 52;
+
+    const centerZ = 4.5 * 0.3;
+    this.orbitPanTarget.set(0, 0, centerZ);
+    this.targetOrbitPanTarget.set(0, 0, centerZ);
+
+    if (this.mode === 'EXPLORATION') {
+      this.computeExplorationTarget();
+    }
+  }
+
+  /**
    * Reset exploration camera to default sweet-spot isometric framing
    */
   public resetView(): void {

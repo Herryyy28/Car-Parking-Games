@@ -161,4 +161,5 @@ export interface GameState {
   hintMessage: string;
   comboCount: number;
   unlockedDocksCount: number;
+  objective: string;
 }

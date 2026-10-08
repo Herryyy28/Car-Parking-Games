@@ -23,7 +23,7 @@ export const Hero3DShowcase: React.FC = () => {
     renderer.setSize(width, height);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.shadowMap.enabled = true;
-    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.shadowMap.type = THREE.PCFShadowMap;
     container.appendChild(renderer.domElement);
 
     // Warm Studio Lighting
@@ -233,12 +233,15 @@ export const Hero3DShowcase: React.FC = () => {
 
     // Animation Loop
     let animId: number;
-    let clock = new THREE.Clock();
+    let lastTime = performance.now();
+    const startTime = performance.now();
 
     const renderLoop = () => {
       animId = requestAnimationFrame(renderLoop);
-      const delta = clock.getDelta();
-      const elapsed = clock.getElapsedTime();
+      const now = performance.now();
+      const delta = Math.min((now - lastTime) / 1000, 0.1);
+      const elapsed = (now - startTime) / 1000;
+      lastTime = now;
 
       // Auto rotation
       if (autoRotate) {

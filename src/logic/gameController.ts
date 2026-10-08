@@ -2,6 +2,7 @@ import {
   BoosterState,
   Difficulty,
   DIFFICULTY_CONFIGS,
+  Direction,
   GameState,
   GameStatus,
   PassengerState,
@@ -183,7 +184,12 @@ export class GameController {
     vehicleId?: string;
     passengerId?: string;
   } {
-    if (this.state.status === GameStatus.OUT_OF_TIME) {
+    if (
+      this.state.status === GameStatus.OUT_OF_TIME ||
+      this.state.status === GameStatus.VEHICLE_MOVING ||
+      this.state.status === GameStatus.COMPLETED ||
+      this.state.status === GameStatus.PAUSED
+    ) {
       return { type: 'NONE' };
     }
 
@@ -262,6 +268,7 @@ export class GameController {
 
     // 4. Gridlock Check
     if (PuzzleSolver.isGridlocked(this.state)) {
+      this.state.status = GameStatus.FAILED;
       this.notify();
       return { type: 'GRIDLOCKED' };
     }
@@ -273,10 +280,10 @@ export class GameController {
     const allVehiclesExited = this.state.vehicles.every(
       (v) => v.state === VehicleStateType.EXITED
     );
-    const allPassengersLoaded = this.state.passengers.every(
-      (p) => p.state === 'LOADED'
-    );
-    return allVehiclesExited || allPassengersLoaded;
+    const allPassengersLoaded =
+      this.state.passengers.length === 0 ||
+      this.state.passengers.every((p) => p.state === 'LOADED');
+    return allVehiclesExited && allPassengersLoaded;
   }
 
   /**
@@ -302,14 +309,25 @@ export class GameController {
         if (this.historyStack.length === 0) return false;
         if (this.state.availableBoosters.undo <= 0 && this.state.coins < 50) return false;
 
-        if (this.state.availableBoosters.undo > 0) {
-          this.state.availableBoosters.undo--;
+        const currentBoosters = { ...this.state.availableBoosters };
+        let currentCoins = this.state.coins;
+
+        if (currentBoosters.undo > 0) {
+          currentBoosters.undo--;
         } else {
-          this.state.coins -= 50;
+          currentCoins -= 50;
         }
 
         const prev = this.historyStack.pop()!;
         this.state = prev;
+        // Keep updated boosters and coins post-use
+        this.state.availableBoosters = currentBoosters;
+        this.state.coins = currentCoins;
+
+        if (this.state.status === GameStatus.FAILED && this.state.moves > 0) {
+          this.state.status = GameStatus.PLAYING;
+        }
+
         this.updateHint();
         this.notify();
         return true;
@@ -330,19 +348,21 @@ export class GameController {
           this.state.coins -= 80;
         }
 
-        // Rotate trapped vehicles by 90 degrees to open new lanes
+        // Reverse parked vehicles 180 degrees along their travel axis to open opposite escape routes
         this.state.vehicles = this.state.vehicles.map((v) => {
           if (v.state !== VehicleStateType.PARKED) return v;
-          const dirs = [v.direction];
-          // Cycle direction: UP -> RIGHT -> DOWN -> LEFT -> UP
           let nextDir = v.direction;
-          if (v.direction === 'UP') nextDir = 'RIGHT' as any;
-          else if (v.direction === 'RIGHT') nextDir = 'DOWN' as any;
-          else if (v.direction === 'DOWN') nextDir = 'LEFT' as any;
-          else if (v.direction === 'LEFT') nextDir = 'UP' as any;
+          if (v.direction === Direction.UP) nextDir = Direction.DOWN;
+          else if (v.direction === Direction.DOWN) nextDir = Direction.UP;
+          else if (v.direction === Direction.LEFT) nextDir = Direction.RIGHT;
+          else if (v.direction === Direction.RIGHT) nextDir = Direction.LEFT;
 
           return { ...v, direction: nextDir };
         });
+
+        if (this.state.status === GameStatus.FAILED && this.state.moves > 0) {
+          this.state.status = GameStatus.PLAYING;
+        }
 
         this.updateHint();
         this.notify();
@@ -364,6 +384,10 @@ export class GameController {
           idx < this.state.unlockedDocksCount ? { ...s, isUnlocked: true } : s
         );
 
+        if (this.state.status === GameStatus.FAILED && this.state.moves > 0) {
+          this.state.status = GameStatus.PLAYING;
+        }
+
         this.notify();
         return true;
       }
@@ -382,14 +406,13 @@ export class GameController {
           .filter((v) => v.state === VehicleStateType.DOCKED)
           .map((v) => v.color);
 
+        const loadedPassengers = this.state.passengers.filter((p) => p.state !== 'WAITING');
+        const waitingPassengers = this.state.passengers.filter((p) => p.state === 'WAITING');
+
         const matching: PassengerState[] = [];
         const nonMatching: PassengerState[] = [];
 
-        for (const p of this.state.passengers) {
-          if (p.state !== 'WAITING') {
-            matching.push(p);
-            continue;
-          }
+        for (const p of waitingPassengers) {
           if (dockedColors.includes(p.color)) {
             matching.push(p);
           } else {
@@ -397,7 +420,12 @@ export class GameController {
           }
         }
 
-        this.state.passengers = [...matching, ...nonMatching];
+        this.state.passengers = [...loadedPassengers, ...matching, ...nonMatching];
+
+        if (this.state.status === GameStatus.FAILED && this.state.moves > 0) {
+          this.state.status = GameStatus.PLAYING;
+        }
+
         this.notify();
         return true;
       }

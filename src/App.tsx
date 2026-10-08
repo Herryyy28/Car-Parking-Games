@@ -33,14 +33,19 @@ import {
   Zap,
   Shield,
   Compass,
+  Pause,
+  Target,
+  Check,
 } from 'lucide-react';
 import { BusMadnessArena } from './components/BusMadnessArena.tsx';
 import { Hero3DShowcase } from './components/Hero3DShowcase.tsx';
 import { DailyRewardModal, DailyRewardDay } from './components/DailyRewardModal.tsx';
+import { GameGuideModal } from './components/GameGuideModal.tsx';
 import { GameController } from './logic/gameController.ts';
 import { GameState, GameStatus, COLOR_MAP, Difficulty, DIFFICULTY_CONFIGS } from './logic/types.ts';
 import { LevelRepository } from './logic/levelRepository.ts';
 import { PlayerProgress } from './logic/playerProgress.ts';
+import { PuzzleSolver } from './logic/puzzleSolver.ts';
 import { sounds } from './utils/soundEffects.ts';
 import { WORLD_THEMES, getWorldConfig, getWorldIdForLevel } from './logic/worldThemes.ts';
 
@@ -62,9 +67,9 @@ export default function App() {
   const arenaContainerRef = useRef<HTMLDivElement>(null);
 
   const [soundOn, setSoundOn] = useState(() => progress.soundEnabled);
-  const [deviceFrame, setDeviceFrame] = useState<'mobile' | 'studio'>('mobile');
 
   // Modals
+  const [showPauseModal, setShowPauseModal] = useState(false);
   const [showDailyModal, setShowDailyModal] = useState(false);
   const [showShopModal, setShowShopModal] = useState(false);
   const [showHelpModal, setShowHelpModal] = useState(false);
@@ -72,6 +77,14 @@ export default function App() {
   const [showOutOfMovesModal, setShowOutOfMovesModal] = useState(false);
   const [showOutOfTimeModal, setShowOutOfTimeModal] = useState(false);
   const [victoryData, setVictoryData] = useState<{ stars: number; rewardCoins: number } | null>(null);
+  const [levelIntro, setLevelIntro] = useState<{
+    id: number;
+    name: string;
+    world: number;
+    timeLimit: number;
+    parMoves: number;
+    objective: string;
+  } | null>(null);
 
   // Daily cooldown tracking
   const [lastClaimedDaily, setLastClaimedDaily] = useState<number>(() => {
@@ -112,7 +125,18 @@ export default function App() {
   // Passenger boarding & Game loop tick
   useEffect(() => {
     const timer = setInterval(() => {
-      if (screen !== 'GAME') return;
+      if (
+        screen !== 'GAME' ||
+        showPauseModal ||
+        showGridlockModal ||
+        showOutOfMovesModal ||
+        showOutOfTimeModal ||
+        showDailyModal ||
+        showShopModal ||
+        showHelpModal ||
+        !!victoryData ||
+        !!levelIntro
+      ) return;
 
       const step = controller.stepPassengerBoarding();
       if (step.type === 'BOARDED') {
@@ -133,12 +157,28 @@ export default function App() {
         sounds.playGameOver();
         setShowOutOfMovesModal(true);
       } else if (step.type === 'GRIDLOCKED') {
+        sounds.playGameOver();
         setShowGridlockModal(true);
       }
     }, 420);
 
     return () => clearInterval(timer);
-  }, [controller, screen, gameState.levelId, gameState.moves, gameState.parMoves]);
+  }, [
+    controller,
+    screen,
+    showPauseModal,
+    showGridlockModal,
+    showOutOfMovesModal,
+    showOutOfTimeModal,
+    showDailyModal,
+    showShopModal,
+    showHelpModal,
+    victoryData,
+    levelIntro,
+    gameState.levelId,
+    gameState.moves,
+    gameState.parMoves,
+  ]);
 
   // Level Countdown Timer Loop (Urgency countdown per level)
   useEffect(() => {
@@ -146,8 +186,10 @@ export default function App() {
 
     // Pause timer while modals are active or level is concluded
     const isPaused =
+      showPauseModal ||
       showDailyModal ||
       showShopModal ||
+      showHelpModal ||
       showGridlockModal ||
       showOutOfMovesModal ||
       showOutOfTimeModal ||
@@ -176,8 +218,10 @@ export default function App() {
   }, [
     controller,
     screen,
+    showPauseModal,
     showDailyModal,
     showShopModal,
+    showHelpModal,
     showGridlockModal,
     showOutOfMovesModal,
     showOutOfTimeModal,
@@ -192,22 +236,49 @@ export default function App() {
     return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
   };
 
+  // Booster action handler with automatic coin fallback
+  const handleUseBooster = (type: 'undo' | 'hint' | 'shuffle' | 'extraSpace' | 'passengerSwap') => {
+    const costMap = {
+      undo: 50,
+      hint: 0,
+      shuffle: 80,
+      extraSpace: 150,
+      passengerSwap: 90,
+    };
+    const cost = costMap[type];
+    const available = gameState.availableBoosters[type] || 0;
+
+    if (available <= 0 && cost > 0 && gameState.coins < cost) {
+      sounds.playBlocked();
+      setShowShopModal(true);
+      return false;
+    }
+
+    const success = controller.useBooster(type);
+    if (success) {
+      if (type === 'hint') sounds.playClick();
+      else sounds.playEscape();
+      if (showGridlockModal) setShowGridlockModal(false);
+    } else {
+      sounds.playBlocked();
+    }
+    return success;
+  };
+
   // Handle Player Tap on a Vehicle
   const handleVehicleTap = (vehicleId: string) => {
     const result = controller.requestVehicleMove(vehicleId);
-
-    const arenaEl = arenaContainerRef.current?.querySelector('div[class*="select-none"] > div');
     if (!result.success) {
       if (result.reason === 'ALL_BAYS_FULL') {
-        setShowGridlockModal(true);
-      } else if ((arenaEl as any)?.__triggerBump) {
-        (arenaEl as any).__triggerBump(vehicleId, result.blockerId);
-      }
-    } else if (result.dockIndex !== undefined) {
-      if ((arenaEl as any)?.__triggerDriveToDock) {
-        (arenaEl as any).__triggerDriveToDock(vehicleId, result.dockIndex);
+        if (PuzzleSolver.isGridlocked(controller.getState())) {
+          sounds.playGameOver();
+          setShowGridlockModal(true);
+        } else {
+          sounds.playBump();
+        }
       }
     }
+    return result;
   };
 
   // Called when 3D movement reaches parking dock
@@ -260,239 +331,210 @@ export default function App() {
     setScreen('GAME');
   };
 
+  const handleOpenLevelIntro = (lvl: {
+    id: number;
+    name: string;
+    world?: number;
+    timeLimit: number;
+    parMoves: number;
+    objective?: string;
+  }) => {
+    sounds.playClick();
+    const diffConfig = DIFFICULTY_CONFIGS[selectedDifficulty];
+    setLevelIntro({
+      id: lvl.id,
+      name: lvl.name,
+      world: lvl.world || getWorldIdForLevel(lvl.id),
+      timeLimit: Math.max(25, Math.round(lvl.timeLimit * diffConfig.timeMultiplier)),
+      parMoves: Math.max(10, Math.round(lvl.parMoves * diffConfig.moveMultiplier)),
+      objective: lvl.objective || 'CLEAR THE TRAFFIC & MATCH PASSENGERS',
+    });
+  };
+
   const allLevels = LevelRepository.getAllLevels();
 
   return (
-    <div className="min-h-screen game-bg-pattern text-slate-100 flex flex-col font-['Fredoka',sans-serif] select-none overflow-x-hidden">
-      {/* Top Universal Arcade App Header */}
-      <header className="bg-slate-900/90 backdrop-blur-md border-b border-slate-800/80 sticky top-0 z-40 text-white shadow-xl">
-        <div className="max-w-7xl mx-auto px-3 sm:px-4 h-14 flex items-center justify-between">
-          <div className="flex items-center gap-2 sm:gap-3">
-            {screen !== 'HOME' && (
+    <div className="w-full h-full h-dvh fixed inset-0 overflow-hidden game-bg-pattern text-slate-100 flex flex-col font-['Fredoka',sans-serif] select-none touch-none">
+      {/* Top Universal Arcade App Header (Only shown on Menu / Level Select) */}
+      {screen !== 'GAME' && (
+        <header className="bg-slate-900/95 backdrop-blur-md border-b border-slate-800/80 shrink-0 z-40 text-white shadow-xl pt-[max(env(safe-area-inset-top),6px)] px-3 sm:px-4 py-2">
+          <div className="max-w-7xl mx-auto flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              {screen !== 'HOME' && (
+                <button
+                  onClick={() => {
+                    sounds.playClick();
+                    setScreen('HOME');
+                  }}
+                  className="w-9 h-9 rounded-xl game-btn game-btn-dark flex items-center justify-center text-slate-200"
+                  title="Back to Home"
+                >
+                  <ChevronLeft className="w-5 h-5" />
+                </button>
+              )}
+
+              {/* Arcade Title Logo Button */}
               <button
                 onClick={() => {
                   sounds.playClick();
                   setScreen('HOME');
                 }}
-                className="w-9 h-9 rounded-xl game-btn game-btn-dark flex items-center justify-center text-slate-200"
-                title="Back to Home"
+                className="flex items-center gap-2 text-left group active:scale-95 transition-transform"
               >
-                <ChevronLeft className="w-5 h-5" />
-              </button>
-            )}
-
-            {/* Arcade Title Logo Button */}
-            <button
-              onClick={() => {
-                sounds.playClick();
-                setScreen('HOME');
-              }}
-              className="flex items-center gap-2.5 text-left group active:scale-95 transition-transform"
-            >
-              <div className="relative w-9 h-9 rounded-xl bg-gradient-to-tr from-amber-400 via-orange-500 to-red-500 p-0.5 shadow-lg shadow-orange-500/20 flex items-center justify-center border border-yellow-200/40">
-                <span className="text-xl">🚌</span>
-                <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-emerald-400 rounded-full border-2 border-slate-900 animate-pulse"></span>
-              </div>
-
-              <div>
-                <div className="flex items-center gap-1.5">
+                <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-amber-400 via-orange-500 to-red-500 p-0.5 shadow-md flex items-center justify-center border border-yellow-200/40">
+                  <span className="text-base">🚌</span>
+                </div>
+                <div>
                   <span className="font-black text-white text-sm sm:text-base tracking-wide drop-shadow-sm">
                     BUS GAME <span className="text-amber-400">3D</span>
                   </span>
-                  <span className="hidden sm:inline-block bg-amber-500/20 border border-amber-400/40 text-amber-300 font-bold text-[9px] px-1.5 py-0.5 rounded-full uppercase">
-                    BUS JAM
-                  </span>
                 </div>
-              </div>
-            </button>
-          </div>
-
-          <div className="flex items-center gap-1.5 sm:gap-2.5">
-            {/* Daily Gift Button */}
-            <button
-              onClick={() => {
-                sounds.playClick();
-                setShowDailyModal(true);
-              }}
-              className={`relative flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-black transition-all game-btn ${
-                isDailyReady
-                  ? 'game-btn-amber animate-pulse'
-                  : 'game-btn-dark text-amber-300'
-              }`}
-            >
-              <Gift className={`w-4 h-4 ${isDailyReady ? 'text-slate-950 animate-bounce' : 'text-amber-400'}`} />
-              <span className="hidden sm:inline">{isDailyReady ? 'Daily Gift (Ready!)' : 'Daily Gift'}</span>
-              <span className="sm:hidden">Gift</span>
-              {isDailyReady && (
-                <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full border-2 border-slate-900 animate-ping" />
-              )}
-            </button>
-
-            {/* Coins Counter with 3D Spinning Coin & Shop */}
-            <button
-              onClick={() => {
-                sounds.playClick();
-                setShowShopModal(true);
-              }}
-              className="flex items-center gap-1.5 bg-amber-500/15 hover:bg-amber-500/25 border border-amber-400/40 px-3 py-1 rounded-xl text-xs font-black text-amber-300 active:scale-95 transition-all shadow-sm group"
-              title="Coin Stash - Tap to open shop"
-            >
-              <span className="inline-block animate-spin-3d">🪙</span>
-              <span className="font-mono font-bold tracking-tight">{gameState.coins.toLocaleString()}</span>
-              <span className="text-amber-400 text-[10px] bg-amber-400/30 px-1 rounded-md font-black group-hover:scale-110 transition-transform">
-                +
-              </span>
-            </button>
-
-            {/* Level Select Quick Button */}
-            <button
-              onClick={() => {
-                sounds.playClick();
-                setScreen(screen === 'LEVEL_SELECT' ? 'GAME' : 'LEVEL_SELECT');
-              }}
-              className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all game-btn ${
-                screen === 'LEVEL_SELECT' ? 'game-btn-blue' : 'game-btn-dark'
-              }`}
-              title="Level Select"
-            >
-              <Grid className="w-4 h-4" />
-            </button>
-
-            {/* How to Play Help Modal */}
-            <button
-              onClick={() => {
-                sounds.playClick();
-                setShowHelpModal(true);
-              }}
-              className="w-9 h-9 rounded-xl game-btn game-btn-dark flex items-center justify-center text-slate-300"
-              title="How to Play"
-            >
-              <HelpCircle className="w-4 h-4 text-sky-400" />
-            </button>
-
-            {/* Frame View Toggle */}
-            <div className="hidden lg:flex items-center bg-slate-800/80 p-0.5 rounded-xl text-xs font-semibold border border-slate-700/60">
-              <button
-                onClick={() => setDeviceFrame('mobile')}
-                className={`px-2.5 py-1 rounded-lg transition-colors ${
-                  deviceFrame === 'mobile' ? 'bg-amber-400 text-slate-950 font-black shadow-xs' : 'text-slate-400'
-                }`}
-              >
-                Mobile View
-              </button>
-              <button
-                onClick={() => setDeviceFrame('studio')}
-                className={`px-2.5 py-1 rounded-lg transition-colors ${
-                  deviceFrame === 'studio' ? 'bg-amber-400 text-slate-950 font-black shadow-xs' : 'text-slate-400'
-                }`}
-              >
-                Full Arena
               </button>
             </div>
 
-            {/* Audio Toggle */}
-            <button
-              onClick={() => {
-                setSoundOn(!soundOn);
-                sounds.playClick();
-              }}
-              className="w-9 h-9 rounded-xl game-btn game-btn-dark flex items-center justify-center text-slate-300"
-              title="Toggle Audio"
-            >
-              {soundOn ? <Volume2 className="w-4 h-4 text-amber-400" /> : <VolumeX className="w-4 h-4 text-slate-500" />}
-            </button>
+            <div className="flex items-center gap-1.5 sm:gap-2">
+              {/* Daily Gift Button */}
+              <button
+                onClick={() => {
+                  sounds.playClick();
+                  setShowDailyModal(true);
+                }}
+                className={`relative flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-black transition-all game-btn ${
+                  isDailyReady
+                    ? 'game-btn-amber animate-pulse'
+                    : 'game-btn-dark text-amber-300'
+                }`}
+              >
+                <Gift className={`w-4 h-4 ${isDailyReady ? 'text-slate-950 animate-bounce' : 'text-amber-400'}`} />
+                <span>Gift</span>
+                {isDailyReady && (
+                  <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-slate-900 animate-ping" />
+                )}
+              </button>
+
+              {/* Coins Counter with 3D Spinning Coin & Shop */}
+              <button
+                onClick={() => {
+                  sounds.playClick();
+                  setShowShopModal(true);
+                }}
+                className="flex items-center gap-1.5 bg-amber-500/15 hover:bg-amber-500/25 border border-amber-400/40 px-2.5 py-1 rounded-xl text-xs font-black text-amber-300 active:scale-95 transition-all shadow-sm group"
+                title="Coin Stash"
+              >
+                <span>🪙</span>
+                <span className="font-mono font-bold">{gameState.coins.toLocaleString()}</span>
+                <span className="text-amber-400 text-[10px] bg-amber-400/30 px-1 rounded-md font-black">+</span>
+              </button>
+
+              {/* Audio Toggle */}
+              <button
+                onClick={() => {
+                  setSoundOn(!soundOn);
+                  sounds.playClick();
+                }}
+                className="w-9 h-9 rounded-xl game-btn game-btn-dark flex items-center justify-center text-slate-300"
+                title="Toggle Audio"
+              >
+                {soundOn ? <Volume2 className="w-4 h-4 text-amber-400" /> : <VolumeX className="w-4 h-4 text-slate-500" />}
+              </button>
+            </div>
           </div>
-        </div>
-      </header>
+        </header>
+      )}
 
       {/* Screen Router */}
-      <main className="flex-1 max-w-7xl w-full mx-auto p-2 sm:p-4 flex flex-col items-center justify-center">
+      <main className="flex-1 w-full h-full flex flex-col overflow-hidden relative">
         {/* ========================================================
             SCREEN 1: HOME SCREEN (3D INTERACTIVE SHOWCASE)
            ======================================================== */}
         {screen === 'HOME' && (
-          <div className="max-w-md w-full game-card-3d rounded-[36px] p-5 sm:p-6 shadow-2xl flex flex-col items-center text-center animate-in fade-in zoom-in-95 duration-300">
-            {/* 3D INTERACTIVE BUS TURNTABLE SHOWCASE */}
-            <div className="w-full mb-3">
-              <Hero3DShowcase />
-            </div>
+          <div className="flex-1 w-full h-full overflow-y-auto p-4 flex flex-col items-center justify-center">
+            <div className="max-w-md w-full game-card-3d rounded-[36px] p-5 sm:p-6 shadow-2xl flex flex-col items-center text-center animate-in fade-in zoom-in-95 duration-300">
+              {/* 3D INTERACTIVE BUS TURNTABLE SHOWCASE */}
+              <div className="w-full mb-3">
+                <Hero3DShowcase />
+              </div>
 
-            {/* Game Title with 3D Depth */}
-            <div className="mb-4">
-              <h1 className="text-3xl sm:text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-amber-300 via-yellow-200 to-amber-400 tracking-wide drop-shadow-md">
-                BUS GAME 3D
-              </h1>
-              <p className="text-xs font-bold text-sky-300 tracking-wide mt-0.5">
-                BUS JAM & PASSENGER SORT
-              </p>
-            </div>
+              {/* Game Title with 3D Depth */}
+              <div className="mb-4">
+                <h1 className="text-3xl sm:text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-amber-300 via-yellow-200 to-amber-400 tracking-wide drop-shadow-md">
+                  BUS GAME 3D
+                </h1>
+                <p className="text-xs font-bold text-sky-300 tracking-wide mt-0.5">
+                  BUS JAM & PASSENGER SORT
+                </p>
+              </div>
 
-            {/* Action Buttons */}
-            <div className="w-full space-y-3 mb-5">
-              <button
-                onClick={() => handleLevelSelect(gameState.levelId)}
-                className="w-full py-4 rounded-2xl game-btn game-btn-emerald shine-sweep text-white font-black text-base flex items-center justify-center gap-2.5"
-              >
-                <Play className="w-5 h-5 fill-white" />
-                <span>CONTINUE LEVEL {gameState.levelId}</span>
-              </button>
-
-              <button
-                onClick={() => {
-                  sounds.playClick();
-                  setScreen('LEVEL_SELECT');
-                }}
-                className="w-full py-3.5 rounded-2xl game-btn game-btn-blue text-white font-black text-sm flex items-center justify-center gap-2"
-              >
-                <Grid className="w-4 h-4 text-white" />
-                <span>SELECT LEVEL & DIFFICULTY</span>
-              </button>
-
-              <div className="grid grid-cols-2 gap-2.5">
+              {/* Action Buttons */}
+              <div className="w-full space-y-3 mb-5">
                 <button
                   onClick={() => {
-                    sounds.playClick();
-                    setShowDailyModal(true);
+                    const currentLvl = LevelRepository.getLevel(gameState.levelId);
+                    handleOpenLevelIntro(currentLvl);
                   }}
-                  className="py-3 rounded-2xl game-btn game-btn-amber text-slate-950 font-black text-xs flex items-center justify-center gap-1.5"
+                  className="w-full py-4 rounded-2xl game-btn game-btn-emerald shine-sweep text-white font-black text-base flex items-center justify-center gap-2.5 shadow-lg"
                 >
-                  <Gift className="w-4 h-4 text-slate-950" />
-                  <span>DAILY CHEST</span>
+                  <Play className="w-5 h-5 fill-white" />
+                  <span>PLAY LEVEL {gameState.levelId}</span>
                 </button>
 
                 <button
                   onClick={() => {
                     sounds.playClick();
-                    setShowHelpModal(true);
+                    setScreen('LEVEL_SELECT');
                   }}
-                  className="py-3 rounded-2xl game-btn game-btn-dark text-slate-200 font-bold text-xs flex items-center justify-center gap-1.5"
+                  className="w-full py-3.5 rounded-2xl game-btn game-btn-blue text-white font-black text-sm flex items-center justify-center gap-2"
                 >
-                  <HelpCircle className="w-4 h-4 text-sky-400" />
-                  <span>HOW TO PLAY</span>
+                  <Grid className="w-4 h-4 text-white" />
+                  <span>SELECT LEVEL & DIFFICULTY</span>
                 </button>
-              </div>
-            </div>
 
-            {/* Player Stats 3D Ribbon */}
-            <div className="w-full bg-slate-950/70 rounded-2xl p-3.5 flex items-center justify-around border border-slate-800/80 shadow-inner">
-              <div>
-                <span className="text-[10px] uppercase font-bold text-slate-400 block">Unlocked</span>
-                <span className="text-base sm:text-lg font-black text-emerald-400">{progress.unlockedLevel} / {allLevels.length}</span>
+                <div className="grid grid-cols-2 gap-2.5">
+                  <button
+                    onClick={() => {
+                      sounds.playClick();
+                      setShowDailyModal(true);
+                    }}
+                    className="py-3 rounded-2xl game-btn game-btn-amber text-slate-950 font-black text-xs flex items-center justify-center gap-1.5"
+                  >
+                    <Gift className="w-4 h-4 text-slate-950" />
+                    <span>DAILY CHEST</span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      sounds.playClick();
+                      setShowHelpModal(true);
+                    }}
+                    className="py-3 rounded-2xl game-btn game-btn-dark text-slate-200 font-bold text-xs flex items-center justify-center gap-1.5"
+                  >
+                    <HelpCircle className="w-4 h-4 text-sky-400" />
+                    <span>HOW TO PLAY</span>
+                  </button>
+                </div>
               </div>
-              <div className="h-8 w-px bg-slate-800"></div>
-              <div>
-                <span className="text-[10px] uppercase font-bold text-slate-400 block">Total Stars</span>
-                <span className="text-base sm:text-lg font-black text-amber-400 flex items-center justify-center gap-1">
-                  <Star className="w-4 h-4 fill-amber-400" />
-                  {Object.values(progress.stars).reduce((a, b) => a + b, 0)}
-                </span>
-              </div>
-              <div className="h-8 w-px bg-slate-800"></div>
-              <div>
-                <span className="text-[10px] uppercase font-bold text-slate-400 block">Coin Stash</span>
-                <span className="text-base sm:text-lg font-black text-amber-300 font-mono">
-                  {gameState.coins.toLocaleString()}
-                </span>
+
+              {/* Player Stats 3D Ribbon */}
+              <div className="w-full bg-slate-950/70 rounded-2xl p-3.5 flex items-center justify-around border border-slate-800/80 shadow-inner">
+                <div>
+                  <span className="text-[10px] uppercase font-bold text-slate-400 block">Unlocked</span>
+                  <span className="text-base sm:text-lg font-black text-emerald-400">{progress.unlockedLevel} / {allLevels.length}</span>
+                </div>
+                <div className="h-8 w-px bg-slate-800"></div>
+                <div>
+                  <span className="text-[10px] uppercase font-bold text-slate-400 block">Total Stars</span>
+                  <span className="text-base sm:text-lg font-black text-amber-400 flex items-center justify-center gap-1">
+                    <Star className="w-4 h-4 fill-amber-400" />
+                    {Object.values(progress.stars).reduce((a, b) => a + b, 0)}
+                  </span>
+                </div>
+                <div className="h-8 w-px bg-slate-800"></div>
+                <div>
+                  <span className="text-[10px] uppercase font-bold text-slate-400 block">Coin Stash</span>
+                  <span className="text-base sm:text-lg font-black text-amber-300 font-mono">
+                    {gameState.coins.toLocaleString()}
+                  </span>
+                </div>
               </div>
             </div>
           </div>
@@ -502,7 +544,8 @@ export default function App() {
             SCREEN 2: LEVEL SELECT
            ======================================================== */}
         {screen === 'LEVEL_SELECT' && (
-          <div className="max-w-2xl w-full bg-slate-900 border border-slate-800 rounded-3xl p-5 sm:p-6 shadow-2xl">
+          <div className="flex-1 w-full h-full overflow-y-auto p-3 sm:p-5 flex flex-col items-center">
+            <div className="max-w-2xl w-full bg-slate-900 border border-slate-800 rounded-3xl p-5 sm:p-6 shadow-2xl">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
                 <Grid className="w-5 h-5 text-blue-400" />
@@ -665,61 +708,129 @@ export default function App() {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-4">
-              {allLevels.map((lvl) => {
-                const isUnlocked = lvl.id <= progress.unlockedLevel;
-                const stars = progress.stars[lvl.id] || 0;
-                const isCurrent = lvl.id === gameState.levelId;
-                const diffConfig = DIFFICULTY_CONFIGS[selectedDifficulty];
-                const previewTime = Math.max(25, Math.round(lvl.timeLimit * diffConfig.timeMultiplier));
-                const previewMoves = Math.max(10, Math.round(lvl.parMoves * diffConfig.moveMultiplier));
+            {/* CONNECTED ROADMAP PROGRESSION PATH */}
+            <div className="mb-6 relative">
+              <div className="flex items-center justify-between mb-3 px-1">
+                <div className="flex items-center gap-2">
+                  <Layers className="w-4 h-4 text-emerald-400" />
+                  <span className="text-xs font-black uppercase tracking-wider text-slate-200">
+                    District Roadmap
+                  </span>
+                </div>
+                <span className="text-[11px] font-bold text-slate-400">
+                  World {selectedWorldTab} Progression
+                </span>
+              </div>
 
-                return (
-                  <button
-                    key={lvl.id}
-                    disabled={!isUnlocked}
-                    onClick={() => handleLevelSelect(lvl.id, selectedDifficulty)}
-                    className={`p-3.5 rounded-2xl flex flex-col items-center justify-center text-center transition-all ${
-                      isUnlocked
-                        ? isCurrent
-                          ? 'game-btn game-btn-emerald border-2 border-emerald-300 shadow-lg text-white'
-                          : 'game-btn game-btn-dark border border-slate-700/80 text-slate-100 hover:border-slate-500'
-                        : 'bg-slate-950/50 border border-slate-800 text-slate-600 cursor-not-allowed opacity-60'
-                    }`}
-                  >
-                    <div className="text-[11px] font-extrabold uppercase mb-0.5 tracking-wide text-slate-300">
-                      Level {lvl.id}
-                    </div>
-                    <div className="text-sm font-black text-white truncate max-w-[140px] mb-1.5 drop-shadow-xs">
-                      {lvl.name}
-                    </div>
+              {/* Serpentine Connected Roadmap Track */}
+              <div className="space-y-4 py-2 px-1">
+                {(() => {
+                  const worldLevels = allLevels.filter(
+                    (l) => (l.world || getWorldIdForLevel(l.id)) === selectedWorldTab
+                  );
+                  const displayLevels = worldLevels.length > 0 ? worldLevels : allLevels;
 
-                    {/* Adjusted Time & Moves based on selected difficulty */}
-                    {isUnlocked && (
-                      <div className="flex items-center gap-1.5 mb-2 text-[10px] font-extrabold text-slate-200 bg-black/40 px-2 py-0.5 rounded-full border border-white/10">
-                        <span className="text-sky-300">⏱️ {previewTime}s</span>
-                        <span>•</span>
-                        <span className="text-emerald-300">{previewMoves} mvs</span>
+                  // Group levels into rows of 3
+                  const rows: typeof displayLevels[] = [];
+                  for (let i = 0; i < displayLevels.length; i += 3) {
+                    rows.push(displayLevels.slice(i, i + 3));
+                  }
+
+                  return rows.map((row, rIdx) => {
+                    const isReversed = rIdx % 2 === 1;
+                    const sortedRow = isReversed ? [...row].reverse() : row;
+
+                    return (
+                      <div key={rIdx} className="relative">
+                        {/* Horizontal Road Background Track */}
+                        <div className="absolute top-1/2 left-6 right-6 -translate-y-1/2 h-3.5 bg-slate-950/90 rounded-full border border-slate-800 z-0 flex items-center justify-around overflow-hidden">
+                          <div className="w-full h-0.5 border-t-2 border-dashed border-amber-400/40" />
+                        </div>
+
+                        {/* Row Level Nodes */}
+                        <div
+                          className={`relative z-10 flex items-center justify-between gap-2 ${
+                            isReversed ? 'flex-row-reverse' : 'flex-row'
+                          }`}
+                        >
+                          {sortedRow.map((lvl) => {
+                            const isUnlocked = lvl.id <= progress.unlockedLevel;
+                            const stars = progress.stars[lvl.id] || 0;
+                            const isCurrent = lvl.id === progress.unlockedLevel;
+                            const isMilestone = lvl.id % 5 === 0;
+
+                            return (
+                              <div
+                                key={lvl.id}
+                                className="flex-1 flex flex-col items-center max-w-[100px]"
+                              >
+                                <button
+                                  disabled={!isUnlocked}
+                                  onClick={() => handleOpenLevelIntro(lvl)}
+                                  className={`relative w-14 h-14 sm:w-16 sm:h-16 rounded-2xl flex flex-col items-center justify-center transition-transform active:scale-90 ${
+                                    isUnlocked
+                                      ? isCurrent
+                                        ? 'roadmap-node-current ring-4 ring-amber-400/50 text-slate-950'
+                                        : 'roadmap-node-completed text-white'
+                                      : 'roadmap-node-locked text-slate-500 cursor-not-allowed'
+                                  }`}
+                                  title={`Level ${lvl.id}: ${lvl.name}`}
+                                >
+                                  {/* Current pulsing PLAY badge */}
+                                  {isCurrent && (
+                                    <span className="absolute -top-2.5 bg-amber-400 text-slate-950 text-[9px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider shadow-md animate-bounce border border-yellow-200">
+                                      PLAY
+                                    </span>
+                                  )}
+
+                                  {/* Milestone Gift Chest Pin */}
+                                  {isMilestone && (
+                                    <span className="absolute -top-2 -right-2 text-xs" title="Milestone Reward">
+                                      🎁
+                                    </span>
+                                  )}
+
+                                  {isUnlocked ? (
+                                    <>
+                                      <span
+                                        className={`text-base sm:text-lg font-black leading-none drop-shadow-sm ${
+                                          isCurrent ? 'text-slate-950' : 'text-white'
+                                        }`}
+                                      >
+                                        {lvl.id}
+                                      </span>
+                                      <div className="flex items-center gap-0.5 mt-1">
+                                        {[1, 2, 3].map((s) => (
+                                          <Star
+                                            key={s}
+                                            className={`w-2.5 h-2.5 ${
+                                              s <= stars
+                                                ? 'text-yellow-300 fill-yellow-300 drop-shadow-xs'
+                                                : isCurrent
+                                                ? 'text-amber-700/60'
+                                                : 'text-emerald-900/60'
+                                            }`}
+                                          />
+                                        ))}
+                                      </div>
+                                    </>
+                                  ) : (
+                                    <Lock className="w-5 h-5 text-slate-600" />
+                                  )}
+                                </button>
+
+                                <span className="text-[10px] font-black text-slate-300 truncate max-w-[90px] mt-1.5 text-center">
+                                  {lvl.name}
+                                </span>
+                              </div>
+                            );
+                          })}
+                        </div>
                       </div>
-                    )}
-
-                    {isUnlocked ? (
-                      <div className="flex items-center gap-1">
-                        {[1, 2, 3].map((s) => (
-                          <Star
-                            key={s}
-                            className={`w-3.5 h-3.5 ${
-                              s <= stars ? 'text-amber-400 fill-amber-400 drop-shadow-xs' : 'text-slate-600'
-                            }`}
-                          />
-                        ))}
-                      </div>
-                    ) : (
-                      <Lock className="w-4 h-4 text-slate-600" />
-                    )}
-                  </button>
-                );
-              })}
+                    );
+                  });
+                })()}
+              </div>
             </div>
 
             {/* PROCEDURAL ENDLESS ENGINE ACTION */}
@@ -748,6 +859,7 @@ export default function App() {
                 <span>GENERATE LEVEL</span>
               </button>
             </div>
+            </div>
           </div>
         )}
 
@@ -755,93 +867,78 @@ export default function App() {
             SCREEN 3: MAIN 3D BOARD GAME SCREEN
            ======================================================== */}
         {screen === 'GAME' && (
-          <div
-            className={`w-full transition-all duration-300 ${
-              deviceFrame === 'mobile'
-                ? 'max-w-[430px] bg-slate-950 p-2.5 sm:p-3 rounded-[52px] shadow-[0_25px_60px_rgba(0,0,0,0.85)] border-4 border-slate-700/90 ring-8 ring-slate-900/60'
-                : 'max-w-5xl bg-slate-950 p-3 rounded-3xl shadow-2xl border border-slate-800'
-            }`}
-          >
-            <div
-              className={`relative w-full overflow-hidden flex flex-col bg-slate-900 ${
-                deviceFrame === 'mobile' ? 'rounded-[44px] h-[780px]' : 'rounded-2xl h-[720px]'
-              }`}
-            >
-              {/* TOP TERMINAL HUD */}
-              <div className="px-3.5 sm:px-4 pt-3 pb-2.5 bg-gradient-to-b from-sky-400 via-blue-500 to-indigo-600 z-30 flex items-center justify-between text-white shadow-md border-b border-sky-300/40">
-                <div className="flex items-center gap-2">
-                  <div className="px-2.5 sm:px-3 py-1 rounded-2xl bg-gradient-to-r from-red-600 to-rose-600 border-2 border-yellow-300 shadow-md flex items-center gap-1.5 animate-pulse">
-                    <span className="text-sm font-black text-yellow-300">
+          <div className="w-full h-full flex-1 flex flex-col bg-slate-950 overflow-hidden relative select-none">
+            {/* TOP MOBILE ARCADE HUD */}
+            <div className="w-full shrink-0 z-30 bg-slate-950/95 backdrop-blur-md border-b border-slate-800/80 pt-[max(env(safe-area-inset-top),8px)] pb-1.5 px-3 flex flex-col gap-1.5 shadow-lg select-none">
+              {/* Row 1: Quick Actions & Primary Info */}
+              <div className="flex items-center justify-between gap-1.5">
+                {/* Left: Pause & Level Badge */}
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <button
+                    onClick={() => {
+                      sounds.playClick();
+                      setShowPauseModal(true);
+                    }}
+                    className="w-9 h-9 rounded-xl game-btn game-btn-dark flex items-center justify-center text-slate-200 active:scale-95 transition-transform"
+                    title="Pause Game"
+                  >
+                    <Pause className="w-4 h-4 fill-slate-200" />
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      sounds.playClick();
+                      setScreen('LEVEL_SELECT');
+                    }}
+                    className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-slate-900 border border-slate-700/80 active:scale-95 transition-transform shadow-sm"
+                    title="Change Level"
+                  >
+                    <span className="text-sm">{getWorldConfig(gameState.worldId || getWorldIdForLevel(gameState.levelId)).icon}</span>
+                    <span className="text-xs font-black text-white">Lv.{gameState.levelId}</span>
+                  </button>
+                </div>
+
+                {/* Center: Objective / Passengers Left Pill */}
+                <div className="flex-1 flex justify-center">
+                  <div className="px-3.5 py-1 rounded-2xl bg-gradient-to-r from-red-600 via-rose-600 to-red-500 border-2 border-yellow-300 shadow-md flex items-center gap-1.5 animate-pulse">
+                    <span className="text-base font-black text-yellow-300 leading-none">
                       {gameState.passengers.filter((p) => p.state === 'WAITING').length}
                     </span>
-                    <span className="text-[10px] font-extrabold text-white uppercase tracking-tight">Left</span>
-                  </div>
-
-                  <div className="text-[11px] font-black text-sky-100 flex items-center gap-1.5 flex-wrap">
-                    <button
-                      onClick={() => {
-                        sounds.playClick();
-                        setScreen('LEVEL_SELECT');
-                      }}
-                      className="px-2 py-0.5 rounded-lg bg-sky-950/70 border border-sky-300/40 text-[9px] font-black uppercase text-sky-200 hover:text-white flex items-center gap-1"
-                      title="Tap to view Worlds"
-                    >
-                      <span>{getWorldConfig(gameState.worldId || getWorldIdForLevel(gameState.levelId)).icon}</span>
-                      <span>{getWorldConfig(gameState.worldId || getWorldIdForLevel(gameState.levelId)).name}</span>
-                    </button>
-                    <span>•</span>
-                    <span>Lvl {gameState.levelId}: {gameState.levelName}</span>
-                    <span>•</span>
-                    <button
-                      onClick={() => {
-                        sounds.playClick();
-                        setScreen('LEVEL_SELECT');
-                      }}
-                      className={`px-2 py-0.5 rounded-lg text-[9px] font-black uppercase tracking-wider border shadow-sm transition-transform active:scale-95 ${
-                        gameState.difficulty === Difficulty.CASUAL
-                          ? 'bg-emerald-500/90 border-emerald-300 text-white'
-                          : gameState.difficulty === Difficulty.EXPERT
-                          ? 'bg-amber-400 border-amber-200 text-slate-950 font-black'
-                          : 'bg-blue-600/90 border-blue-300 text-white'
-                      }`}
-                      title="Current Difficulty - Tap to switch"
-                    >
-                      {gameState.difficulty || 'HARD'}
-                    </button>
-                    <span>•</span>
-                    <span>
-                      Bays: {gameState.parkingSlots.filter((s) => s.vehicleId !== null).length}/{gameState.unlockedDocksCount}
+                    <span className="text-[10px] font-black text-white uppercase tracking-wider">
+                      WAITING
                     </span>
                   </div>
                 </div>
 
-                {/* Moves, Timer & Restart */}
-                <div className="flex items-center gap-1.5 sm:gap-2">
-                  {/* COUNTDOWN TIMER BADGE */}
-                  <div
-                    className={`px-2.5 sm:px-3 py-1 rounded-full border text-xs font-black flex items-center gap-1.5 transition-all shadow-sm ${
-                      gameState.timeLeft <= 10
-                        ? 'bg-rose-600 border-rose-300 text-white animate-pulse shadow-rose-500/50 ring-2 ring-rose-400/50'
-                        : gameState.timeLeft <= 20
-                        ? 'bg-amber-500/90 border-amber-200 text-slate-950 font-black animate-pulse'
-                        : 'bg-black/35 border-white/20 text-white'
-                    }`}
-                    title="Level Countdown Timer"
+                {/* Right: Coins, Sound & Restart */}
+                <div className="flex items-center gap-1 shrink-0">
+                  {/* Coin Stash */}
+                  <button
+                    onClick={() => {
+                      sounds.playClick();
+                      setShowShopModal(true);
+                    }}
+                    className="flex items-center gap-1 bg-amber-500/15 hover:bg-amber-500/25 border border-amber-400/40 px-2 py-1 rounded-xl text-xs font-black text-amber-300 active:scale-95 transition-transform shadow-sm"
+                    title="Coin Shop"
                   >
-                    <Timer className={`w-3.5 h-3.5 ${gameState.timeLeft <= 10 ? 'animate-spin text-yellow-300' : ''}`} />
-                    <span className="font-mono tracking-tight font-black">{formatCountdown(gameState.timeLeft)}</span>
-                  </div>
+                    <span>🪙</span>
+                    <span className="font-mono text-xs">{gameState.coins.toLocaleString()}</span>
+                    <span className="text-amber-400 text-[10px] bg-amber-400/30 px-1 rounded-md font-black">+</span>
+                  </button>
 
-                  {/* Moves */}
-                  <div
-                    className={`px-2.5 sm:px-3 py-1 rounded-full backdrop-blur-xs border text-xs font-black transition-colors ${
-                      gameState.moves <= 5
-                        ? 'bg-red-500/80 border-red-300 text-white animate-pulse'
-                        : 'bg-black/30 border-white/20 text-white'
-                    }`}
+                  {/* Sound Toggle */}
+                  <button
+                    onClick={() => {
+                      setSoundOn(!soundOn);
+                      sounds.playClick();
+                    }}
+                    className="w-8 h-8 rounded-xl game-btn game-btn-dark flex items-center justify-center text-slate-300"
+                    title="Toggle Audio"
                   >
-                    <span>{gameState.moves} Moves</span>
-                  </div>
+                    {soundOn ? <Volume2 className="w-3.5 h-3.5 text-amber-400" /> : <VolumeX className="w-3.5 h-3.5 text-slate-500" />}
+                  </button>
+
+                  {/* Quick Restart */}
                   <button
                     onClick={() => {
                       sounds.playClick();
@@ -849,141 +946,386 @@ export default function App() {
                       setShowOutOfTimeModal(false);
                       setShowOutOfMovesModal(false);
                       setShowGridlockModal(false);
+                      setShowPauseModal(false);
                     }}
-                    className="w-8 h-8 rounded-xl game-btn game-btn-dark flex items-center justify-center text-white"
+                    className="w-8 h-8 rounded-xl game-btn game-btn-dark flex items-center justify-center text-slate-300"
                     title="Restart Level"
                   >
                     <RotateCcw className="w-3.5 h-3.5" />
                   </button>
+
+                  {/* How to Play & FAQ Guide */}
+                  <button
+                    onClick={() => {
+                      sounds.playClick();
+                      setShowHelpModal(true);
+                    }}
+                    className="w-8 h-8 rounded-xl game-btn game-btn-dark flex items-center justify-center text-amber-300"
+                    title="How to Play & FAQ"
+                  >
+                    <HelpCircle className="w-3.5 h-3.5" />
+                  </button>
                 </div>
               </div>
 
-              {/* URGENCY COUNTDOWN PROGRESS BAR */}
-              <div className="w-full h-1.5 bg-black/50 overflow-hidden z-30">
+              {/* Row 2: Secondary Status Strip (Timer, Moves, Level Name) */}
+              <div className="flex items-center justify-between text-xs font-black px-0.5">
+                {/* Timer Badge */}
+                <div
+                  className={`px-2.5 py-0.5 rounded-full border text-[11px] font-black flex items-center gap-1 transition-all ${
+                    gameState.timeLeft <= 10
+                      ? 'bg-rose-600 border-rose-300 text-white animate-pulse shadow-rose-500/50 ring-2 ring-rose-400/50'
+                      : gameState.timeLeft <= 20
+                      ? 'bg-amber-500/90 border-amber-200 text-slate-950 font-black animate-pulse'
+                      : 'bg-slate-900 border-slate-700/80 text-slate-200'
+                  }`}
+                  title="Level Countdown"
+                >
+                  <Timer className={`w-3 h-3 ${gameState.timeLeft <= 10 ? 'animate-spin text-yellow-300' : 'text-sky-400'}`} />
+                  <span className="font-mono tracking-tight">{formatCountdown(gameState.timeLeft)}</span>
+                </div>
+
+                {/* Level Name & World */}
+                <div className="text-[11px] font-bold text-slate-400 truncate max-w-[150px] text-center">
+                  {gameState.levelName}
+                </div>
+
+                {/* Moves Badge */}
+                <div
+                  className={`px-2.5 py-0.5 rounded-full border text-[11px] font-black transition-colors ${
+                    gameState.moves <= 5
+                      ? 'bg-red-500/90 border-red-300 text-white animate-pulse'
+                      : 'bg-slate-900 border-slate-700/80 text-slate-200'
+                  }`}
+                  title="Remaining Moves"
+                >
+                  <span>{gameState.moves} Moves</span>
+                </div>
+              </div>
+
+              {/* URGENCY PROGRESS LINE */}
+              <div className="w-full h-1 bg-black/60 rounded-full overflow-hidden">
                 <div
                   className={`h-full transition-all duration-300 ${
                     gameState.timeLeft <= 10
                       ? 'bg-rose-500 animate-pulse'
                       : gameState.timeLeft <= 20
                       ? 'bg-amber-400'
-                      : 'bg-cyan-300'
+                      : 'bg-gradient-to-r from-sky-400 to-emerald-400'
                   }`}
                   style={{
                     width: `${Math.max(0, Math.min(100, (gameState.timeLeft / (gameState.totalTime || 75)) * 100))}%`,
                   }}
                 />
               </div>
+            </div>
 
-              {/* ARCADE STREAK COMBO BANNER */}
-              {gameState.comboCount >= 2 && (
-                <div className="absolute top-24 left-1/2 -translate-x-1/2 z-40 pointer-events-none animate-bounce">
-                  <div className="bg-gradient-to-r from-amber-500 via-orange-500 to-red-500 text-white font-black text-xs px-4 py-1.5 rounded-full shadow-2xl flex items-center gap-2 border-2 border-yellow-200">
-                    <Flame className="w-4 h-4 text-yellow-200 animate-spin" />
-                    <span>{gameState.comboCount}X COMBO! SPEEDY ESCAPE!</span>
-                  </div>
+            {/* ARCADE STREAK COMBO BANNER */}
+            {gameState.comboCount >= 2 && (
+              <div className="absolute top-24 left-1/2 -translate-x-1/2 z-40 pointer-events-none animate-bounce">
+                <div className="bg-gradient-to-r from-amber-500 via-orange-500 to-red-500 text-white font-black text-xs px-4 py-1.5 rounded-full shadow-2xl flex items-center gap-2 border-2 border-yellow-200">
+                  <Flame className="w-4 h-4 text-yellow-200 animate-spin" />
+                  <span>{gameState.comboCount}X COMBO! SPEEDY ESCAPE!</span>
                 </div>
-              )}
+              </div>
+            )}
 
-              {/* 3D GAME ARENA */}
-              <div ref={arenaContainerRef} className="flex-1 relative w-full h-full">
-                <BusMadnessArena
-                  gameState={gameState}
-                  onVehicleTapRequest={handleVehicleTap}
-                  onVehicleArrivedAtDock={handleVehicleArrived}
-                  onDockUnlockClicked={() => controller.useBooster('extraSpace')}
-                  activeHintId={gameState.activeHintVehicleId}
-                  isCompleted={!!victoryData || gameState.status === GameStatus.COMPLETED}
-                  onParkingEvaluated={handleParkingEvaluated}
-                />
+            {/* 3D GAME ARENA */}
+            <div ref={arenaContainerRef} className="flex-1 relative w-full h-full overflow-hidden">
+              <BusMadnessArena
+                gameState={gameState}
+                onVehicleTapRequest={handleVehicleTap}
+                onVehicleArrivedAtDock={handleVehicleArrived}
+                onDockUnlockClicked={() => controller.useBooster('extraSpace')}
+                activeHintId={gameState.activeHintVehicleId}
+                isCompleted={!!victoryData || gameState.status === GameStatus.COMPLETED}
+                onParkingEvaluated={handleParkingEvaluated}
+              />
+            </div>
+
+            {/* DEDICATED COMMERCIAL BOTTOM OBJECTIVE PRESENTATION */}
+            <div className="px-3.5 py-2.5 bg-slate-900/95 border-t border-slate-800/90 z-30 flex items-center justify-between gap-2 shadow-lg game-objective-card">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="w-8 h-8 rounded-xl bg-amber-500/20 border border-amber-400/40 flex items-center justify-center text-amber-300 shrink-0">
+                  <Target className="w-4 h-4 text-amber-400" />
+                </div>
+                <div className="min-w-0">
+                  <div className="text-[10px] uppercase font-black tracking-wider text-amber-400 leading-none">
+                    Mission Objective
+                  </div>
+                  <div className="text-xs sm:text-sm font-black text-white truncate tracking-wide mt-0.5 drop-shadow-xs">
+                    {gameState.objective || 'CLEAR THE TRAFFIC & MATCH PASSENGERS'}
+                  </div>
+                  {gameState.hintMessage && (
+                    <div className="text-[10px] text-sky-300 font-semibold truncate mt-0.5">
+                      {gameState.hintMessage}
+                    </div>
+                  )}
+                </div>
               </div>
 
-              {/* HINT BAR */}
-              <div className="px-4 py-2 bg-slate-900/95 border-t border-slate-800 z-30 flex items-center justify-between text-xs font-bold text-slate-300">
-                <div className="flex items-center gap-1.5 text-amber-400">
-                  <Sparkles className="w-4 h-4 text-amber-400 shrink-0" />
-                  <span className="truncate">{gameState.hintMessage}</span>
-                </div>
-
+              <div className="flex items-center gap-1.5 shrink-0">
                 {gameState.unlockedDocksCount < 6 && (
                   <button
-                    onClick={() => controller.useBooster('extraSpace')}
-                    className="flex items-center gap-1 px-3 py-1 rounded-xl game-btn game-btn-emerald text-white text-[11px] font-black shrink-0 ml-2"
+                    onClick={() => handleUseBooster('extraSpace')}
+                    className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl game-btn game-btn-emerald text-white text-[10px] font-black shrink-0 shadow-sm"
+                    title="Unlock Parking Bay"
                   >
                     <PlusCircle className="w-3.5 h-3.5" />
-                    <span>Bay ({gameState.unlockedDocksCount}/6)</span>
+                    <span>+ BAY ({gameState.unlockedDocksCount}/6)</span>
                   </button>
                 )}
               </div>
+            </div>
 
-              {/* CHUNKY BOOSTERS DOCK (TACTILE 3D BUTTONS) */}
-              <div className="p-3 bg-slate-950 border-t border-slate-800/80 z-30 flex items-center justify-around gap-2 text-white">
-                {/* Hint Booster */}
+            {/* CHUNKY BOOSTERS DOCK (TACTILE MOBILE THUMB ZONE) */}
+            <div className="px-3 pt-2 pb-[max(env(safe-area-inset-bottom),12px)] bg-slate-950 border-t border-slate-800/90 z-30 flex items-center justify-around gap-2 text-white">
+              {/* Hint Booster */}
+              <button
+                onClick={() => handleUseBooster('hint')}
+                className="flex flex-col items-center gap-1 active:scale-90 transition-transform group flex-1 max-w-[72px]"
+                title="Hint: highlights best vehicle move"
+              >
+                <div className="relative w-13 h-13 rounded-2xl bg-gradient-to-tr from-amber-500 to-yellow-400 flex items-center justify-center game-booster-btn border-2 border-yellow-300/40 text-slate-950 shadow-md">
+                  <Lightbulb className="w-5 h-5 fill-slate-950" />
+                  <span className="absolute -top-1.5 -right-1.5 px-1.5 h-5 rounded-full bg-slate-900 text-amber-300 text-[10px] font-black flex items-center justify-center border-2 border-slate-950 shadow-sm">
+                    {gameState.availableBoosters.hint > 0 ? gameState.availableBoosters.hint : 'FREE'}
+                  </span>
+                </div>
+                <span className="text-[10px] font-black text-slate-400 group-hover:text-amber-400">Hint</span>
+              </button>
+
+              {/* Shuffle Booster */}
+              <button
+                onClick={() => handleUseBooster('shuffle')}
+                className="flex flex-col items-center gap-1 active:scale-90 transition-transform group flex-1 max-w-[72px]"
+                title="Shuffle: reverses blocked vehicles to open opposite escape routes"
+              >
+                <div className="relative w-13 h-13 rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center game-booster-btn border-2 border-blue-400/40 shadow-md">
+                  <Shuffle className="w-5 h-5 text-white" />
+                  <span className="absolute -top-1.5 -right-1.5 px-1.5 h-5 rounded-full bg-amber-400 text-slate-950 text-[10px] font-black flex items-center justify-center border-2 border-slate-950 shadow-sm">
+                    {gameState.availableBoosters.shuffle > 0 ? gameState.availableBoosters.shuffle : '80🪙'}
+                  </span>
+                </div>
+                <span className="text-[10px] font-black text-slate-400 group-hover:text-blue-400">Shuffle</span>
+              </button>
+
+              {/* Passenger Swap / Magnet Booster */}
+              <button
+                onClick={() => handleUseBooster('passengerSwap')}
+                className="flex flex-col items-center gap-1 active:scale-90 transition-transform group flex-1 max-w-[72px]"
+                title="Magnet: sorts passengers to match docked buses"
+              >
+                <div className="relative w-13 h-13 rounded-2xl bg-gradient-to-tr from-purple-600 to-pink-500 flex items-center justify-center game-booster-btn border-2 border-purple-400/40 shadow-md">
+                  <Magnet className="w-5 h-5 text-white" />
+                  <span className="absolute -top-1.5 -right-1.5 px-1.5 h-5 rounded-full bg-amber-400 text-slate-950 text-[10px] font-black flex items-center justify-center border-2 border-slate-950 shadow-sm">
+                    {gameState.availableBoosters.passengerSwap > 0 ? gameState.availableBoosters.passengerSwap : '90🪙'}
+                  </span>
+                </div>
+                <span className="text-[10px] font-black text-slate-400 group-hover:text-purple-400">Magnet</span>
+              </button>
+
+              {/* Undo Booster */}
+              <button
+                onClick={() => handleUseBooster('undo')}
+                className="flex flex-col items-center gap-1 active:scale-90 transition-transform group flex-1 max-w-[72px]"
+                title="Undo last vehicle move"
+              >
+                <div className="relative w-13 h-13 rounded-2xl bg-gradient-to-tr from-slate-700 to-slate-600 flex items-center justify-center game-booster-btn border-2 border-slate-500/40 shadow-md">
+                  <Undo2 className="w-5 h-5 text-white" />
+                  <span className="absolute -top-1.5 -right-1.5 px-1.5 h-5 rounded-full bg-amber-400 text-slate-950 text-[10px] font-black flex items-center justify-center border-2 border-slate-950 shadow-sm">
+                    {gameState.availableBoosters.undo > 0 ? gameState.availableBoosters.undo : '50🪙'}
+                  </span>
+                </div>
+                <span className="text-[10px] font-black text-slate-400 group-hover:text-slate-300">Undo</span>
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* ========================================================
+            MODALS: LEVEL INTRO, PAUSE, VICTORY, GRIDLOCK, OUT OF MOVES, SHOP, DAILY
+           ======================================================== */}
+
+        {/* 00. LEVEL INTRO PRE-FLIGHT MODAL */}
+        {levelIntro && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-4 animate-in fade-in duration-200">
+            <div className="w-full max-w-sm game-modal-3d border-2 border-emerald-400/80 rounded-[36px] p-6 text-center shadow-2xl relative overflow-hidden">
+              {/* World District Pill */}
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-sky-500/20 border border-sky-400/30 text-sky-300 text-xs font-black uppercase tracking-wider mb-2">
+                <span>{getWorldConfig(levelIntro.world).icon}</span>
+                <span>{getWorldConfig(levelIntro.world).name}</span>
+              </div>
+
+              <h2 className="text-2xl sm:text-3xl font-black text-white mb-0.5">
+                Level {levelIntro.id}
+              </h2>
+              <p className="text-xs text-slate-300 font-bold mb-4">
+                {levelIntro.name}
+              </p>
+
+              {/* Mission Objective Card */}
+              <div className="bg-amber-500/15 border border-amber-400/30 rounded-2xl p-3 mb-4 text-left">
+                <span className="text-[10px] uppercase font-black tracking-wider text-amber-400 block mb-0.5">
+                  Target Objective
+                </span>
+                <span className="text-xs sm:text-sm font-black text-white">
+                  {levelIntro.objective}
+                </span>
+              </div>
+
+              {/* Mission Stats */}
+              <div className="bg-slate-950/70 border border-slate-800 rounded-2xl p-3 mb-5 flex items-center justify-around shadow-inner">
+                <div>
+                  <span className="text-[10px] uppercase font-bold text-slate-400 block">Time</span>
+                  <span className="text-sm font-black text-sky-400">⏱️ {levelIntro.timeLimit}s</span>
+                </div>
+                <div className="h-8 w-px bg-slate-800" />
+                <div>
+                  <span className="text-[10px] uppercase font-bold text-slate-400 block">Moves Par</span>
+                  <span className="text-sm font-black text-emerald-400">🎯 {levelIntro.parMoves}</span>
+                </div>
+                <div className="h-8 w-px bg-slate-800" />
+                <div>
+                  <span className="text-[10px] uppercase font-bold text-slate-400 block">Reward</span>
+                  <span className="text-sm font-black text-amber-400">🪙 +50</span>
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-2.5">
                 <button
-                  onClick={() => controller.useBooster('hint')}
-                  className="flex flex-col items-center gap-1 active:scale-95 transition-transform group"
-                  title="Hint: highlights best vehicle move"
+                  onClick={() => {
+                    handleLevelSelect(levelIntro.id, selectedDifficulty);
+                    setLevelIntro(null);
+                  }}
+                  className="w-full py-4 rounded-2xl game-btn game-btn-emerald shine-sweep text-white font-black text-sm flex items-center justify-center gap-2 shadow-lg"
                 >
-                  <div className="relative w-12 h-12 rounded-2xl bg-gradient-to-tr from-amber-500 to-yellow-400 flex items-center justify-center game-booster-btn border-2 border-yellow-300/40 text-slate-950">
-                    <Lightbulb className="w-5 h-5 fill-slate-950" />
-                    <span className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-slate-900 text-amber-300 text-[10px] font-black flex items-center justify-center border-2 border-slate-950 shadow-sm">
-                      {gameState.availableBoosters.hint}
-                    </span>
-                  </div>
-                  <span className="text-[10px] font-black text-slate-400 group-hover:text-amber-400">Hint</span>
+                  <Play className="w-5 h-5 fill-white" />
+                  <span>START PUZZLE</span>
                 </button>
 
-                {/* Shuffle Booster */}
                 <button
-                  onClick={() => controller.useBooster('shuffle')}
-                  className="flex flex-col items-center gap-1 active:scale-95 transition-transform group"
-                  title="Shuffle: rotates vehicles to open escape routes"
+                  onClick={() => setLevelIntro(null)}
+                  className="w-full py-2.5 rounded-2xl bg-transparent hover:bg-slate-800 text-slate-400 font-bold text-xs transition-colors"
                 >
-                  <div className="relative w-12 h-12 rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center game-booster-btn border-2 border-blue-400/40">
-                    <Shuffle className="w-5 h-5 text-white" />
-                    <span className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-amber-400 text-slate-950 text-[10px] font-black flex items-center justify-center border-2 border-slate-950 shadow-sm">
-                      {gameState.availableBoosters.shuffle}
-                    </span>
-                  </div>
-                  <span className="text-[10px] font-black text-slate-400 group-hover:text-blue-400">Shuffle</span>
-                </button>
-
-                {/* Passenger Swap / Magnet Booster */}
-                <button
-                  onClick={() => controller.useBooster('passengerSwap')}
-                  className="flex flex-col items-center gap-1 active:scale-95 transition-transform group"
-                  title="Magnet: sorts passengers to match docked buses"
-                >
-                  <div className="relative w-12 h-12 rounded-2xl bg-gradient-to-tr from-purple-600 to-pink-500 flex items-center justify-center game-booster-btn border-2 border-purple-400/40">
-                    <Magnet className="w-5 h-5 text-white" />
-                    <span className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-amber-400 text-slate-950 text-[10px] font-black flex items-center justify-center border-2 border-slate-950 shadow-sm">
-                      {gameState.availableBoosters.passengerSwap}
-                    </span>
-                  </div>
-                  <span className="text-[10px] font-black text-slate-400 group-hover:text-purple-400">Magnet</span>
-                </button>
-
-                {/* Undo Booster */}
-                <button
-                  onClick={() => controller.useBooster('undo')}
-                  className="flex flex-col items-center gap-1 active:scale-95 transition-transform group"
-                  title="Undo last vehicle move"
-                >
-                  <div className="relative w-12 h-12 rounded-2xl bg-gradient-to-tr from-slate-700 to-slate-600 flex items-center justify-center game-booster-btn border-2 border-slate-500/40">
-                    <Undo2 className="w-5 h-5 text-white" />
-                    <span className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-amber-400 text-slate-950 text-[10px] font-black flex items-center justify-center border-2 border-slate-950 shadow-sm">
-                      {gameState.availableBoosters.undo}
-                    </span>
-                  </div>
-                  <span className="text-[10px] font-black text-slate-400 group-hover:text-slate-300">Undo</span>
+                  Cancel
                 </button>
               </div>
             </div>
           </div>
         )}
 
-        {/* ========================================================
-            MODALS: VICTORY, GRIDLOCK, OUT OF MOVES, SHOP, DAILY
-           ======================================================== */}
+        {/* 0. PAUSE MODAL */}
+        {showPauseModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-4 animate-in fade-in duration-200">
+            <div className="w-full max-w-sm game-modal-3d border-2 border-sky-400/80 rounded-[36px] p-6 text-center shadow-2xl">
+              <div className="w-16 h-16 rounded-3xl bg-sky-500/20 border-2 border-sky-400/40 flex items-center justify-center mx-auto mb-3 shadow-lg shadow-sky-500/20">
+                <Pause className="w-8 h-8 text-sky-400 fill-sky-400" />
+              </div>
+              <h2 className="text-2xl font-black text-white mb-0.5">GAME PAUSED</h2>
+              <p className="text-xs text-sky-200 font-bold mb-4">
+                Level {gameState.levelId}: {gameState.levelName}
+              </p>
+
+              {/* Level Quick Stats */}
+              <div className="bg-slate-950/70 border border-slate-800 rounded-2xl p-3 mb-5 flex items-center justify-around shadow-inner">
+                <div>
+                  <span className="text-[10px] uppercase font-bold text-slate-400 block">Waiting</span>
+                  <span className="text-sm font-black text-rose-400">
+                    {gameState.passengers.filter((p) => p.state === 'WAITING').length} Left
+                  </span>
+                </div>
+                <div className="h-8 w-px bg-slate-800" />
+                <div>
+                  <span className="text-[10px] uppercase font-bold text-slate-400 block">Moves</span>
+                  <span className="text-sm font-black text-yellow-400">{gameState.moves}</span>
+                </div>
+                <div className="h-8 w-px bg-slate-800" />
+                <div>
+                  <span className="text-[10px] uppercase font-bold text-slate-400 block">Time</span>
+                  <span className="text-sm font-black text-sky-400 font-mono">{formatCountdown(gameState.timeLeft)}</span>
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-2.5">
+                {/* Resume Button */}
+                <button
+                  onClick={() => {
+                    sounds.playClick();
+                    setShowPauseModal(false);
+                  }}
+                  className="w-full py-3.5 rounded-2xl game-btn game-btn-emerald shine-sweep text-white font-black text-sm flex items-center justify-center gap-2 shadow-lg"
+                >
+                  <Play className="w-4 h-4 fill-white" />
+                  <span>RESUME GAME</span>
+                </button>
+
+                {/* Restart Level */}
+                <button
+                  onClick={() => {
+                    sounds.playClick();
+                    controller.loadLevel(gameState.levelId);
+                    setShowPauseModal(false);
+                  }}
+                  className="w-full py-3 rounded-2xl game-btn game-btn-blue text-white font-black text-xs flex items-center justify-center gap-2"
+                >
+                  <RotateCcw className="w-4 h-4" />
+                  <span>RESTART LEVEL</span>
+                </button>
+
+                {/* Sound Toggle */}
+                <button
+                  onClick={() => {
+                    setSoundOn(!soundOn);
+                    sounds.playClick();
+                  }}
+                  className="w-full py-3 rounded-2xl game-btn game-btn-amber text-slate-950 font-black text-xs flex items-center justify-center gap-2"
+                >
+                  {soundOn ? <Volume2 className="w-4 h-4 text-slate-950" /> : <VolumeX className="w-4 h-4 text-slate-950" />}
+                  <span>SOUND: {soundOn ? 'ON' : 'OFF'}</span>
+                </button>
+
+                {/* Select Level */}
+                <button
+                  onClick={() => {
+                    sounds.playClick();
+                    setShowPauseModal(false);
+                    setScreen('LEVEL_SELECT');
+                  }}
+                  className="w-full py-2.5 rounded-2xl game-btn game-btn-dark text-slate-200 font-bold text-xs flex items-center justify-center gap-2"
+                >
+                  <Grid className="w-4 h-4 text-sky-400" />
+                  <span>SELECT LEVEL</span>
+                </button>
+
+                {/* How to Play & FAQ */}
+                <button
+                  onClick={() => {
+                    sounds.playClick();
+                    setShowHelpModal(true);
+                  }}
+                  className="w-full py-2.5 rounded-2xl game-btn game-btn-dark text-amber-300 font-bold text-xs flex items-center justify-center gap-2 border border-amber-400/30"
+                >
+                  <HelpCircle className="w-4 h-4 text-amber-400" />
+                  <span>HOW TO PLAY & FAQ</span>
+                </button>
+
+                {/* Main Menu */}
+                <button
+                  onClick={() => {
+                    sounds.playClick();
+                    setShowPauseModal(false);
+                    setScreen('HOME');
+                  }}
+                  className="w-full py-2 rounded-2xl bg-transparent hover:bg-slate-800 text-slate-400 font-medium text-xs transition-colors flex items-center justify-center gap-1.5"
+                >
+                  <Home className="w-3.5 h-3.5" />
+                  <span>Main Menu</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* 1. VICTORY CELEBRATION MODAL */}
         {victoryData && (
@@ -1053,12 +1395,12 @@ export default function App() {
               <div className="flex flex-col gap-2.5">
                 <button
                   onClick={() => {
-                    const nextId = (gameState.levelId % allLevels.length) + 1;
+                    const nextId = gameState.levelId + 1;
                     handleLevelSelect(nextId);
                   }}
                   className="w-full py-4 rounded-2xl game-btn game-btn-emerald shine-sweep text-white font-black text-sm flex items-center justify-center gap-2 shadow-lg"
                 >
-                  <span>NEXT PUZZLE (LEVEL {(gameState.levelId % allLevels.length) + 1})</span>
+                  <span>NEXT PUZZLE (LEVEL {gameState.levelId + 1})</span>
                   <ArrowRight className="w-4 h-4" />
                 </button>
                 <button
@@ -1077,7 +1419,7 @@ export default function App() {
 
         {/* 2. GRIDLOCK MODAL */}
         {showGridlockModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-4">
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-4 animate-in fade-in duration-200">
             <div className="w-full max-w-sm game-modal-3d border-2 border-rose-500/80 rounded-[36px] p-6 text-center shadow-2xl">
               <div className="w-16 h-16 rounded-3xl bg-rose-500/20 border-2 border-rose-500/40 flex items-center justify-center mx-auto mb-3 shadow-lg shadow-rose-500/30 animate-pulse">
                 <AlertTriangle className="w-8 h-8 text-rose-500" />
@@ -1088,11 +1430,9 @@ export default function App() {
               </p>
 
               <div className="flex flex-col gap-2.5">
+                {/* 1. Magnet Booster */}
                 <button
-                  onClick={() => {
-                    controller.useBooster('passengerSwap');
-                    setShowGridlockModal(false);
-                  }}
+                  onClick={() => handleUseBooster('passengerSwap')}
                   className="w-full py-3.5 px-4 rounded-2xl game-btn game-btn-blue text-white font-black text-xs flex items-center justify-between shadow-md"
                 >
                   <div className="flex items-center gap-2">
@@ -1100,26 +1440,47 @@ export default function App() {
                     <span>Use Magnet (Sorts Line)</span>
                   </div>
                   <span className="text-[10px] bg-black/40 px-2 py-0.5 rounded-full font-black">
-                    {gameState.availableBoosters.passengerSwap > 0 ? `${gameState.availableBoosters.passengerSwap} Left` : '90 🪙'}
+                    {gameState.availableBoosters.passengerSwap > 0
+                      ? `${gameState.availableBoosters.passengerSwap} Left`
+                      : '90 🪙'}
                   </span>
                 </button>
 
+                {/* 2. Extra Bay Booster */}
                 {gameState.unlockedDocksCount < 6 && (
                   <button
-                    onClick={() => {
-                      controller.useBooster('extraSpace');
-                      setShowGridlockModal(false);
-                    }}
+                    onClick={() => handleUseBooster('extraSpace')}
                     className="w-full py-3 px-4 rounded-2xl game-btn game-btn-emerald text-white font-black text-xs flex items-center justify-between"
                   >
                     <div className="flex items-center gap-2">
                       <PlusCircle className="w-4 h-4" />
                       <span>Unlock 1 Extra Bay</span>
                     </div>
-                    <span className="text-[10px] bg-black/40 px-2 py-0.5 rounded-full font-black">150 🪙</span>
+                    <span className="text-[10px] bg-black/40 px-2 py-0.5 rounded-full font-black">
+                      {gameState.availableBoosters.extraSpace > 0
+                        ? `${gameState.availableBoosters.extraSpace} Left`
+                        : '150 🪙'}
+                    </span>
                   </button>
                 )}
 
+                {/* 3. Undo Booster */}
+                <button
+                  onClick={() => handleUseBooster('undo')}
+                  className="w-full py-3 px-4 rounded-2xl game-btn game-btn-amber text-slate-950 font-black text-xs flex items-center justify-between"
+                >
+                  <div className="flex items-center gap-2">
+                    <Undo2 className="w-4 h-4" />
+                    <span>Undo Last Move</span>
+                  </div>
+                  <span className="text-[10px] bg-black/40 text-amber-300 px-2 py-0.5 rounded-full font-black">
+                    {gameState.availableBoosters.undo > 0
+                      ? `${gameState.availableBoosters.undo} Left`
+                      : '50 🪙'}
+                  </span>
+                </button>
+
+                {/* 4. Restart Level */}
                 <button
                   onClick={() => {
                     setShowGridlockModal(false);
@@ -1411,152 +1772,15 @@ export default function App() {
         )}
 
         {/* 4.5. HOW TO PLAY & FAQ GUIDE MODAL */}
-        {showHelpModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-4 overflow-y-auto">
-            <div className="w-full max-w-lg game-modal-3d border-2 border-sky-400/80 rounded-[36px] p-5 sm:p-6 shadow-2xl text-left my-8 max-h-[90vh] overflow-y-auto">
-              <div className="flex items-center justify-between mb-4 sticky top-0 bg-slate-900/90 pb-2 z-10">
-                <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-xl bg-sky-500/20 border border-sky-400/40 flex items-center justify-center">
-                    <HelpCircle className="w-5 h-5 text-sky-400" />
-                  </div>
-                  <div>
-                    <h3 className="font-black text-white text-base">Bus Game 3D Guide & FAQ</h3>
-                    <p className="text-[10px] text-sky-300 font-bold">Smart Bus Jam & Color Match Rules</p>
-                  </div>
-                </div>
-                <button
-                  onClick={() => setShowHelpModal(false)}
-                  className="w-8 h-8 rounded-xl game-btn game-btn-dark text-slate-400 flex items-center justify-center text-xs font-bold"
-                >
-                  ✕
-                </button>
-              </div>
-
-              {/* HOW TO PLAY SECTION */}
-              <div className="space-y-2.5 mb-5 text-xs text-slate-300">
-                <h4 className="font-black text-amber-400 text-xs uppercase tracking-wider mb-1 flex items-center gap-1.5">
-                  <span>🚗</span> How to Play This Bus Game
-                </h4>
-
-                <div className="p-3 bg-slate-950/70 border border-slate-800 rounded-2xl flex items-start gap-3">
-                  <span className="text-xl shrink-0">🚦</span>
-                  <div>
-                    <h5 className="font-black text-white mb-0.5">1. Tap to Move Vehicles</h5>
-                    <p className="text-[11px] text-slate-400 leading-relaxed">
-                      Tap any unblocked vehicle to dispatch it along its direction arrows to the waiting docks. Organize the bus traffic carefully!
-                    </p>
-                  </div>
-                </div>
-
-                <div className="p-3 bg-slate-950/70 border border-slate-800 rounded-2xl flex items-start gap-3">
-                  <span className="text-xl shrink-0">👥</span>
-                  <div>
-                    <h5 className="font-black text-white mb-0.5">2. Match Passengers by Color</h5>
-                    <p className="text-[11px] text-slate-400 leading-relaxed">
-                      Color stickmen queue up at the terminal. They only board buses with matching colors (Red, Blue, Green, Yellow, Purple). Efficient seat sorting is key!
-                    </p>
-                  </div>
-                </div>
-
-                <div className="p-3 bg-slate-950/70 border border-slate-800 rounded-2xl flex items-start gap-3">
-                  <span className="text-xl shrink-0">🅿️</span>
-                  <div>
-                    <h5 className="font-black text-white mb-0.5">3. Avoid Traffic Jam Gridlock</h5>
-                    <p className="text-[11px] text-slate-400 leading-relaxed">
-                      You have 5 active waiting docks (unlock up to 6). If all bays are full with buses that don't match the front waiting passenger, you get gridlocked!
-                    </p>
-                  </div>
-                </div>
-
-                <div className="p-3 bg-slate-950/70 border border-slate-800 rounded-2xl flex items-start gap-3">
-                  <span className="text-xl shrink-0">🔧</span>
-                  <div>
-                    <h5 className="font-black text-white mb-0.5">4. Helpful Boosters</h5>
-                    <p className="text-[11px] text-slate-400 leading-relaxed">
-                      Stuck in a jam? Use <strong>Shuffle</strong> to rearrange passengers, <strong>Magnet</strong> to auto-fill seats, or <strong>Helicopter Rescue</strong> to lift blocked buses out!
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              {/* WHY YOU'LL LOVE THIS LOGIC GAME */}
-              <div className="mb-5 p-3.5 bg-gradient-to-br from-indigo-950/50 to-slate-950/80 border border-indigo-500/30 rounded-2xl">
-                <h4 className="font-black text-indigo-300 text-xs uppercase tracking-wider mb-2 flex items-center gap-1.5">
-                  <span>🧠</span> Senior-Friendly & ASMR Relaxing Vibe
-                </h4>
-                <div className="grid grid-cols-2 gap-2 text-[11px] text-slate-300">
-                  <div className="p-2 bg-slate-900/60 rounded-xl border border-slate-800">
-                    <span className="font-black text-white block mb-0.5">🥰 Senior-Friendly</span>
-                    <span className="text-slate-400 text-[10px]">Big bold colors, tactile feedback, and accessible controls for all ages.</span>
-                  </div>
-                  <div className="p-2 bg-slate-900/60 rounded-xl border border-slate-800">
-                    <span className="font-black text-white block mb-0.5">⚡ Offline Play</span>
-                    <span className="text-slate-400 text-[10px]">No Wi-Fi needed! Solve traffic puzzles and train your brain anywhere.</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* FAQ SECTION */}
-              <div className="space-y-2 mb-5">
-                <h4 className="font-black text-emerald-400 text-xs uppercase tracking-wider mb-1 flex items-center gap-1.5">
-                  <span>❓</span> Frequently Asked Questions (FAQ)
-                </h4>
-
-                <div className="p-2.5 bg-slate-950/60 border border-slate-800 rounded-xl text-left">
-                  <div className="font-black text-white text-[11px] mb-0.5">Q: Is this a difficult sorting game?</div>
-                  <div className="text-[10px] text-slate-400 leading-relaxed">
-                    A: It starts easy but gets tricky! As you progress, the Bus Jam levels become challenging brain teasers that test your logic and strategy skills.
-                  </div>
-                </div>
-
-                <div className="p-2.5 bg-slate-950/60 border border-slate-800 rounded-xl text-left">
-                  <div className="font-black text-white text-[11px] mb-0.5">Q: Can I play this Bus Game offline?</div>
-                  <div className="text-[10px] text-slate-400 leading-relaxed">
-                    A: Yes! This is one of the best offline bus games. You can solve traffic puzzles and sort passengers without Wi-Fi or an active internet connection.
-                  </div>
-                </div>
-
-                <div className="p-2.5 bg-slate-950/60 border border-slate-800 rounded-xl text-left">
-                  <div className="font-black text-white text-[11px] mb-0.5">Q: Is this puzzle game suitable for seniors?</div>
-                  <div className="text-[10px] text-slate-400 leading-relaxed">
-                    A: Absolutely! With big, bold colors and simple tap controls, it is a great brain training game for seniors that helps memory and logical thinking in a relaxing environment.
-                  </div>
-                </div>
-              </div>
-
-              {/* LEGAL LINKS */}
-              <div className="pt-3 border-t border-slate-800/80 mb-4 flex items-center justify-center gap-4 text-[11px] font-bold text-slate-400">
-                <a
-                  href="https://busmadness.gurugame.ai/policy.html"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="hover:text-sky-400 underline underline-offset-2 transition-colors"
-                >
-                  Privacy Policy
-                </a>
-                <span>•</span>
-                <a
-                  href="https://busmadness.gurugame.ai/termsofservice.html"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="hover:text-sky-400 underline underline-offset-2 transition-colors"
-                >
-                  Terms of Service
-                </a>
-              </div>
-
-              <button
-                onClick={() => {
-                  sounds.playClick();
-                  setShowHelpModal(false);
-                }}
-                className="w-full py-3.5 rounded-2xl game-btn game-btn-emerald shine-sweep text-white text-xs font-black flex items-center justify-center gap-2"
-              >
-                <span>GOT IT! START THE PUZZLE</span>
-              </button>
-            </div>
-          </div>
-        )}
+        <GameGuideModal
+          isOpen={showHelpModal}
+          onClose={() => setShowHelpModal(false)}
+          onPlayNow={() => {
+            setShowHelpModal(false);
+            setShowPauseModal(false);
+            setScreen('GAME');
+          }}
+        />
 
         {/* 5. DAILY REWARDS MODAL */}
         <DailyRewardModal
@@ -1576,35 +1800,35 @@ export default function App() {
         />
       </main>
 
-      {/* FOOTER WITH LEGAL LINKS & GAME COPY */}
-      <footer className="w-full border-t border-slate-800/60 bg-slate-950/90 py-3 px-4 text-center text-xs text-slate-500">
-        <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2">
-          <div className="flex items-center gap-2 font-bold text-slate-400 text-[11px]">
-            <span>🚌 Bus Game 3D: Color Jam & Traffic Puzzle</span>
-            <span className="hidden sm:inline">•</span>
-            <span className="text-slate-500 hidden sm:inline">Clear the Bus Jam & Sort Passengers</span>
+      {/* FOOTER WITH LEGAL LINKS & GAME COPY (Only shown on Menu / Level Select) */}
+      {screen !== 'GAME' && (
+        <footer className="w-full border-t border-slate-800/60 bg-slate-950/90 py-2.5 px-4 text-center text-xs text-slate-500 shrink-0">
+          <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-1.5">
+            <div className="flex items-center gap-2 font-bold text-slate-400 text-[11px]">
+              <span>🚌 Bus Game 3D: Color Jam & Traffic Puzzle</span>
+            </div>
+            <div className="flex items-center gap-3 text-[11px] font-bold">
+              <a
+                href="https://busmadness.gurugame.ai/policy.html"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-slate-400 hover:text-sky-400 transition-colors"
+              >
+                Privacy Policy
+              </a>
+              <span className="text-slate-700">•</span>
+              <a
+                href="https://busmadness.gurugame.ai/termsofservice.html"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-slate-400 hover:text-sky-400 transition-colors"
+              >
+                Terms of Service
+              </a>
+            </div>
           </div>
-          <div className="flex items-center gap-3 text-[11px] font-bold">
-            <a
-              href="https://busmadness.gurugame.ai/policy.html"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-slate-400 hover:text-sky-400 transition-colors"
-            >
-              Privacy Policy
-            </a>
-            <span className="text-slate-700">•</span>
-            <a
-              href="https://busmadness.gurugame.ai/termsofservice.html"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-slate-400 hover:text-sky-400 transition-colors"
-            >
-              Terms of Service
-            </a>
-          </div>
-        </div>
-      </footer>
+        </footer>
+      )}
     </div>
   );
 }

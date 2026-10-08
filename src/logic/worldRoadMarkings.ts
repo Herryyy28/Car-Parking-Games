@@ -86,7 +86,7 @@ export class WorldRoadMarkingsSystem {
       const runwayStripe = new THREE.Mesh(new THREE.BoxGeometry(18.0, 0.025, 0.2), runwayLineMat);
       runwayStripe.position.set(0, 0.19, 0.5);
       this.markingsGroup.add(runwayStripe);
-    } else if (theme.propType === 'downtown' || theme.propType === 'night') {
+    } else if (theme.propType === 'downtown' || theme.propType === 'night' || theme.propType === 'sunset') {
       // Neon Cyber glowing lane dividers
       const glowMat = new THREE.MeshStandardMaterial({
         color: accentColor,

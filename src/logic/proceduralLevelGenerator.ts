@@ -43,47 +43,63 @@ export class ProceduralLevelGenerator {
       return (seed - 1) / 2147483646;
     };
 
-    const world = Math.min(8, Math.floor((levelId - 1) / 10) + 1);
+    // World calculation: 5 levels per world across 8 worlds
+    const world = Math.min(8, Math.floor((levelId - 1) / 5) + 1);
 
-    // Grid dimensions scale with level progression
-    const rows = 7;
-    const cols = 7;
-
-    // Difficulty-weighted vehicle counts
-    const diffConfig = DIFFICULTY_CONFIGS[difficulty] || DIFFICULTY_CONFIGS[Difficulty.HARD];
-    const baseVehicleCount = Math.min(
-      11,
-      Math.max(4, Math.floor(4 + (levelId * 0.45) * diffConfig.obstacleDensity))
-    );
-
-    // Attempt generation with solvability validation (up to 25 attempts)
-    let candidateLevel: LevelData | null = null;
-
-    for (let attempt = 0; attempt < 25; attempt++) {
-      const generated = this.attemptGenerateLayout(
-        levelId,
-        world,
-        rows,
-        cols,
-        baseVehicleCount,
-        random
-      );
-
-      // Verify that the candidate level has a valid solution sequence
-      if (this.verifySolvability(generated)) {
-        candidateLevel = generated;
-        break;
-      }
+    // Grid dimensions scale dynamically with level progression (6x6 -> 7x7 -> 7x8 -> 8x8)
+    let rows = 7;
+    let cols = 7;
+    if (levelId <= 3) {
+      rows = 6;
+      cols = 6;
+    } else if (levelId <= 15) {
+      rows = 7;
+      cols = 7;
+    } else if (levelId <= 30) {
+      rows = 7;
+      cols = 8;
+    } else {
+      rows = 8;
+      cols = 8;
     }
 
-    // Fallback: If strict solvability check took too many iterations, return relaxed layout
+    // Difficulty-weighted vehicle counts
+    const diffMultiplier = difficulty === Difficulty.CASUAL ? 0.8 : difficulty === Difficulty.EXPERT ? 1.25 : 1.0;
+    const baseVehicleCount = Math.min(
+      11,
+      Math.max(4, Math.floor(4 + (levelId * 0.45) * diffMultiplier))
+    );
+
+    // Attempt generation with strict 100% solvability validation
+    let candidateLevel: LevelData | null = null;
+    let currentCount = baseVehicleCount;
+
+    while (!candidateLevel && currentCount >= 3) {
+      for (let attempt = 0; attempt < 40; attempt++) {
+        const generated = this.attemptGenerateLayout(
+          levelId,
+          world,
+          rows,
+          cols,
+          currentCount,
+          random
+        );
+
+        if (this.verifySolvability(generated)) {
+          candidateLevel = generated;
+          break;
+        }
+      }
+      currentCount--;
+    }
+
     if (!candidateLevel) {
       candidateLevel = this.attemptGenerateLayout(
         levelId,
         world,
         rows,
         cols,
-        Math.max(4, baseVehicleCount - 2),
+        4,
         random
       );
     }
@@ -213,12 +229,19 @@ export class ProceduralLevelGenerator {
     const parMoves = Math.max(12, Math.ceil(vehicles.length * 1.8));
     const timeLimit = Math.max(45, Math.ceil(vehicles.length * 12));
 
+    const busCount = vehicles.filter((v) => v.type === VehicleType.BUS).length;
+    const objective =
+      busCount > 0
+        ? `SORT ${busCount} BUSES & CLEAR ${vehicles.length} VEHICLES`
+        : `CLEAR ${vehicles.length} VEHICLES FROM THE LOT`;
+
     return {
       id: levelId,
       name: `Procedural Junction #${levelId}`,
       world,
       parMoves,
       timeLimit,
+      objective,
       grid: { rows, cols },
       vehicles,
       passengers,
@@ -279,7 +302,7 @@ export class ProceduralLevelGenerator {
       }
     }
 
-    // Level is solvable if at least 75% of vehicles can be freed without boosters
-    return clearedCount >= Math.max(1, Math.floor(simVehicles.length * 0.75));
+    // Level is only considered solvable if 100% of vehicles can be freed
+    return clearedCount >= simVehicles.length;
   }
 }

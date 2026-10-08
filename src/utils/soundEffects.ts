@@ -20,7 +20,25 @@ class SoundManager {
     }
   }
 
+  private hasUserInteracted = false;
+
+  private setupInteractionListener() {
+    if (typeof window !== 'undefined' && !this.hasUserInteracted) {
+      const onInteract = () => {
+        this.hasUserInteracted = true;
+        window.removeEventListener('pointerdown', onInteract);
+        window.removeEventListener('touchstart', onInteract);
+        window.removeEventListener('keydown', onInteract);
+      };
+      window.addEventListener('pointerdown', onInteract, { passive: true, once: true });
+      window.addEventListener('touchstart', onInteract, { passive: true, once: true });
+      window.addEventListener('keydown', onInteract, { passive: true, once: true });
+    }
+  }
+
   private triggerHaptic(ms: number | number[] = 30) {
+    this.setupInteractionListener();
+    if (!this.hasUserInteracted) return;
     if (this.vibrationEnabled && typeof navigator !== 'undefined' && navigator.vibrate) {
       try {
         navigator.vibrate(ms);
@@ -96,6 +114,11 @@ class SoundManager {
       osc.start();
       osc.stop(this.ctx!.currentTime + 0.22);
     });
+  }
+
+  // Alias for physical bump/collision sound
+  bump() {
+    this.playBlocked();
   }
 
   // Passenger Boarding Chime

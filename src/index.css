@@ -6,12 +6,20 @@
     -webkit-tap-highlight-color: transparent;
     user-select: none;
     -webkit-user-select: none;
+    touch-action: manipulation;
   }
 
-  body {
+  html, body, #root {
+    width: 100%;
+    height: 100%;
+    height: 100dvh;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    position: fixed;
+    inset: 0;
     background-color: #080d1a;
     color: #f8fafc;
-    overflow-x: hidden;
   }
 }
 
@@ -240,3 +248,75 @@
     left: 140%;
   }
 }
+
+/* ========================================================
+   CONNECTED ROADMAP & PROGRESSION PATH
+   ======================================================== */
+.roadmap-container {
+  position: relative;
+  width: 100%;
+}
+
+.roadmap-path-svg {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.roadmap-node {
+  position: relative;
+  z-index: 2;
+  transition: transform 0.15s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.15s ease;
+}
+.roadmap-node:hover {
+  transform: scale(1.06);
+}
+.roadmap-node:active {
+  transform: scale(0.95);
+}
+
+.roadmap-node-completed {
+  background: linear-gradient(135deg, #059669 0%, #10b981 100%);
+  border: 3px solid #6ee7b7;
+  box-shadow: 0 6px 0 #047857, 0 8px 18px rgba(16, 185, 129, 0.4);
+}
+
+.roadmap-node-current {
+  background: linear-gradient(135deg, #f59e0b 0%, #fbbf24 100%);
+  border: 3px solid #fef08a;
+  box-shadow: 0 6px 0 #b45309, 0 0 24px rgba(245, 158, 11, 0.6);
+  animation: currentPulse 1.8s infinite ease-in-out;
+}
+
+.roadmap-node-locked {
+  background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+  border: 2px solid #334155;
+  box-shadow: 0 4px 0 #020617;
+  opacity: 0.72;
+}
+
+@keyframes currentPulse {
+  0%, 100% {
+    transform: scale(1);
+    box-shadow: 0 6px 0 #b45309, 0 0 16px rgba(245, 158, 11, 0.5);
+  }
+  50% {
+    transform: scale(1.05);
+    box-shadow: 0 6px 0 #b45309, 0 0 28px rgba(245, 158, 11, 0.85);
+  }
+}
+
+/* ========================================================
+   COMMERCIAL BOTTOM OBJECTIVE PRESENTATION
+   ======================================================== */
+.game-objective-card {
+  background: linear-gradient(180deg, rgba(15, 23, 42, 0.95) 0%, rgba(8, 13, 26, 0.98) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.4), inset 0 1px 1px rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
+}
+

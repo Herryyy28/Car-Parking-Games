@@ -42,7 +42,12 @@ import {
 
 interface BusMadnessArenaProps {
   gameState: GameState;
-  onVehicleTapRequest: (vehicleId: string) => void;
+  onVehicleTapRequest: (vehicleId: string) => {
+    success: boolean;
+    blockerId: string | null;
+    dockIndex?: number;
+    reason?: string;
+  } | void;
   onVehicleArrivedAtDock: (vehicleId: string, dockIndex: number) => void;
   onDockUnlockClicked: () => void;
   activeHintId: string | null;
@@ -56,19 +61,28 @@ const DOCK_Z = -6.8;
 const CELL_SIZE = 2.2;
 const GRID_OFFSET_Z = 4.5;
 
-function gridToWorld(row: number, col: number, length: number, direction: Direction): { x: number; z: number } {
+function gridToWorld(
+  row: number,
+  col: number,
+  length: number,
+  direction: Direction,
+  gridRows = 7,
+  gridCols = 7
+): { x: number; z: number } {
   const isHorizontal = direction === Direction.LEFT || direction === Direction.RIGHT;
+  const halfCols = (gridCols - 1) / 2;
+  const halfRows = (gridRows - 1) / 2;
   if (isHorizontal) {
     const centerCol = col + (length - 1) / 2;
     return {
-      x: (centerCol - 3) * CELL_SIZE,
-      z: (row - 3) * CELL_SIZE + GRID_OFFSET_Z,
+      x: (centerCol - halfCols) * CELL_SIZE,
+      z: (row - halfRows) * CELL_SIZE + GRID_OFFSET_Z,
     };
   } else {
     const centerRow = row + (length - 1) / 2;
     return {
-      x: (col - 3) * CELL_SIZE,
-      z: (centerRow - 3) * CELL_SIZE + GRID_OFFSET_Z,
+      x: (col - halfCols) * CELL_SIZE,
+      z: (centerRow - halfRows) * CELL_SIZE + GRID_OFFSET_Z,
     };
   }
 }
@@ -84,6 +98,166 @@ function directionToAngle(direction: Direction): number {
     case Direction.RIGHT:
       return -Math.PI / 2; // Local +X
   }
+interface HumanoidRig {
+  root: THREE.Group;
+  hips: THREE.Group;
+  torso: THREE.Mesh;
+  head: THREE.Group;
+  leftArm: THREE.Group;
+  rightArm: THREE.Group;
+  leftLeg: THREE.Group;
+  rightLeg: THREE.Group;
+  shadow: THREE.Mesh;
+  colorHex: string;
+}
+
+interface ActiveWalker {
+  id: string;
+  rig: HumanoidRig;
+  startPos: THREE.Vector3;
+  targetPos: THREE.Vector3;
+  progress: number;
+  duration: number;
+}
+
+function createArticulatedHumanoid(colorHex: string, scale = 1.0): HumanoidRig {
+  const root = new THREE.Group();
+  root.scale.set(scale, scale, scale);
+
+  // Soft Ground Contact Shadow
+  const shadowGeo = new THREE.CircleGeometry(0.32, 12);
+  const shadowMat = new THREE.MeshBasicMaterial({
+    color: 0x000000,
+    transparent: true,
+    opacity: 0.38,
+    depthWrite: false,
+  });
+  const shadow = new THREE.Mesh(shadowGeo, shadowMat);
+  shadow.rotation.x = -Math.PI / 2;
+  shadow.position.y = 0.02;
+  root.add(shadow);
+
+  // Hips Pivot
+  const hips = new THREE.Group();
+  hips.position.y = 0.42;
+  root.add(hips);
+
+  // Torso / Jacket in passenger team color
+  const torsoMat = new THREE.MeshStandardMaterial({
+    color: new THREE.Color(colorHex),
+    roughness: 0.35,
+    metalness: 0.15,
+  });
+  const torsoGeo = new THREE.BoxGeometry(0.38, 0.46, 0.28);
+  const torso = new THREE.Mesh(torsoGeo, torsoMat);
+  torso.position.y = 0.23;
+  torso.castShadow = true;
+  hips.add(torso);
+
+  // Commuter Backpack on rear (+Z is back)
+  const backpackMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.6 });
+  const backpack = new THREE.Mesh(new THREE.BoxGeometry(0.26, 0.32, 0.16), backpackMat);
+  backpack.position.set(0, 0.22, 0.20);
+  backpack.castShadow = true;
+  hips.add(backpack);
+
+  // Head Group (Neck / Head / Cap / Face)
+  const head = new THREE.Group();
+  head.position.set(0, 0.52, 0);
+
+  // Stylized Face
+  const skinMat = new THREE.MeshStandardMaterial({ color: 0xffedd5, roughness: 0.4 });
+  const headGeo = new THREE.SphereGeometry(0.22, 16, 14);
+  const headMesh = new THREE.Mesh(headGeo, skinMat);
+  headMesh.castShadow = true;
+  head.add(headMesh);
+
+  // Sporty Baseball Cap / Beanie
+  const capMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.5 });
+  const capCrown = new THREE.Mesh(new THREE.CylinderGeometry(0.23, 0.24, 0.1, 14), capMat);
+  capCrown.position.y = 0.12;
+  const visor = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.03, 0.18), capMat);
+  visor.position.set(0, 0.09, -0.22);
+  head.add(capCrown, visor);
+
+  // Expressive Chibi Eyes with highlights
+  const eyeWhiteMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+  const pupilMat = new THREE.MeshBasicMaterial({ color: 0x0f172a });
+  const shineMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+
+  [-0.08, 0.08].forEach((xEye) => {
+    const eyeWhite = new THREE.Mesh(new THREE.SphereGeometry(0.045, 8, 8), eyeWhiteMat);
+    eyeWhite.position.set(xEye, 0.02, -0.20);
+    const pupil = new THREE.Mesh(new THREE.SphereGeometry(0.028, 6, 6), pupilMat);
+    pupil.position.set(xEye, 0.02, -0.23);
+    const shine = new THREE.Mesh(new THREE.SphereGeometry(0.012, 4, 4), shineMat);
+    shine.position.set(xEye + 0.012, 0.032, -0.245);
+    head.add(eyeWhite, pupil, shine);
+  });
+
+  // Cheerful Smile
+  const smileGeo = new THREE.TorusGeometry(0.04, 0.012, 6, 8, Math.PI);
+  const smileMat = new THREE.MeshBasicMaterial({ color: 0xbe123c });
+  const smile = new THREE.Mesh(smileGeo, smileMat);
+  smile.rotation.x = Math.PI;
+  smile.position.set(0, -0.08, -0.21);
+  head.add(smile);
+
+  hips.add(head);
+
+  // Arms with Shoulders (pivot at x: ±0.24, y: 0.38)
+  const armGeo = new THREE.CylinderGeometry(0.07, 0.065, 0.34, 8);
+  const handGeo = new THREE.SphereGeometry(0.06, 8, 8);
+
+  const leftArm = new THREE.Group();
+  leftArm.position.set(-0.24, 0.38, 0);
+  const lArmMesh = new THREE.Mesh(armGeo, torsoMat);
+  lArmMesh.position.y = -0.17;
+  const lHand = new THREE.Mesh(handGeo, skinMat);
+  lHand.position.y = -0.34;
+  leftArm.add(lArmMesh, lHand);
+  hips.add(leftArm);
+
+  const rightArm = new THREE.Group();
+  rightArm.position.set(0.24, 0.38, 0);
+  const rArmMesh = new THREE.Mesh(armGeo, torsoMat);
+  rArmMesh.position.y = -0.17;
+  const rHand = new THREE.Mesh(handGeo, skinMat);
+  rHand.position.y = -0.34;
+  rightArm.add(rArmMesh, rHand);
+  hips.add(rightArm);
+
+  // Legs with Hips & Shoes
+  const pantsMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.6 });
+  const shoeMat = new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.4 });
+  const soleMat = new THREE.MeshStandardMaterial({ color: new THREE.Color(colorHex), roughness: 0.3 });
+  const legGeo = new THREE.CylinderGeometry(0.075, 0.065, 0.36, 8);
+  const shoeGeo = new THREE.BoxGeometry(0.14, 0.09, 0.22);
+  const soleGeo = new THREE.BoxGeometry(0.15, 0.03, 0.23);
+
+  const leftLeg = new THREE.Group();
+  leftLeg.position.set(-0.11, 0, 0);
+  const lLegMesh = new THREE.Mesh(legGeo, pantsMat);
+  lLegMesh.position.y = -0.18;
+  const lShoe = new THREE.Mesh(shoeGeo, shoeMat);
+  lShoe.position.set(0, -0.34, -0.04);
+  const lSole = new THREE.Mesh(soleGeo, soleMat);
+  lSole.position.set(0, -0.39, -0.04);
+  leftLeg.add(lLegMesh, lShoe, lSole);
+  hips.add(leftLeg);
+
+  const rightLeg = new THREE.Group();
+  rightLeg.position.set(0.11, 0, 0);
+  const rLegMesh = new THREE.Mesh(legGeo, pantsMat);
+  rLegMesh.position.y = -0.18;
+  const rShoe = new THREE.Mesh(shoeGeo, shoeMat);
+  rShoe.position.set(0, -0.34, -0.04);
+  const rSole = new THREE.Mesh(soleGeo, soleMat);
+  rSole.position.set(0, -0.39, -0.04);
+  rightLeg.add(rLegMesh, rShoe, rSole);
+  hips.add(rightLeg);
+
+  return { root, hips, torso, head, leftArm, rightArm, leftLeg, rightLeg, shadow, colorHex };
 }
 
 export const BusMadnessArena: React.FC<BusMadnessArenaProps> = ({
@@ -116,6 +290,8 @@ export const BusMadnessArena: React.FC<BusMadnessArenaProps> = ({
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
   const vehicleMeshesRef = useRef<Map<string, THREE.Group>>(new Map());
   const passengersGroupRef = useRef<THREE.Group | null>(null);
+  const activeWalkersRef = useRef<ActiveWalker[]>([]);
+  const prevWaitingIdsRef = useRef<string[]>([]);
   const hintBeaconRef = useRef<THREE.Group | null>(null);
   const blockerFlashRef = useRef<{ id: string; until: number } | null>(null);
   const bgManagerRef = useRef<BackgroundEnvironmentManager | null>(null);
@@ -208,7 +384,7 @@ export const BusMadnessArena: React.FC<BusMadnessArenaProps> = ({
     renderer.setSize(width, height);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.shadowMap.enabled = true;
-    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.shadowMap.type = THREE.PCFShadowMap;
     container.appendChild(renderer.domElement);
 
     const ambientLight = new THREE.AmbientLight(0xffffff, 1.1);
@@ -337,19 +513,27 @@ export const BusMadnessArena: React.FC<BusMadnessArenaProps> = ({
     const feederCurbRight = OrganicRoadSystem.createRaisedCurbMesh(feederCurveRight, 2.2, 0.35, 0.18, 32, 0x64748b);
     naturalRoadGroup.add(feederRoadRight, feederCurbRight);
 
-    // Natural curved asphalt parking pad with soft rounded bevel edges
+    // Dynamic asphalt parking pad sized to match level board dimensions
+    const initialRows = gameStateRef.current.gridRows || 7;
+    const initialCols = gameStateRef.current.gridCols || 7;
+    const padWidth = Math.max(initialCols, 7) * CELL_SIZE + 5.0;
+    const padDepth = Math.max(initialRows, 7) * CELL_SIZE + 2.2;
+    const halfPadW = padWidth / 2;
+    const minPadZ = GRID_OFFSET_Z - padDepth / 2;
+    const maxPadZ = GRID_OFFSET_Z + padDepth / 2;
+
     const parkingLotCurve = new THREE.CatmullRomCurve3([
-      new THREE.Vector3(-10.2, 0.08, 14.8),
-      new THREE.Vector3(-10.2, 0.08, -1.8),
-      new THREE.Vector3(0, 0.08, -2.4),
-      new THREE.Vector3(10.2, 0.08, -1.8),
-      new THREE.Vector3(10.2, 0.08, 14.8),
+      new THREE.Vector3(-halfPadW, 0.08, maxPadZ),
+      new THREE.Vector3(-halfPadW, 0.08, minPadZ),
+      new THREE.Vector3(0, 0.08, minPadZ - 0.6),
+      new THREE.Vector3(halfPadW, 0.08, minPadZ),
+      new THREE.Vector3(halfPadW, 0.08, maxPadZ),
     ]);
     const perimeterCurb = OrganicRoadSystem.createRaisedCurbMesh(parkingLotCurve, 0.2, 0.45, 0.22, 48, 0x475569);
     naturalRoadGroup.add(perimeterCurb);
 
     // Organic asphalt main parking ground
-    const asphaltPadGeo = new THREE.BoxGeometry(20.4, 0.16, 17.6);
+    const asphaltPadGeo = new THREE.BoxGeometry(padWidth, 0.16, padDepth);
     const asphaltPadMat = new THREE.MeshStandardMaterial({
       color: 0x334155,
       roughness: 0.92,
@@ -377,18 +561,18 @@ export const BusMadnessArena: React.FC<BusMadnessArenaProps> = ({
     grate2.position.set(9.8, 0.17, -1.2);
     naturalRoadGroup.add(grate1, grate2);
 
-    // Natural Painted Parking Space T-Markings instead of artificial wireframe boxes
+    // Natural Painted Parking Space T-Markings dynamically spaced
     const lineMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.4 });
     const stallGroup = new THREE.Group();
     stallGroup.position.set(0, 0.17, GRID_OFFSET_Z);
 
-    for (let r = 0; r <= 7; r++) {
-      for (let c = 0; c <= 7; c++) {
+    for (let r = 0; r <= initialRows; r++) {
+      for (let c = 0; c <= initialCols; c++) {
         // Subtle dotted intersection crosses
         const crossH = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.02, 0.06), lineMat);
         const crossV = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.02, 0.24), lineMat);
         const cross = new THREE.Group();
-        cross.position.set((c - 3.5) * CELL_SIZE, 0, (r - 3.5) * CELL_SIZE);
+        cross.position.set((c - initialCols / 2) * CELL_SIZE, 0, (r - initialRows / 2) * CELL_SIZE);
         cross.add(crossH, crossV);
         stallGroup.add(cross);
       }
@@ -442,7 +626,7 @@ export const BusMadnessArena: React.FC<BusMadnessArenaProps> = ({
       sunLight,
       ambientLight,
       skyFill,
-      cones: createdCones,
+      cones: [],
     });
 
     // Apply active World theme dynamically
@@ -566,65 +750,30 @@ export const BusMadnessArena: React.FC<BusMadnessArenaProps> = ({
     let lastPointerY = 0;
     let pointerDownTime = 0;
     let isPanMode = false;
-    let initialTouchDistance = 0;
 
-    const onPointerDown = (event: MouseEvent | TouchEvent) => {
+    const canvas = renderer.domElement;
+    canvas.style.touchAction = 'none';
+
+    const onPointerDown = (event: PointerEvent) => {
       isPointerDown = true;
       isDraggingCamera = false;
       pointerDownTime = performance.now();
 
-      if ('touches' in event) {
-        if (event.touches.length === 1) {
-          pointerStartX = event.touches[0].clientX;
-          pointerStartY = event.touches[0].clientY;
-          lastPointerX = pointerStartX;
-          lastPointerY = pointerStartY;
-          isPanMode = false;
-        } else if (event.touches.length === 2) {
-          isPanMode = true;
-          const dx = event.touches[0].clientX - event.touches[1].clientX;
-          const dy = event.touches[0].clientY - event.touches[1].clientY;
-          initialTouchDistance = Math.hypot(dx, dy);
-          lastPointerX = (event.touches[0].clientX + event.touches[1].clientX) / 2;
-          lastPointerY = (event.touches[0].clientY + event.touches[1].clientY) / 2;
-        }
-      } else {
-        pointerStartX = event.clientX;
-        pointerStartY = event.clientY;
-        lastPointerX = pointerStartX;
-        lastPointerY = pointerStartY;
-        isPanMode = event.button === 2 || event.shiftKey; // Right-click or Shift-drag = Pan
-      }
+      pointerStartX = event.clientX;
+      pointerStartY = event.clientY;
+      lastPointerX = event.clientX;
+      lastPointerY = event.clientY;
+      isPanMode = event.button === 2 || event.shiftKey;
     };
 
-    const onPointerMove = (event: MouseEvent | TouchEvent) => {
+    const onPointerMove = (event: PointerEvent) => {
       if (!isPointerDown) return;
 
-      let currentX = 0;
-      let currentY = 0;
-
-      if ('touches' in event) {
-        if (event.touches.length === 1) {
-          currentX = event.touches[0].clientX;
-          currentY = event.touches[0].clientY;
-        } else if (event.touches.length === 2) {
-          const dxTouch = event.touches[0].clientX - event.touches[1].clientX;
-          const dyTouch = event.touches[0].clientY - event.touches[1].clientY;
-          const currentDist = Math.hypot(dxTouch, dyTouch);
-          const pinchDelta = (initialTouchDistance - currentDist) * 0.08;
-          initialTouchDistance = currentDist;
-          dynamicCamera.onZoom(pinchDelta);
-
-          currentX = (event.touches[0].clientX + event.touches[1].clientX) / 2;
-          currentY = (event.touches[0].clientY + event.touches[1].clientY) / 2;
-        }
-      } else {
-        currentX = event.clientX;
-        currentY = event.clientY;
-      }
+      const currentX = event.clientX;
+      const currentY = event.clientY;
 
       const totalDist = Math.hypot(currentX - pointerStartX, currentY - pointerStartY);
-      if (totalDist > 6) {
+      if (totalDist > 16) {
         isDraggingCamera = true;
       }
 
@@ -643,25 +792,21 @@ export const BusMadnessArena: React.FC<BusMadnessArenaProps> = ({
       lastPointerY = currentY;
     };
 
-    const onPointerUp = (event: MouseEvent | TouchEvent) => {
+    const onPointerUp = (event: PointerEvent) => {
       if (!isPointerDown) return;
       const elapsed = performance.now() - pointerDownTime;
       const wasDrag = isDraggingCamera;
       isPointerDown = false;
       isDraggingCamera = false;
 
-      // If it was a quick tap/click (not a camera drag), handle raycast tap
-      if (!wasDrag && elapsed < 400) {
-        const rect = container.getBoundingClientRect();
-        let clientX = pointerStartX;
-        let clientY = pointerStartY;
-        if ('changedTouches' in event && event.changedTouches.length > 0) {
-          clientX = event.changedTouches[0].clientX;
-          clientY = event.changedTouches[0].clientY;
-        }
+      const totalDist = Math.hypot(event.clientX - pointerStartX, event.clientY - pointerStartY);
+      const isQuickTap = (!wasDrag || totalDist < 20) && elapsed < 450;
 
-        mouse.x = ((clientX - rect.left) / rect.width) * 2 - 1;
-        mouse.y = -((clientY - rect.top) / rect.height) * 2 + 1;
+      // If it was a quick tap/click (not a camera drag), handle raycast tap
+      if (isQuickTap) {
+        const rect = canvas.getBoundingClientRect();
+        mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+        mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
 
         raycaster.setFromCamera(mouse, camera);
 
@@ -700,7 +845,14 @@ export const BusMadnessArena: React.FC<BusMadnessArenaProps> = ({
           }
 
           if (vid) {
-            onVehicleTapRequest(vid);
+            const res = onVehicleTapRequest(vid);
+            if (res) {
+              if (!res.success) {
+                triggerBump(vid, res.blockerId);
+              } else if (res.dockIndex !== undefined) {
+                triggerDriveToDock(vid, res.dockIndex);
+              }
+            }
           }
         }
       }
@@ -715,23 +867,23 @@ export const BusMadnessArena: React.FC<BusMadnessArenaProps> = ({
       e.preventDefault();
     };
 
-    container.addEventListener('mousedown', onPointerDown);
-    window.addEventListener('mousemove', onPointerMove);
-    window.addEventListener('mouseup', onPointerUp);
-    container.addEventListener('touchstart', onPointerDown, { passive: true });
-    window.addEventListener('touchmove', onPointerMove, { passive: true });
-    window.addEventListener('touchend', onPointerUp);
-    container.addEventListener('wheel', onWheel, { passive: false });
-    container.addEventListener('contextmenu', onContextMenu);
+    canvas.addEventListener('pointerdown', onPointerDown);
+    window.addEventListener('pointermove', onPointerMove);
+    window.addEventListener('pointerup', onPointerUp);
+    canvas.addEventListener('wheel', onWheel, { passive: false });
+    canvas.addEventListener('contextmenu', onContextMenu);
 
     // Animation Loop
     let animId: number;
-    const clock = new THREE.Clock();
+    let lastTime = performance.now();
+    const startTime = performance.now();
 
     const animate = () => {
       animId = requestAnimationFrame(animate);
-      const delta = clock.getDelta();
-      const elapsed = clock.getElapsedTime();
+      const now = performance.now();
+      const delta = Math.min((now - lastTime) / 1000, 0.1);
+      const elapsed = (now - startTime) / 1000;
+      lastTime = now;
 
       // Dynamic 3D environmental props animations (balloons, radar, windsocks, totems)
       if (bgManagerRef.current) {
@@ -926,6 +1078,24 @@ export const BusMadnessArena: React.FC<BusMadnessArenaProps> = ({
                 onVehicleArrivedAtDock(vid, anim.dockIdx);
               }
             }
+          } else if (anim.type === 'depart') {
+            const t = Math.min(anim.progress, 1);
+            const easeT = t * t * 1.5;
+            group.position.x = anim.startPos.x + anim.forwardDir.x * 26 * easeT;
+            group.position.z = anim.startPos.z + anim.forwardDir.z * 26 * easeT;
+
+            if (group.userData?.wheelTires) {
+              group.userData.wheelTires.forEach((tire: THREE.Mesh) => {
+                tire.rotation.x += delta * 24;
+              });
+            }
+            group.rotation.x = -0.05 * Math.sin(t * Math.PI);
+
+            if (anim.progress >= 1.0) {
+              scene.remove(group);
+              vehicleMeshesRef.current.delete(vid);
+              delete activeAnimRef.current[vid];
+            }
           } else {
             // Fallback for simple interpolation
             const t = Math.min(anim.progress, 1);
@@ -1042,6 +1212,11 @@ export const BusMadnessArena: React.FC<BusMadnessArenaProps> = ({
       camera.aspect = w / h;
       camera.updateProjectionMatrix();
       renderer.setSize(w, h);
+      dynamicCamera.setBoardDimensions(
+        gameStateRef.current.gridRows || 7,
+        gameStateRef.current.gridCols || 7,
+        camera.aspect
+      );
     };
 
     window.addEventListener('resize', handleResize);
@@ -1049,14 +1224,11 @@ export const BusMadnessArena: React.FC<BusMadnessArenaProps> = ({
     return () => {
       cancelAnimationFrame(animId);
       window.removeEventListener('resize', handleResize);
-      container.removeEventListener('mousedown', onPointerDown);
-      window.removeEventListener('mousemove', onPointerMove);
-      window.removeEventListener('mouseup', onPointerUp);
-      container.removeEventListener('touchstart', onPointerDown);
-      window.removeEventListener('touchmove', onPointerMove);
-      window.removeEventListener('touchend', onPointerUp);
-      container.removeEventListener('wheel', onWheel);
-      container.removeEventListener('contextmenu', onContextMenu);
+      canvas.removeEventListener('pointerdown', onPointerDown);
+      window.removeEventListener('pointermove', onPointerMove);
+      window.removeEventListener('pointerup', onPointerUp);
+      canvas.removeEventListener('wheel', onWheel);
+      canvas.removeEventListener('contextmenu', onContextMenu);
 
       // Clean up celebratory confetti particle system and dispose GPU resources
       if (confettiInstancedMesh) {
@@ -1098,7 +1270,7 @@ export const BusMadnessArena: React.FC<BusMadnessArenaProps> = ({
     };
   }, []);
 
-  // Dynamically update World environmental props, 3D road markings, weather & camera when worldId or levelId changes
+  // Dynamically update World environmental props, 3D road markings, weather & camera when worldId, levelId or grid dimensions change
   useEffect(() => {
     const targetWorldId = gameState.worldId || getWorldIdForLevel(gameState.levelId);
     if (bgManagerRef.current) {
@@ -1112,18 +1284,29 @@ export const BusMadnessArena: React.FC<BusMadnessArenaProps> = ({
       weatherSystemRef.current.setWeather(targetWeather);
       setCurrentWeather(targetWeather);
     }
-    if (dynamicCameraRef.current) {
+    if (dynamicCameraRef.current && cameraRef.current) {
+      dynamicCameraRef.current.setBoardDimensions(
+        gameState.gridRows || 7,
+        gameState.gridCols || 7,
+        cameraRef.current.aspect
+      );
       dynamicCameraRef.current.triggerLevelEntrance();
     }
-  }, [gameState.worldId, gameState.levelId]);
+  }, [gameState.worldId, gameState.levelId, gameState.gridRows, gameState.gridCols]);
 
   // Update/rebuild vehicles when gameState.vehicles changes
   useEffect(() => {
     const scene = sceneRef.current;
     if (!scene) return;
 
-    vehicleMeshesRef.current.forEach((g) => scene.remove(g));
-    vehicleMeshesRef.current.clear();
+    // Prune removed vehicles
+    const currentVehicleIds = new Set(gameState.vehicles.map((v) => v.id));
+    vehicleMeshesRef.current.forEach((g, vid) => {
+      if (!currentVehicleIds.has(vid)) {
+        scene.remove(g);
+        vehicleMeshesRef.current.delete(vid);
+      }
+    });
 
     const arrowMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
     const prog = PlayerProgress.get();
@@ -1132,7 +1315,24 @@ export const BusMadnessArena: React.FC<BusMadnessArenaProps> = ({
     const activeRimCfg = RIMS.find((r) => r.id === prog.activeRim) || RIMS[0];
 
     gameState.vehicles.forEach((v) => {
-      if (v.state === VehicleStateType.EXITED) return;
+      if (v.state === VehicleStateType.EXITED) {
+        if (vehicleMeshesRef.current.has(v.id) && !activeAnimRef.current[v.id]) {
+          triggerVehicleDepart(v.id);
+        }
+        return;
+      }
+
+      // If already in motion, don't interrupt active physics animation
+      if (activeAnimRef.current[v.id]) {
+        return;
+      }
+
+      // Cleanly replace single vehicle mesh to refresh roof passenger indicators
+      const existingMesh = vehicleMeshesRef.current.get(v.id);
+      if (existingMesh) {
+        scene.remove(existingMesh);
+        vehicleMeshesRef.current.delete(v.id);
+      }
 
       const vGroup = new THREE.Group();
       const length3D = v.length * 1.05;
@@ -1146,7 +1346,14 @@ export const BusMadnessArena: React.FC<BusMadnessArenaProps> = ({
         vGroup.position.set(dockX, 0.72, DOCK_Z);
         vGroup.rotation.y = 0;
       } else {
-        const worldPos = gridToWorld(v.gridPosition.row, v.gridPosition.col, v.length, v.direction);
+        const worldPos = gridToWorld(
+          v.gridPosition.row,
+          v.gridPosition.col,
+          v.length,
+          v.direction,
+          gameState.gridRows || 7,
+          gameState.gridCols || 7
+        );
         vGroup.position.set(worldPos.x, 0.72, worldPos.z);
         vGroup.rotation.y = directionToAngle(v.direction);
       }
@@ -1154,6 +1361,19 @@ export const BusMadnessArena: React.FC<BusMadnessArenaProps> = ({
       vGroup.userData = { vehicleId: v.id };
 
       const hex = COLOR_MAP[v.color].hex;
+
+      // Soft Ground Drop Shadow under Vehicle
+      const shadowGeo = new THREE.PlaneGeometry(width3D * 1.08, length3D * 1.05);
+      const shadowMat = new THREE.MeshBasicMaterial({
+        color: 0x000000,
+        transparent: true,
+        opacity: 0.35,
+        depthWrite: false,
+      });
+      const shadowMesh = new THREE.Mesh(shadowGeo, shadowMat);
+      shadowMesh.rotation.x = -Math.PI / 2;
+      shadowMesh.position.y = -0.68;
+      vGroup.add(shadowMesh);
 
       // Custom Finish from Active Livery
       const bodyRoughness = isBus ? activeLiveryCfg.roughness : 0.28;
@@ -1253,13 +1473,29 @@ export const BusMadnessArena: React.FC<BusMadnessArenaProps> = ({
       arrowGroup.add(aShaft, aHead);
       vGroup.add(arrowGroup);
 
-      // Passenger Capacity Spheres on Roof
-      if (v.loadedPassengers > 0) {
-        const pSphereMat = new THREE.MeshStandardMaterial({ color: new THREE.Color(hex) });
-        for (let pIdx = 0; pIdx < v.loadedPassengers; pIdx++) {
-          const sphere = new THREE.Mesh(new THREE.SphereGeometry(0.32, 12, 12), pSphereMat);
-          const zOff = -length3D * 0.25 + pIdx * (length3D * 0.25);
-          sphere.position.set(0, height3D * 0.88, zOff);
+      // Passenger Capacity Slots & Loaded Indicators on Roof
+      const totalCapacity = v.capacity || (isBus ? 4 : 3);
+      const slotMat = new THREE.MeshStandardMaterial({
+        color: 0x0f172a,
+        roughness: 0.5,
+        metalness: 0.2,
+      });
+      const pSphereMat = new THREE.MeshStandardMaterial({
+        color: new THREE.Color(hex),
+        roughness: 0.25,
+        emissive: new THREE.Color(hex),
+        emissiveIntensity: 0.25,
+      });
+
+      for (let sIdx = 0; sIdx < totalCapacity; sIdx++) {
+        const zOff = -length3D * 0.28 + (sIdx / (totalCapacity - 1 || 1)) * (length3D * 0.56);
+        const seatRing = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.24, 0.04, 12), slotMat);
+        seatRing.position.set(0, height3D * 0.74, zOff);
+        vGroup.add(seatRing);
+
+        if (sIdx < v.loadedPassengers) {
+          const sphere = new THREE.Mesh(new THREE.SphereGeometry(0.26, 12, 12), pSphereMat);
+          sphere.position.set(0, height3D * 0.90, zOff);
           sphere.castShadow = true;
           vGroup.add(sphere);
         }
@@ -1374,6 +1610,17 @@ export const BusMadnessArena: React.FC<BusMadnessArenaProps> = ({
 
     const headGeo = new THREE.SphereGeometry(0.24, 12, 12);
     const bodyGeo = new THREE.CylinderGeometry(0.16, 0.18, 0.5, 10);
+    const shadowMat = new THREE.MeshBasicMaterial({
+      color: 0x000000,
+      transparent: true,
+      opacity: 0.35,
+      depthWrite: false,
+    });
+    const shadowGeo = new THREE.CircleGeometry(0.25, 12);
+    const eyeMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+    const capMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.5 });
+    const capGeo = new THREE.CylinderGeometry(0.26, 0.26, 0.08, 12);
+    const visorGeo = new THREE.BoxGeometry(0.24, 0.04, 0.18);
 
     const waiting = gameState.passengers.filter((p) => p.state === 'WAITING');
 
@@ -1381,8 +1628,18 @@ export const BusMadnessArena: React.FC<BusMadnessArenaProps> = ({
       const person = new THREE.Group();
       person.position.set(-6.5 + idx * 1.1, 0.35, -10.0);
 
+      // Floor Drop Shadow
+      const shadow = new THREE.Mesh(shadowGeo, shadowMat);
+      shadow.rotation.x = -Math.PI / 2;
+      shadow.position.y = -0.32;
+      person.add(shadow);
+
       const hex = COLOR_MAP[p.color].hex;
-      const pMat = new THREE.MeshStandardMaterial({ color: new THREE.Color(hex), roughness: 0.35 });
+      const pMat = new THREE.MeshStandardMaterial({
+        color: new THREE.Color(hex),
+        roughness: 0.35,
+        metalness: 0.1,
+      });
 
       const b = new THREE.Mesh(bodyGeo, pMat);
       b.position.y = 0.25;
@@ -1391,6 +1648,18 @@ export const BusMadnessArena: React.FC<BusMadnessArenaProps> = ({
       const h = new THREE.Mesh(headGeo, pMat);
       h.position.y = 0.65;
       h.castShadow = true;
+
+      const cap = new THREE.Mesh(capGeo, capMat);
+      cap.position.y = 0.78;
+      const visor = new THREE.Mesh(visorGeo, capMat);
+      visor.position.set(0, 0.76, 0.18);
+      person.add(cap, visor);
+
+      [-0.08, 0.08].forEach((xEye) => {
+        const eye = new THREE.Mesh(new THREE.SphereGeometry(0.04, 6, 6), eyeMat);
+        eye.position.set(xEye, 0.68, 0.22);
+        person.add(eye);
+      });
 
       person.add(b, h);
       pGroup.add(person);
@@ -1474,6 +1743,23 @@ export const BusMadnessArena: React.FC<BusMadnessArenaProps> = ({
       physics,
       forwardDir: new THREE.Vector3(0, 0, -1),
       dockIdx,
+    };
+  };
+
+  // Trigger Driving Departure Animation externally
+  const triggerVehicleDepart = (vid: string) => {
+    const mesh = vehicleMeshesRef.current.get(vid);
+    if (!mesh) return;
+
+    sounds.playEscape();
+    dynamicCameraRef.current?.addShake(0.3);
+
+    activeAnimRef.current[vid] = {
+      type: 'depart',
+      progress: 0,
+      duration: 0.85,
+      startPos: mesh.position.clone(),
+      forwardDir: new THREE.Vector3(0, 0, -1),
     };
   };
 
@@ -1561,7 +1847,7 @@ export const BusMadnessArena: React.FC<BusMadnessArenaProps> = ({
   });
 
   return (
-    <div className="relative w-full h-full select-none overflow-hidden rounded-3xl bg-slate-950">
+    <div className="relative w-full h-full select-none overflow-hidden bg-slate-950">
       <div ref={mountRef} className="w-full h-full cursor-grab active:cursor-grabbing" />
 
       {/* Dynamic 3D Parking Precision Feedback Badge */}

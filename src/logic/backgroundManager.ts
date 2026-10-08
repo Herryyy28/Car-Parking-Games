@@ -27,7 +27,7 @@ export class BackgroundEnvironmentManager {
   private sidewalkMesh: THREE.Mesh | null = null;
   private directionalSun: THREE.DirectionalLight | null = null;
   private ambientLight: THREE.AmbientLight | null = null;
-  private skyFillLight: THREE.DirectionalLight | null = null;
+  private hemiLightRef: THREE.HemisphereLight | null = null;
   private gridHelperRef: THREE.GridHelper | null = null;
   private safetyCones: THREE.Mesh[] = [];
 
@@ -54,6 +54,7 @@ export class BackgroundEnvironmentManager {
     sunLight: THREE.DirectionalLight;
     ambientLight: THREE.AmbientLight;
     skyFill: THREE.DirectionalLight;
+    hemiLight?: THREE.HemisphereLight;
     gridHelper?: THREE.GridHelper;
     cones?: THREE.Mesh[];
   }): void {
@@ -66,6 +67,7 @@ export class BackgroundEnvironmentManager {
     this.directionalSun = elements.sunLight;
     this.ambientLight = elements.ambientLight;
     this.skyFillLight = elements.skyFill;
+    if (elements.hemiLight) this.hemiLightRef = elements.hemiLight;
     if (elements.gridHelper) this.gridHelperRef = elements.gridHelper;
     if (elements.cones) this.safetyCones = elements.cones;
   }
@@ -97,6 +99,11 @@ export class BackgroundEnvironmentManager {
     if (this.ambientLight) {
       this.ambientLight.color.set(theme.ambientLightColor);
       this.ambientLight.intensity = theme.ambientIntensity;
+    }
+
+    if (this.hemiLightRef) {
+      this.hemiLightRef.color.set(theme.hemiSkyColor);
+      this.hemiLightRef.groundColor.set(theme.hemiGroundColor);
     }
 
     if (this.skyFillLight) {
@@ -180,6 +187,7 @@ export class BackgroundEnvironmentManager {
       case 'festival':
         this.buildFestivalProps(theme);
         break;
+      case 'sunset':
       case 'night':
         this.buildNightCityProps(theme);
         break;
@@ -196,198 +204,242 @@ export class BackgroundEnvironmentManager {
   }
 
   // ========================================================
-  // WORLD 1: CITY PROPS (Round Trees, City Buildings, Benches)
+  // WORLD 1: CITY PROPS (Colorful Boutique Storefronts, Puffy Trees, Flower Planters)
   // ========================================================
   private buildCityProps(theme: WorldThemeConfig): void {
-    // Left & Right Flanking Buildings
-    this.createBuilding(-17.5, 0, 3, 5, 8, 8, 0x3b82f6, 0x93c5fd);
-    this.createBuilding(-17.5, 0, 12, 4.5, 6, 6, 0x10b981, 0xa7f3d0);
-    this.createBuilding(17.5, 0, 3, 5, 9, 8, 0xf59e0b, 0xfde68a);
-    this.createBuilding(17.5, 0, 12, 4.5, 7, 6, 0x6366f1, 0xc7d2fe);
+    // 1. Charming Row of Boutique Storefronts directly visible behind Bus Station
+    // Storefront 1: Pastel Peach Bakery / Cafe with red & white striped awning
+    this.createStorefrontBuilding(-6.2, 0, -17.5, 3.6, 5.2, 3.4, 0xfda4af, 0xffffff, 0xef4444, 0xffffff);
+    // Storefront 2: Mint Green Bookstore / Boutique with emerald awning
+    this.createStorefrontBuilding(-2.1, 0, -17.0, 3.8, 6.0, 3.6, 0x86efac, 0xffffff, 0x059669, 0xffffff);
+    // Storefront 3: Warm Sunshine Yellow Cafe with orange & white awning
+    this.createStorefrontBuilding(2.1, 0, -17.0, 3.8, 5.6, 3.6, 0xfde047, 0xffffff, 0xf97316, 0xffffff);
+    // Storefront 4: Sky Blue Corner Deli with royal blue awning
+    this.createStorefrontBuilding(6.2, 0, -17.5, 3.6, 5.4, 3.4, 0x93c5fd, 0xffffff, 0x3b82f6, 0xffffff);
 
-    // Flanking Deciduous Round Trees
-    this.createCityTree(-12.5, 0, 2);
-    this.createCityTree(-12.8, 0, 9);
-    this.createCityTree(12.5, 0, 2);
-    this.createCityTree(12.8, 0, 9);
+    // 2. Stylized Fluffy Trees planted along the sidewalk behind the terminal
+    this.createStylizedTree(-8.6, 0, -14.6, 1.1);
+    this.createStylizedTree(-4.2, 0, -14.6, 0.95);
+    this.createStylizedTree(4.2, 0, -14.6, 0.95);
+    this.createStylizedTree(8.6, 0, -14.6, 1.1);
 
-    // Street Traffic Signs
-    this.createTrafficSign(-10.5, 0, -4.5, 'STOP');
-    this.createTrafficSign(10.5, 0, -4.5, 'ONEWAY');
+    // 3. Flanking Trees & Planters framing the puzzle board within the camera FOV (x = ±8.2)
+    this.createStylizedTree(-8.2, 0, -1.0, 1.0);
+    this.createStylizedTree(-8.5, 0, 5.5, 1.15);
+    this.createStylizedTree(-8.2, 0, 11.5, 1.0);
+    this.createStylizedTree(8.2, 0, -1.0, 1.0);
+    this.createStylizedTree(8.5, 0, 5.5, 1.15);
+    this.createStylizedTree(8.2, 0, 11.5, 1.0);
 
-    // Park Benches
-    this.createBench(-12.2, 0, 5.5, Math.PI / 2);
-    this.createBench(12.2, 0, 5.5, -Math.PI / 2);
+    // 4. Vibrant Flowering Planter Boxes
+    this.createFlowerPlanter(-6.8, 0, -13.2, 0xec4899);
+    this.createFlowerPlanter(6.8, 0, -13.2, 0xf59e0b);
+    this.createFlowerPlanter(-7.8, 0, 2.2, 0xef4444);
+    this.createFlowerPlanter(7.8, 0, 2.2, 0x10b981);
+    this.createFlowerPlanter(-7.8, 0, 8.5, 0x8b5cf6);
+    this.createFlowerPlanter(7.8, 0, 8.5, 0x06b6d4);
+
+    // 5. Stylized Park Benches along flanking sidewalks
+    this.createBench(-7.8, 0, 5.2, Math.PI / 2);
+    this.createBench(7.8, 0, 5.2, -Math.PI / 2);
+
+    // 6. Modern Warm Street Lamps
+    this.createModernLamp(-7.5, 0, -4.2);
+    this.createModernLamp(7.5, 0, -4.2);
+    this.createModernLamp(-7.5, 0, 13.8);
+    this.createModernLamp(7.5, 0, 13.8);
+
+    // 7. Buoyant Festive Floating Balloon Bunches
+    this.createBalloonBunch(-7.2, 0, -13.8);
+    this.createBalloonBunch(7.2, 0, -13.8);
+
+    // 8. Street Traffic Signs
+    this.createTrafficSign(-6.8, 0, -4.8, 'STOP');
+    this.createTrafficSign(6.8, 0, -4.8, 'ONEWAY');
   }
 
   // ========================================================
   // WORLD 2: STATION PROPS (Platforms, Transit Signs, Shelters)
   // ========================================================
   private buildStationProps(theme: WorldThemeConfig): void {
-    // Large Transit Hub Buildings with Glass Panes
-    this.createBuilding(-18, 0, 4, 6, 10, 9, 0x1d4ed8, 0x60a5fa);
-    this.createBuilding(18, 0, 4, 6, 11, 9, 0x0284c7, 0x38bdf8);
+    // Modern Transit Hub Storefronts & Station Wings
+    this.createStorefrontBuilding(-6.2, 0, -17.5, 3.6, 5.8, 3.5, 0x93c5fd, 0xffffff, 0x0284c7, 0xffffff);
+    this.createStorefrontBuilding(-2.1, 0, -17.0, 3.8, 6.8, 3.8, 0x60a5fa, 0xffffff, 0x1d4ed8, 0xffffff);
+    this.createStorefrontBuilding(2.1, 0, -17.0, 3.8, 6.8, 3.8, 0x38bdf8, 0xffffff, 0x0369a1, 0xffffff);
+    this.createStorefrontBuilding(6.2, 0, -17.5, 3.6, 5.8, 3.5, 0xa5b4fc, 0xffffff, 0x4f46e5, 0xffffff);
 
     // Station Canopy Shelters along sidewalks
-    this.createStationShelter(-13, 0, 4);
-    this.createStationShelter(13, 0, 4);
+    this.createStationShelter(-7.8, 0, 3.5);
+    this.createStationShelter(7.8, 0, 3.5);
 
     // Transit Route Signs & Clocks
-    this.createClockTower(-14, 0, -5);
-    this.createTransitBoard(14, 0, -5);
+    this.createClockTower(-7.5, 0, -4.5);
+    this.createTransitBoard(7.5, 0, -4.5);
 
     // Modern Street Lamps with Blue Neon Glow
-    this.createNeonLamp(-12, 0, 10, 0x38bdf8);
-    this.createNeonLamp(12, 0, 10, 0x38bdf8);
+    this.createNeonLamp(-7.5, 0, 9.5, 0x38bdf8);
+    this.createNeonLamp(7.5, 0, 9.5, 0x38bdf8);
 
-    // Ticket vending kiosk
-    this.createKiosk(-13.5, 0, 8, 0xfacc15);
-    this.createKiosk(13.5, 0, 8, 0x10b981);
+    // Ticket vending kiosks
+    this.createKiosk(-7.8, 0, 6.5, 0xfacc15);
+    this.createKiosk(7.8, 0, 6.5, 0x10b981);
+
+    // Stylized trees
+    this.createStylizedTree(-8.5, 0, -1.0, 1.0);
+    this.createStylizedTree(8.5, 0, -1.0, 1.0);
   }
 
   // ========================================================
   // WORLD 3: DOWNTOWN PROPS (Skyscrapers, Storefronts, Signals)
   // ========================================================
   private buildDowntownProps(theme: WorldThemeConfig): void {
-    // Tall Downtown Skyscrapers with window arrays
-    this.createBuilding(-18, 0, 2, 5.5, 14, 7, 0x4c1d95, 0xa855f7);
-    this.createBuilding(-18, 0, 11, 5, 11, 6, 0x6b21a8, 0xd8b4fe);
-    this.createBuilding(18, 0, 2, 5.5, 15, 7, 0x1e1b4b, 0x818cf8);
-    this.createBuilding(18, 0, 11, 5, 12, 6, 0x3730a3, 0xa5b4fc);
+    // Downtown Vibrant Storefronts & Mid-Rise Towers
+    this.createStorefrontBuilding(-6.2, 0, -17.5, 3.6, 6.5, 3.5, 0xc084fc, 0xffffff, 0x7e22ce, 0xffffff);
+    this.createStorefrontBuilding(-2.1, 0, -17.0, 3.8, 8.0, 3.8, 0x818cf8, 0xffffff, 0x3730a3, 0xffffff);
+    this.createStorefrontBuilding(2.1, 0, -17.0, 3.8, 7.5, 3.8, 0xa78bfa, 0xffffff, 0x581c87, 0xffffff);
+    this.createStorefrontBuilding(6.2, 0, -17.5, 3.6, 6.2, 3.5, 0x38bdf8, 0xffffff, 0x0284c7, 0xffffff);
 
     // Traffic Light Gantries with glowing colored signals
-    this.createTrafficSignal(-11.5, 0, -4.5);
-    this.createTrafficSignal(11.5, 0, -4.5);
+    this.createTrafficSignal(-7.5, 0, -4.5);
+    this.createTrafficSignal(7.5, 0, -4.5);
 
     // Modern Planters with Shrubs
-    this.createModernPlanter(-12.5, 0, 5);
-    this.createModernPlanter(-12.5, 0, 9);
-    this.createModernPlanter(12.5, 0, 5);
-    this.createModernPlanter(12.5, 0, 9);
+    this.createModernPlanter(-7.8, 0, 4.5);
+    this.createModernPlanter(-7.8, 0, 9.5);
+    this.createModernPlanter(7.8, 0, 4.5);
+    this.createModernPlanter(7.8, 0, 9.5);
 
-    // Billboard Display
-    this.createBillboard(0, 5.5, -14, 'DOWNTOWN EXPRESS');
+    this.createStylizedTree(-8.4, 0, 0, 1.0);
+    this.createStylizedTree(8.4, 0, 0, 1.0);
   }
 
   // ========================================================
   // WORLD 4: BEACH PROPS (Palm Trees, Surfboards, Tiki Huts)
   // ========================================================
   private buildBeachProps(theme: WorldThemeConfig): void {
-    // Tropical Palm Trees with segmented trunks and curved fronds
-    this.createPalmTree(-13, 0, 1);
-    this.createPalmTree(-13.5, 0, 8);
-    this.createPalmTree(13, 0, 1);
-    this.createPalmTree(13.5, 0, 8);
+    // Tropical Storefronts / Surf Shops
+    this.createStorefrontBuilding(-6.2, 0, -17.5, 3.6, 5.0, 3.4, 0xfed7aa, 0xffffff, 0xf97316, 0xffffff);
+    this.createStorefrontBuilding(-2.1, 0, -17.0, 3.8, 5.4, 3.6, 0xa7f3d0, 0xffffff, 0x059669, 0xffffff);
+    this.createStorefrontBuilding(2.1, 0, -17.0, 3.8, 5.2, 3.6, 0xbae6fd, 0xffffff, 0x0284c7, 0xffffff);
+    this.createStorefrontBuilding(6.2, 0, -17.5, 3.6, 5.0, 3.4, 0xfbcfe8, 0xffffff, 0xdb2777, 0xffffff);
 
-    // Colorful Beach Cabana Huts
-    this.createBeachCabana(-18, 0, 5, 0xf97316);
-    this.createBeachCabana(18, 0, 5, 0x06b6d4);
+    // Tropical Palm Trees
+    this.createPalmTree(-8.2, 0, -14.2);
+    this.createPalmTree(-8.4, 0, 1.5);
+    this.createPalmTree(-8.4, 0, 8.5);
+    this.createPalmTree(8.2, 0, -14.2);
+    this.createPalmTree(8.4, 0, 1.5);
+    this.createPalmTree(8.4, 0, 8.5);
 
-    // Surfboards planted in the ground
-    this.createSurfboard(-11.5, 0, 3, 0xef4444);
-    this.createSurfboard(-11.8, 0, 3.8, 0xfacc15);
-    this.createSurfboard(11.5, 0, 3, 0xec4899);
-    this.createSurfboard(11.8, 0, 3.8, 0x10b981);
+    // Colorful Surfboards planted in the sand
+    this.createSurfboard(-7.5, 0, 4.5, 0xef4444);
+    this.createSurfboard(-7.7, 0, 5.2, 0xfacc15);
+    this.createSurfboard(7.5, 0, 4.5, 0xec4899);
+    this.createSurfboard(7.7, 0, 5.2, 0x10b981);
 
     // Beach Umbrellas
-    this.createBeachUmbrella(-13, 0, 12, 0xf43f5e);
-    this.createBeachUmbrella(13, 0, 12, 0x0ea5e9);
+    this.createBeachUmbrella(-7.8, 0, 11.5, 0xf43f5e);
+    this.createBeachUmbrella(7.8, 0, 11.5, 0x0ea5e9);
   }
 
   // ========================================================
   // WORLD 5: AIRPORT PROPS (Runway Radar, Wind Tents, Luggage)
   // ========================================================
   private buildAirportProps(theme: WorldThemeConfig): void {
-    // Modern Aero Hangars
-    this.createBuilding(-18, 0, 4, 6.5, 7, 12, 0x334155, 0x94a3b8);
-    this.createBuilding(18, 0, 4, 6.5, 7, 12, 0x1e293b, 0x64748b);
+    // Modern Aero Terminal Pavilions
+    this.createStorefrontBuilding(-6.2, 0, -17.5, 3.6, 5.5, 3.5, 0x94a3b8, 0xffffff, 0x3b82f6, 0xffffff);
+    this.createStorefrontBuilding(-2.1, 0, -17.0, 3.8, 6.2, 3.8, 0x64748b, 0xffffff, 0xf59e0b, 0xffffff);
+    this.createStorefrontBuilding(2.1, 0, -17.0, 3.8, 6.2, 3.8, 0x64748b, 0xffffff, 0xf59e0b, 0xffffff);
+    this.createStorefrontBuilding(6.2, 0, -17.5, 3.6, 5.5, 3.5, 0x94a3b8, 0xffffff, 0x3b82f6, 0xffffff);
 
-    // Rotating Radar Dish
-    this.createRadarDish(-14, 0, -4.5);
-
-    // Wind Sock (Animated fluttering)
-    this.createWindSock(14, 0, -4.5);
+    // Rotating Radar Dish & Wind Sock
+    this.createRadarDish(-7.5, 0, -4.5);
+    this.createWindSock(7.5, 0, -4.5);
 
     // Runway Strobe Light Pylons
-    this.createRunwayPylon(-12, 0, 3);
-    this.createRunwayPylon(-12, 0, 10);
-    this.createRunwayPylon(12, 0, 3);
-    this.createRunwayPylon(12, 0, 10);
+    this.createRunwayPylon(-7.8, 0, 3.0);
+    this.createRunwayPylon(-7.8, 0, 9.5);
+    this.createRunwayPylon(7.8, 0, 3.0);
+    this.createRunwayPylon(7.8, 0, 9.5);
 
     // Luggage Carts
-    this.createLuggageCart(-12.5, 0, 6.5);
-    this.createLuggageCart(12.5, 0, 6.5);
+    this.createLuggageCart(-7.6, 0, 6.2);
+    this.createLuggageCart(7.6, 0, 6.2);
   }
 
   // ========================================================
   // WORLD 6: FESTIVAL PROPS (Balloons, Flags, Carnival Tents)
   // ========================================================
   private buildFestivalProps(theme: WorldThemeConfig): void {
-    // Striped Carnival Circus Tents
-    this.createCarnivalTent(-17, 0, 5, 0xec4899, 0xfacc15);
-    this.createCarnivalTent(17, 0, 5, 0x8b5cf6, 0x06b6d4);
+    // Carnival Candy Stalls & Booths
+    this.createStorefrontBuilding(-6.2, 0, -17.5, 3.6, 5.2, 3.4, 0xf472b6, 0xffffff, 0xfacc15, 0xf43f5e);
+    this.createStorefrontBuilding(-2.1, 0, -17.0, 3.8, 5.8, 3.6, 0xa78bfa, 0xffffff, 0x38bdf8, 0x8b5cf6);
+    this.createStorefrontBuilding(2.1, 0, -17.0, 3.8, 5.8, 3.6, 0x38bdf8, 0xffffff, 0xf43f5e, 0x06b6d4);
+    this.createStorefrontBuilding(6.2, 0, -17.5, 3.6, 5.2, 3.4, 0xfde047, 0xffffff, 0x10b981, 0xf59e0b);
 
     // Floating Festive Balloon Bunches
-    this.createBalloonBunch(-12.5, 0, 2);
-    this.createBalloonBunch(-12.5, 0, 10);
-    this.createBalloonBunch(12.5, 0, 2);
-    this.createBalloonBunch(12.5, 0, 10);
+    this.createBalloonBunch(-8.0, 0, -14.2);
+    this.createBalloonBunch(-8.0, 0, 3.0);
+    this.createBalloonBunch(-8.0, 0, 10.0);
+    this.createBalloonBunch(8.0, 0, -14.2);
+    this.createBalloonBunch(8.0, 0, 3.0);
+    this.createBalloonBunch(8.0, 0, 10.0);
 
     // Colorful Pennant Bunting Poles
-    this.createPennantBunting(-11.5, 0, -4);
-    this.createPennantBunting(11.5, 0, -4);
+    this.createPennantBunting(-7.5, 0, -4.5);
+    this.createPennantBunting(7.5, 0, -4.5);
 
     // Popcorn & Ticket Booth
-    this.createFestivalStall(-13, 0, 6, 0xf43f5e);
-    this.createFestivalStall(13, 0, 6, 0x10b981);
+    this.createFestivalStall(-7.8, 0, 6.5, 0xf43f5e);
+    this.createFestivalStall(7.8, 0, 6.5, 0x10b981);
   }
 
   // ========================================================
   // WORLD 7: NIGHT PROPS (Neon Towers, Cyber Signs, Beacons)
   // ========================================================
   private buildNightCityProps(theme: WorldThemeConfig): void {
-    // Sleek Dark Towers with Glowing Neon Ribbons
-    this.createCyberTower(-18, 0, 3, 5.5, 15, 7, 0x0f172a, 0x06b6d4);
-    this.createCyberTower(-18, 0, 12, 5, 12, 6, 0x0f172a, 0xd946ef);
-    this.createCyberTower(18, 0, 3, 5.5, 16, 7, 0x0f172a, 0xa855f7);
-    this.createCyberTower(18, 0, 12, 5, 11, 6, 0x0f172a, 0x22d3ee);
+    // Sleek Night City Storefronts with Glowing Neon Trim
+    this.createStorefrontBuilding(-6.2, 0, -17.5, 3.6, 6.2, 3.5, 0x1e1b4b, 0x06b6d4, 0x06b6d4, 0x3b82f6);
+    this.createStorefrontBuilding(-2.1, 0, -17.0, 3.8, 7.5, 3.8, 0x0f172a, 0xd946ef, 0xd946ef, 0x8b5cf6);
+    this.createStorefrontBuilding(2.1, 0, -17.0, 3.8, 7.5, 3.8, 0x0f172a, 0x22c55e, 0x22c55e, 0x10b981);
+    this.createStorefrontBuilding(6.2, 0, -17.5, 3.6, 6.2, 3.5, 0x1e1b4b, 0xfacc15, 0xfacc15, 0xf97316);
 
     // Glowing Neon Hologram Totems
-    this.createNeonTotem(-12, 0, 1, 0x06b6d4);
-    this.createNeonTotem(-12, 0, 8, 0xd946ef);
-    this.createNeonTotem(12, 0, 1, 0x22c55e);
-    this.createNeonTotem(12, 0, 8, 0xec4899);
+    this.createNeonTotem(-7.8, 0, 2.0, 0x06b6d4);
+    this.createNeonTotem(-7.8, 0, 8.5, 0xd946ef);
+    this.createNeonTotem(7.8, 0, 2.0, 0x22c55e);
+    this.createNeonTotem(7.8, 0, 8.5, 0xec4899);
 
     // Searchlight Beacons into the night sky
-    this.createSearchlightBeacon(-14, 0, -5, 0x06b6d4);
-    this.createSearchlightBeacon(14, 0, -5, 0xa855f7);
+    this.createSearchlightBeacon(-7.5, 0, -5.0, 0x06b6d4);
+    this.createSearchlightBeacon(7.5, 0, -5.0, 0xa855f7);
   }
 
   // ========================================================
   // WORLD 8: MOUNTAIN PROPS (Pine Trees, Timber Lodges, Rocks)
   // ========================================================
   private buildMountainProps(theme: WorldThemeConfig): void {
-    // Conifer Pine Trees with layered green foliage
-    this.createPineTree(-13, 0, 1, 1.3);
-    this.createPineTree(-14, 0, 5, 1.0);
-    this.createPineTree(-13.2, 0, 9, 1.4);
-    this.createPineTree(13, 0, 1, 1.2);
-    this.createPineTree(14, 0, 5, 1.1);
-    this.createPineTree(13.2, 0, 9, 1.3);
+    // Alpine Timber Cabins
+    this.createTimberCabin(-6.2, 0, -17.5, 0x78350f, 0x451a03);
+    this.createTimberCabin(6.2, 0, -17.5, 0x92400e, 0x451a03);
 
-    // Alpine Timber Log Cabins
-    this.createTimberCabin(-18, 0, 4, 0x78350f, 0x451a03);
-    this.createTimberCabin(18, 0, 4, 0x92400e, 0x451a03);
+    // Conifer Pine Trees with layered green foliage
+    this.createPineTree(-8.2, 0, -14.2, 1.2);
+    this.createPineTree(-8.2, 0, 1.5, 1.2);
+    this.createPineTree(-8.4, 0, 6.5, 1.0);
+    this.createPineTree(-8.2, 0, 11.5, 1.3);
+    this.createPineTree(8.2, 0, -14.2, 1.2);
+    this.createPineTree(8.2, 0, 1.5, 1.2);
+    this.createPineTree(8.4, 0, 6.5, 1.0);
+    this.createPineTree(8.2, 0, 11.5, 1.3);
 
     // Mountain Boulders
-    this.createBoulder(-11.5, 0, 3.5, 1.2);
-    this.createBoulder(-11.8, 0, 7.5, 0.9);
-    this.createBoulder(11.5, 0, 3.5, 1.1);
-    this.createBoulder(11.8, 0, 7.5, 1.0);
+    this.createBoulder(-7.5, 0, 4.0, 1.1);
+    this.createBoulder(7.5, 0, 4.0, 1.0);
 
     // Trail Marker Signpost
-    this.createTrailMarker(-11, 0, -4);
-    this.createTrailMarker(11, 0, -4);
+    this.createTrailMarker(-7.2, 0, -4.5);
+    this.createTrailMarker(7.2, 0, -4.5);
   }
 
   // ========================================================
@@ -396,43 +448,291 @@ export class BackgroundEnvironmentManager {
 
   private buildWorldSignboard(theme: WorldThemeConfig): void {
     const signGroup = new THREE.Group();
-    signGroup.position.set(0, 0, -14.2);
+    signGroup.position.set(0, 0, -20.5);
 
     // Wooden / Metallic posts
-    const postGeo = new THREE.CylinderGeometry(0.14, 0.16, 4.2, 8);
+    const postGeo = new THREE.CylinderGeometry(0.14, 0.16, 5.2, 8);
     const postMat = new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.5 });
     const p1 = new THREE.Mesh(postGeo, postMat);
-    p1.position.set(-3.2, 2.1, 0);
+    p1.position.set(-3.6, 2.6, 0);
     const p2 = new THREE.Mesh(postGeo, postMat);
-    p2.position.set(3.2, 2.1, 0);
+    p2.position.set(3.6, 2.6, 0);
     signGroup.add(p1, p2);
 
     // Large Overhead Banner Board
-    const boardGeo = new THREE.BoxGeometry(7.2, 1.3, 0.35);
+    const boardGeo = new THREE.BoxGeometry(7.6, 1.4, 0.35);
     const boardMat = new THREE.MeshStandardMaterial({
       color: theme.terminalBuildingColor,
       roughness: 0.3,
       metalness: 0.2,
     });
     const board = new THREE.Mesh(boardGeo, boardMat);
-    board.position.set(0, 3.4, 0);
+    board.position.set(0, 4.2, 0);
     board.castShadow = true;
     signGroup.add(board);
 
     // Bright Glowing Trim
-    const trimGeo = new THREE.BoxGeometry(7.3, 0.15, 0.4);
+    const trimGeo = new THREE.BoxGeometry(7.7, 0.16, 0.4);
     const trimMat = new THREE.MeshStandardMaterial({
       color: theme.terminalRoofColor,
       emissive: theme.terminalRoofColor,
       emissiveIntensity: 0.6,
     });
     const trimTop = new THREE.Mesh(trimGeo, trimMat);
-    trimTop.position.set(0, 4.05, 0);
+    trimTop.position.set(0, 4.95, 0);
     const trimBot = new THREE.Mesh(trimGeo, trimMat);
-    trimBot.position.set(0, 2.75, 0);
+    trimBot.position.set(0, 3.45, 0);
     signGroup.add(trimTop, trimBot);
 
     this.propsContainer.add(signGroup);
+  }
+
+  /**
+   * Procedural Charming Boutique Storefront Building with
+   * Striped Fabric Awning, Glowing Display Window, Flower Boxes, and Roof Parapet.
+   */
+  private createStorefrontBuilding(
+    x: number,
+    y: number,
+    z: number,
+    w: number,
+    h: number,
+    d: number,
+    wallColor: number,
+    trimColor: number,
+    awningColor1: number,
+    awningColor2: number
+  ): void {
+    const bGroup = new THREE.Group();
+    bGroup.position.set(x, y, z);
+
+    // 1. Main Pastel Facade Body
+    const bodyGeo = new THREE.BoxGeometry(w, h, d);
+    const bodyMat = new THREE.MeshStandardMaterial({
+      color: wallColor,
+      roughness: 0.5,
+      metalness: 0.05,
+    });
+    const body = new THREE.Mesh(bodyGeo, bodyMat);
+    body.position.y = h / 2;
+    body.castShadow = true;
+    body.receiveShadow = true;
+    bGroup.add(body);
+
+    // 2. Decorative Molded Roof Cornice / Parapet
+    const corniceGeo = new THREE.BoxGeometry(w + 0.35, 0.42, d + 0.35);
+    const corniceMat = new THREE.MeshStandardMaterial({ color: trimColor, roughness: 0.35 });
+    const cornice = new THREE.Mesh(corniceGeo, corniceMat);
+    cornice.position.y = h + 0.21;
+    cornice.castShadow = true;
+    bGroup.add(cornice);
+
+    // 3. Rooftop Detail (Cute AC Unit or Vent)
+    const acGeo = new THREE.BoxGeometry(0.9, 0.55, 0.75);
+    const acMat = new THREE.MeshStandardMaterial({ color: 0x94a3b8, roughness: 0.6 });
+    const ac = new THREE.Mesh(acGeo, acMat);
+    ac.position.set(w * 0.2, h + 0.5, 0);
+    bGroup.add(ac);
+
+    // 4. Ground Floor Display Window with Warm Glowing Shop Interior
+    const dispWinGeo = new THREE.BoxGeometry(w * 0.52, 1.6, 0.12);
+    const dispWinMat = new THREE.MeshStandardMaterial({
+      color: 0xffffff,
+      emissive: 0xfef3c7,
+      emissiveIntensity: 0.65,
+      roughness: 0.1,
+    });
+    const dispWin = new THREE.Mesh(dispWinGeo, dispWinMat);
+    dispWin.position.set(-w * 0.18, 1.05, d / 2 + 0.04);
+    bGroup.add(dispWin);
+
+    // 5. Shop Entrance Door
+    const doorGeo = new THREE.BoxGeometry(w * 0.26, 1.8, 0.1);
+    const doorMat = new THREE.MeshStandardMaterial({ color: trimColor, roughness: 0.4 });
+    const door = new THREE.Mesh(doorGeo, doorMat);
+    door.position.set(w * 0.26, 0.95, d / 2 + 0.04);
+    bGroup.add(door);
+
+    // 6. Cute Striped Fabric Awning over shopfront
+    const awningWidth = w * 0.92;
+    const awningDepth = 1.05;
+    const stripeCount = 6;
+    const stripeWidth = awningWidth / stripeCount;
+    for (let s = 0; s < stripeCount; s++) {
+      const stripeMat = new THREE.MeshStandardMaterial({
+        color: s % 2 === 0 ? awningColor1 : awningColor2,
+        roughness: 0.6,
+      });
+      const stripeGeo = new THREE.BoxGeometry(stripeWidth * 0.96, 0.1, awningDepth);
+      const stripe = new THREE.Mesh(stripeGeo, stripeMat);
+      stripe.rotation.x = 0.28;
+      stripe.position.set(
+        -awningWidth / 2 + (s + 0.5) * stripeWidth,
+        2.1,
+        d / 2 + awningDepth * 0.45
+      );
+      stripe.castShadow = true;
+      bGroup.add(stripe);
+    }
+
+    // 7. Upper Floor Windows with Flower Boxes
+    const upperWinGeo = new THREE.BoxGeometry(0.8, 1.0, 0.08);
+    const upperWinMat = new THREE.MeshStandardMaterial({
+      color: 0xffffff,
+      emissive: 0xfef08a,
+      emissiveIntensity: 0.4,
+      roughness: 0.2,
+    });
+    [-w * 0.25, w * 0.25].forEach((wx) => {
+      if (h > 3.8) {
+        const uWin = new THREE.Mesh(upperWinGeo, upperWinMat);
+        uWin.position.set(wx, h * 0.66, d / 2 + 0.04);
+        bGroup.add(uWin);
+
+        // Window Sill / Flower Box
+        const sillGeo = new THREE.BoxGeometry(0.95, 0.14, 0.22);
+        const sillMat = new THREE.MeshStandardMaterial({ color: 0x854d0e, roughness: 0.7 });
+        const sill = new THREE.Mesh(sillGeo, sillMat);
+        sill.position.set(wx, h * 0.66 - 0.56, d / 2 + 0.1);
+        bGroup.add(sill);
+
+        // Blossoms in flower box
+        const flowerGeo = new THREE.SphereGeometry(0.1, 6, 6);
+        const flowerMat = new THREE.MeshStandardMaterial({ color: awningColor1 });
+        const flower = new THREE.Mesh(flowerGeo, flowerMat);
+        flower.position.set(wx, h * 0.66 - 0.44, d / 2 + 0.13);
+        bGroup.add(flower);
+      }
+    });
+
+    this.propsContainer.add(bGroup);
+  }
+
+  /**
+   * Stylized Puffy Deciduous Tree with multi-tier foliage & gentle wind animation
+   */
+  private createStylizedTree(x: number, y: number, z: number, scale = 1.0): void {
+    const tree = new THREE.Group();
+    tree.position.set(x, y, z);
+    tree.scale.set(scale, scale, scale);
+
+    // Trunk
+    const trunkGeo = new THREE.CylinderGeometry(0.22, 0.32, 2.2, 8);
+    const trunkMat = new THREE.MeshStandardMaterial({ color: 0x854d0e, roughness: 0.8 });
+    const trunk = new THREE.Mesh(trunkGeo, trunkMat);
+    trunk.position.y = 1.1;
+    trunk.castShadow = true;
+    tree.add(trunk);
+
+    // 3 Overlapping Puffy Foliage Spheres
+    const folMat1 = new THREE.MeshStandardMaterial({ color: 0x22c55e, roughness: 0.55 });
+    const folMat2 = new THREE.MeshStandardMaterial({ color: 0x16a34a, roughness: 0.55 });
+    const folMat3 = new THREE.MeshStandardMaterial({ color: 0x4ade80, roughness: 0.55 });
+
+    const fol1 = new THREE.Mesh(new THREE.SphereGeometry(1.2, 10, 10), folMat1);
+    fol1.position.set(0, 2.7, 0);
+    fol1.castShadow = true;
+
+    const fol2 = new THREE.Mesh(new THREE.SphereGeometry(0.95, 10, 10), folMat2);
+    fol2.position.set(0.35, 3.6, 0.1);
+    fol2.castShadow = true;
+
+    const fol3 = new THREE.Mesh(new THREE.SphereGeometry(0.8, 10, 10), folMat3);
+    fol3.position.set(-0.3, 3.4, -0.2);
+    fol3.castShadow = true;
+
+    tree.add(fol1, fol2, fol3);
+
+    this.animatedProps.push({
+      mesh: fol1,
+      type: 'wind',
+      speed: 1.6,
+      initialY: 2.7,
+      offset: x * 0.4 + z * 0.2,
+    });
+
+    this.propsContainer.add(tree);
+  }
+
+  /**
+   * Modern Rectangular Flower Planter with vibrant blossoms
+   */
+  private createFlowerPlanter(x: number, y: number, z: number, flowerColorHex: number): void {
+    const planter = new THREE.Group();
+    planter.position.set(x, y, z);
+
+    // White / Concrete Planter Box
+    const boxGeo = new THREE.BoxGeometry(1.6, 0.5, 0.7);
+    const boxMat = new THREE.MeshStandardMaterial({ color: 0xf1f5f9, roughness: 0.4 });
+    const box = new THREE.Mesh(boxGeo, boxMat);
+    box.position.y = 0.25;
+    box.castShadow = true;
+    planter.add(box);
+
+    // Soil
+    const soil = new THREE.Mesh(
+      new THREE.BoxGeometry(1.5, 0.05, 0.6),
+      new THREE.MeshStandardMaterial({ color: 0x3f2e1c, roughness: 0.9 })
+    );
+    soil.position.y = 0.5;
+    planter.add(soil);
+
+    // Green Bush
+    const bush = new THREE.Mesh(
+      new THREE.SphereGeometry(0.45, 8, 8),
+      new THREE.MeshStandardMaterial({ color: 0x22c55e, roughness: 0.6 })
+    );
+    bush.position.y = 0.65;
+    bush.scale.set(1.5, 0.6, 0.8);
+    planter.add(bush);
+
+    // 4 Flower Buds
+    const fMat = new THREE.MeshStandardMaterial({ color: flowerColorHex, roughness: 0.4 });
+    [-0.5, -0.15, 0.2, 0.5].forEach((fx, idx) => {
+      const bud = new THREE.Mesh(new THREE.SphereGeometry(0.12, 6, 6), fMat);
+      bud.position.set(fx, 0.85 + (idx % 2) * 0.08, (idx % 2 === 0 ? 0.1 : -0.1));
+      planter.add(bud);
+    });
+
+    this.propsContainer.add(planter);
+  }
+
+  /**
+   * Modern Street Lamp with warm glowing spherical bulb
+   */
+  private createModernLamp(x: number, y: number, z: number): void {
+    const lamp = new THREE.Group();
+    lamp.position.set(x, y, z);
+
+    // Pole
+    const pole = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.08, 0.12, 4.2, 8),
+      new THREE.MeshStandardMaterial({ color: 0x475569, roughness: 0.5 })
+    );
+    pole.position.y = 2.1;
+    pole.castShadow = true;
+    lamp.add(pole);
+
+    // Curved Arm & Glowing Globe
+    const arm = new THREE.Mesh(
+      new THREE.BoxGeometry(0.4, 0.08, 0.08),
+      new THREE.MeshStandardMaterial({ color: 0x475569 })
+    );
+    arm.position.set(0.15, 4.2, 0);
+    lamp.add(arm);
+
+    const bulb = new THREE.Mesh(
+      new THREE.SphereGeometry(0.28, 12, 12),
+      new THREE.MeshStandardMaterial({
+        color: 0xffedd5,
+        emissive: 0xfef08a,
+        emissiveIntensity: 1.8,
+      })
+    );
+    bulb.position.set(0.35, 4.05, 0);
+    lamp.add(bulb);
+
+    this.propsContainer.add(lamp);
   }
 
   private createBuilding(
@@ -489,40 +789,7 @@ export class BackgroundEnvironmentManager {
   }
 
   private createCityTree(x: number, y: number, z: number): void {
-    const tree = new THREE.Group();
-    tree.position.set(x, y, z);
-
-    // Trunk
-    const trunkGeo = new THREE.CylinderGeometry(0.25, 0.35, 2.2, 8);
-    const trunkMat = new THREE.MeshStandardMaterial({ color: 0x854d0e, roughness: 0.8 });
-    const trunk = new THREE.Mesh(trunkGeo, trunkMat);
-    trunk.position.y = 1.1;
-    trunk.castShadow = true;
-    tree.add(trunk);
-
-    // Foliage Spheres
-    const folGeo = new THREE.SphereGeometry(1.3, 10, 10);
-    const folMat = new THREE.MeshStandardMaterial({ color: 0x22c55e, roughness: 0.6 });
-    const fol1 = new THREE.Mesh(folGeo, folMat);
-    fol1.position.y = 2.8;
-    fol1.scale.set(1.1, 0.9, 1.1);
-    fol1.castShadow = true;
-
-    const fol2 = new THREE.Mesh(new THREE.SphereGeometry(1.0, 10, 10), new THREE.MeshStandardMaterial({ color: 0x16a34a }));
-    fol2.position.set(0.2, 3.8, 0);
-    fol2.castShadow = true;
-
-    tree.add(fol1, fol2);
-
-    this.animatedProps.push({
-      mesh: fol1,
-      type: 'wind',
-      speed: 1.5,
-      initialY: 2.8,
-      offset: x * 0.5,
-    });
-
-    this.propsContainer.add(tree);
+    this.createStylizedTree(x, y, z, 1.0);
   }
 
   private createTrafficSign(x: number, y: number, z: number, type: 'STOP' | 'ONEWAY'): void {

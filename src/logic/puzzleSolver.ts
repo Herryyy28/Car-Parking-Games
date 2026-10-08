@@ -20,8 +20,9 @@ export class PuzzleSolver {
     if (available.length === 0) return null;
 
     // 1. High Priority: Available vehicle whose color matches front passenger!
-    const frontPassenger = state.passengers.find((p) => p.state === 'WAITING');
-    if (frontPassenger) {
+    const waitingPassengers = state.passengers.filter((p) => p.state === 'WAITING');
+    if (waitingPassengers.length > 0) {
+      const frontPassenger = waitingPassengers[0];
       const directColorMatch = available.find((v) => v.color === frontPassenger.color);
       if (directColorMatch) {
         return {
@@ -32,7 +33,9 @@ export class PuzzleSolver {
       }
 
       // Check second or third passenger in line
-      const nextMatch = available.find((v) => state.passengers.slice(0, 3).some((p) => p.color === v.color));
+      const nextMatch = available.find((v) =>
+        waitingPassengers.slice(0, 3).some((p) => p.color === v.color)
+      );
       if (nextMatch) {
         return {
           vehicleId: nextMatch.id,

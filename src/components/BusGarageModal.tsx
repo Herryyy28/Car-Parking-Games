@@ -93,7 +93,7 @@ export function BusGarageModal({ onClose, onCustomizationChanged }: BusGarageMod
     renderer.setSize(width, height, false);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.shadowMap.enabled = true;
-    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.shadowMap.type = THREE.PCFShadowMap;
 
     // Showroom Lighting
     const ambientLight = new THREE.AmbientLight(0xffffff, 1.2);
