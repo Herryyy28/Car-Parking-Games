@@ -10,6 +10,7 @@ import {
   VehicleStateType,
   VehicleType,
 } from './types.ts';
+import { ProceduralLevelGenerator } from './proceduralLevelGenerator.ts';
 
 export interface LevelData {
   id: number;
@@ -256,8 +257,10 @@ export class LevelRepository {
     return LEVELS_DATA;
   }
 
-  public static getLevel(id: number): LevelData {
-    return LEVELS_DATA.find((l) => l.id === id) || LEVELS_DATA[0];
+  public static getLevel(id: number, difficulty: Difficulty = Difficulty.HARD): LevelData {
+    const found = LEVELS_DATA.find((l) => l.id === id);
+    if (found) return found;
+    return ProceduralLevelGenerator.generateLevel(id, difficulty);
   }
 
   public static createInitialGameState(
@@ -265,7 +268,7 @@ export class LevelRepository {
     coins = 1000,
     difficulty: Difficulty = Difficulty.HARD
   ): GameState {
-    const data = this.getLevel(levelId);
+    const data = this.getLevel(levelId, difficulty);
 
     const vehicles: VehicleState[] = data.vehicles.map((v) => ({
       id: v.id,

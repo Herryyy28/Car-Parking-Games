@@ -153,6 +153,14 @@ export class AmbientTrafficSystem {
     });
   }
 
+  public getVehiclesForCollision(): Array<{ pos: THREE.Vector3; speed: number; heading: number }> {
+    return this.cars.map((c) => ({
+      pos: c.mesh.position,
+      speed: c.isStopped ? 0 : 8.0,
+      heading: c.mesh.rotation.y,
+    }));
+  }
+
   public dispose(): void {
     this.cars.forEach((car) => {
       this.trafficGroup.remove(car.mesh);

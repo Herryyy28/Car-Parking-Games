@@ -12,6 +12,7 @@ import { AmbientTrafficSystem } from '../logic/ambientTrafficSystem.ts';
 import { WeatherTimeSystem, WeatherType, WEATHER_CONDITIONS, getDefaultWeatherForWorld } from '../logic/weatherTimeSystem.ts';
 import { WorldRoadMarkingsSystem } from '../logic/worldRoadMarkings.ts';
 import { AdvancedParkingEvaluator, ParkingGrade } from '../logic/parkingEvaluator.ts';
+import { ReactivePropsSystem } from '../logic/reactivePropsSystem.ts';
 import { inCabRadio, RADIO_STATIONS, RadioStation } from '../utils/radioSynthesizer.ts';
 import { LIVERIES, UNDERGLOWS, RIMS, HORNS } from '../logic/garageCustomization.ts';
 import { PlayerProgress } from '../logic/playerProgress.ts';
@@ -122,6 +123,7 @@ export const BusMadnessArena: React.FC<BusMadnessArenaProps> = ({
   const roadMarkingsRef = useRef<WorldRoadMarkingsSystem | null>(null);
   const ambientTrafficRef = useRef<AmbientTrafficSystem | null>(null);
   const weatherSystemRef = useRef<WeatherTimeSystem | null>(null);
+  const reactivePropsRef = useRef<ReactivePropsSystem | null>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
   const [parkingToast, setParkingToast] = useState<{ grade: string; message: string } | null>(null);
   const [cameraMode, setCameraMode] = useState<CameraMode>('CINEMATIC_INTRO');
@@ -267,24 +269,9 @@ export const BusMadnessArena: React.FC<BusMadnessArenaProps> = ({
       scene.add(lampGroup);
     });
 
-    // Decorative Safety Cones around grid boundary
-    const conePositions = [
-      [-10.2, 0.25, -2.8],
-      [10.2, 0.25, -2.8],
-      [-10.2, 0.25, 14.5],
-      [10.2, 0.25, 14.5],
-    ];
-    const createdCones: THREE.Mesh[] = [];
-    conePositions.forEach(([cx, cy, cz]) => {
-      const cone = new THREE.Mesh(
-        new THREE.ConeGeometry(0.3, 0.7, 12),
-        new THREE.MeshStandardMaterial({ color: 0xf97316, roughness: 0.3 })
-      );
-      cone.position.set(cx, cy, cz);
-      cone.castShadow = true;
-      scene.add(cone);
-      createdCones.push(cone);
-    });
+    // Destructible & Reactive Props (Tumbling cones, auto-lifting barrier gates, spring bollards)
+    const reactiveProps = new ReactivePropsSystem(scene);
+    reactivePropsRef.current = reactiveProps;
 
     // Terminal Station Facade
     const stationGroup = new THREE.Group();
@@ -977,6 +964,18 @@ export const BusMadnessArena: React.FC<BusMadnessArenaProps> = ({
         dynamicCameraRef.current.update(delta, isDraggingCamera);
       }
 
+      // Destructible & Reactive Props System (Tumbling cones, auto-lifting barrier gates, spring bollards)
+      if (reactivePropsRef.current) {
+        const collisionVehicles: Array<{ pos: THREE.Vector3; speed: number; heading: number }> = [];
+        if (activeMovingVehicle) {
+          collisionVehicles.push(activeMovingVehicle);
+        }
+        if (ambientTrafficRef.current) {
+          collisionVehicles.push(...ambientTrafficRef.current.getVehiclesForCollision());
+        }
+        reactivePropsRef.current.update(delta, elapsed, collisionVehicles);
+      }
+
       // Confetti Physics & Instanced Matrix Updates
       const confetti = confettiSystemRef.current;
       if (confetti && confetti.active) {
@@ -1086,6 +1085,10 @@ export const BusMadnessArena: React.FC<BusMadnessArenaProps> = ({
       if (weatherSystemRef.current) {
         weatherSystemRef.current.dispose();
         weatherSystemRef.current = null;
+      }
+      if (reactivePropsRef.current) {
+        reactivePropsRef.current.dispose();
+        reactivePropsRef.current = null;
       }
 
       if (container.contains(renderer.domElement)) {

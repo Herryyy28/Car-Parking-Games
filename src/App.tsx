@@ -721,6 +721,33 @@ export default function App() {
                 );
               })}
             </div>
+
+            {/* PROCEDURAL ENDLESS ENGINE ACTION */}
+            <div className="p-4 rounded-2xl bg-gradient-to-r from-purple-900/40 via-indigo-900/40 to-slate-900 border border-purple-500/30 flex flex-col sm:flex-row items-center justify-between gap-3 shadow-lg">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-purple-500/20 border border-purple-400/40 flex items-center justify-center text-purple-300 shrink-0">
+                  <Sparkles className="w-5 h-5 text-purple-400" />
+                </div>
+                <div>
+                  <div className="text-xs font-black text-purple-300 uppercase tracking-wider">
+                    Procedural Endless Engine
+                  </div>
+                  <div className="text-xs font-medium text-slate-300">
+                    Play mathematically validated, 100% solvable infinite traffic levels
+                  </div>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  const randomLevelId = Math.floor(21 + Math.random() * 80);
+                  handleLevelSelect(randomLevelId, selectedDifficulty);
+                }}
+                className="w-full sm:w-auto px-4 py-2.5 rounded-xl game-btn game-btn-emerald text-white text-xs font-black flex items-center justify-center gap-2 shrink-0 shadow-md"
+              >
+                <Zap className="w-4 h-4 fill-white" />
+                <span>GENERATE LEVEL</span>
+              </button>
+            </div>
           </div>
         )}
 
