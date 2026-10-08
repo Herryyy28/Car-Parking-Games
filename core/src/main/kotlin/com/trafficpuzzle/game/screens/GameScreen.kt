@@ -17,8 +17,12 @@ class GameScreen(private val game: TrafficGame) : Screen {
 
     override fun show() {
         sceneRenderer = SceneRenderer()
-        inputHandler = TouchInputHandler(sceneRenderer) { hit, x, y ->
-            Gdx.app.log("GameScreen", "Touch at ($x, $y) - Hit 3D object: $hit")
+        inputHandler = TouchInputHandler(sceneRenderer) { vehicle, x, y ->
+            if (vehicle != null) {
+                Gdx.app.log("GameScreen", "Selected vehicle ${vehicle.id} (${vehicle.color.displayName}) at ($x, $y)")
+            } else {
+                Gdx.app.log("GameScreen", "Touch at ($x, $y) - No vehicle hit")
+            }
         }
         Gdx.input.inputProcessor = inputHandler
     }

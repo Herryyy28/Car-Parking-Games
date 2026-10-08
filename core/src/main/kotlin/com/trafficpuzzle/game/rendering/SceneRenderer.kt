@@ -9,12 +9,14 @@ import com.badlogic.gdx.graphics.g3d.*
 import com.badlogic.gdx.graphics.g3d.attributes.ColorAttribute
 import com.badlogic.gdx.graphics.g3d.environment.DirectionalLight
 import com.badlogic.gdx.graphics.g3d.utils.ModelBuilder
-import com.badlogic.gdx.math.Intersector
 import com.badlogic.gdx.math.Vector3
-import com.badlogic.gdx.math.collision.BoundingBox
 import com.badlogic.gdx.math.collision.Ray
 import com.badlogic.gdx.utils.Disposable
 import com.trafficpuzzle.game.GameConfig
+import com.trafficpuzzle.game.entities.Car
+import com.trafficpuzzle.game.entities.Vehicle
+import com.trafficpuzzle.game.entities.VehicleColor
+import com.trafficpuzzle.game.entities.VehicleDirection
 
 /**
  * Handles 3D camera setup, lighting, model batching, and rendering of 3D scene objects.
@@ -31,9 +33,9 @@ class SceneRenderer : Disposable {
     private val environment: Environment = Environment()
     private val directionalLight: DirectionalLight = DirectionalLight()
 
-    // Test 3D Object
-    private var testModel: Model? = null
-    var testInstance: ModelInstance? = null
+    // Dedicated Vehicle Entities
+    val vehicles: MutableList<Vehicle> = mutableListOf()
+    var selectedVehicle: Vehicle? = null
         private set
 
     // Static 3D Parking Grid & Floor Markings
@@ -42,16 +44,20 @@ class SceneRenderer : Disposable {
     private var parkingBorderModel: Model? = null
     private val parkingFloorInstances: MutableList<ModelInstance> = mutableListOf()
 
-    private val testObjectBounds = BoundingBox()
-    private val testObjectCenter = Vector3()
-    private var isSelected = false
-    private var bounceAnimation = 0f
+    // Decorative 3D Low-Poly Models (Trees, Street Lamps)
+    private var treeTrunkModel: Model? = null
+    private var treeFoliageModel: Model? = null
+    private var treeFoliageTopModel: Model? = null
+    private var lampPostModel: Model? = null
+    private var lampFixtureModel: Model? = null
+    private val decorativeInstances: MutableList<ModelInstance> = mutableListOf()
 
     init {
         setupCamera()
         setupLighting()
         createParkingLotMarkings()
-        createTest3DObject()
+        createDecorativeEnvironment()
+        createVehicles()
     }
 
     private fun setupCamera() {
@@ -139,22 +145,93 @@ class SceneRenderer : Disposable {
         parkingFloorInstances.add(frontThresholdInstance)
     }
 
-    private fun createTest3DObject() {
+    private fun createDecorativeEnvironment() {
         val modelBuilder = ModelBuilder()
-        // Create a stylized 3D vehicle/block test object
-        testModel = modelBuilder.createBox(
-            1.8f, 1.2f, 3.2f,
-            Material(ColorAttribute.createDiffuse(Color(0.18f, 0.45f, 0.95f, 1.0f))),
-            (Usage.Position or Usage.Normal).toLong()
+        val attributes = (Usage.Position or Usage.Normal).toLong()
+
+        // 1. Low-poly Tree Models
+        treeTrunkModel = modelBuilder.createCylinder(
+            0.35f, 1.2f, 0.35f, 8,
+            Material(ColorAttribute.createDiffuse(Color(0.42f, 0.26f, 0.14f, 1.0f))),
+            attributes
+        )
+        treeFoliageModel = modelBuilder.createCone(
+            1.8f, 2.0f, 1.8f, 7,
+            Material(ColorAttribute.createDiffuse(Color(0.18f, 0.65f, 0.32f, 1.0f))),
+            attributes
+        )
+        treeFoliageTopModel = modelBuilder.createCone(
+            1.3f, 1.5f, 1.3f, 7,
+            Material(ColorAttribute.createDiffuse(Color(0.25f, 0.74f, 0.38f, 1.0f))),
+            attributes
         )
 
-        testInstance = ModelInstance(testModel).apply {
-            // Position vehicle inside parking slot 2 (x = -1.1f)
-            transform.setToTranslation(-1.1f, 0.76f, 0f)
-            calculateBoundingBox(testObjectBounds)
-            testObjectBounds.mul(transform)
-            testObjectBounds.getCenter(testObjectCenter)
+        // Tree Placements around the parking lot edges
+        val treePositions = arrayOf(
+            Vector3(-4.8f, 0f, -6.6f),
+            Vector3(-1.6f, 0f, -6.8f),
+            Vector3(1.6f, 0f, -6.8f),
+            Vector3(4.8f, 0f, -6.6f),
+            Vector3(-6.8f, 0f, 0.5f),
+            Vector3(6.8f, 0f, 0.5f)
+        )
+
+        for (pos in treePositions) {
+            // Trunk
+            val trunk = ModelInstance(treeTrunkModel).apply {
+                transform.setToTranslation(pos.x, 0.6f, pos.z)
+            }
+            // Foliage base tier
+            val foliageBase = ModelInstance(treeFoliageModel).apply {
+                transform.setToTranslation(pos.x, 1.8f, pos.z)
+            }
+            // Foliage top tier
+            val foliageTop = ModelInstance(treeFoliageTopModel).apply {
+                transform.setToTranslation(pos.x, 2.7f, pos.z)
+            }
+            decorativeInstances.add(trunk)
+            decorativeInstances.add(foliageBase)
+            decorativeInstances.add(foliageTop)
         }
+
+        // 2. Low-poly Street Lamp Models
+        lampPostModel = modelBuilder.createBox(
+            0.16f, 3.0f, 0.16f,
+            Material(ColorAttribute.createDiffuse(Color(0.20f, 0.24f, 0.30f, 1.0f))),
+            attributes
+        )
+        lampFixtureModel = modelBuilder.createBox(
+            0.45f, 0.22f, 0.45f,
+            Material(ColorAttribute.createDiffuse(Color(0.98f, 0.88f, 0.35f, 1.0f))),
+            attributes
+        )
+
+        // Street Lamp Placements (flanking left and right sides)
+        val lampPositions = arrayOf(
+            Vector3(-6.5f, 0f, -3.2f),
+            Vector3(-6.5f, 0f, 3.8f),
+            Vector3(6.5f, 0f, -3.2f),
+            Vector3(6.5f, 0f, 3.8f)
+        )
+
+        for (pos in lampPositions) {
+            val post = ModelInstance(lampPostModel).apply {
+                transform.setToTranslation(pos.x, 1.5f, pos.z)
+            }
+            val fixture = ModelInstance(lampFixtureModel).apply {
+                transform.setToTranslation(pos.x, 3.0f, pos.z)
+            }
+            decorativeInstances.add(post)
+            decorativeInstances.add(fixture)
+        }
+    }
+
+    private fun createVehicles() {
+        // Instantiate real Car entities in the designated parking bays
+        vehicles.add(Car("car_01", VehicleColor.ROYAL_BLUE, -3.3f, 0.76f, 0.0f, VehicleDirection.DOWN))
+        vehicles.add(Car("car_02", VehicleColor.CORAL_ORANGE, -1.1f, 0.76f, 0.0f, VehicleDirection.DOWN))
+        vehicles.add(Car("car_03", VehicleColor.FRESH_GREEN, 1.1f, 0.76f, 0.0f, VehicleDirection.DOWN))
+        vehicles.add(Car("car_04", VehicleColor.VIOLET_PURPLE, 3.3f, 0.76f, 0.0f, VehicleDirection.DOWN))
     }
 
     fun resize(width: Int, height: Int) {
@@ -174,15 +251,9 @@ class SceneRenderer : Disposable {
         )
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT or GL20.GL_DEPTH_BUFFER_BIT)
 
-        // Animate selection bounce if selected
-        testInstance?.let { instance ->
-            if (isSelected) {
-                bounceAnimation += delta * 6f
-                val bounceY = 0.76f + kotlin.math.sin(bounceAnimation) * 0.15f
-                instance.transform.setToTranslation(-1.1f, bounceY, 0f)
-            } else {
-                instance.transform.setToTranslation(-1.1f, 0.76f, 0f)
-            }
+        // Update all vehicle entities
+        for (vehicle in vehicles) {
+            vehicle.update(delta)
         }
 
         camera.update()
@@ -192,44 +263,51 @@ class SceneRenderer : Disposable {
         for (floorInstance in parkingFloorInstances) {
             modelBatch.render(floorInstance, environment)
         }
-        // Render test vehicle
-        testInstance?.let { instance ->
-            modelBatch.render(instance, environment)
+        // Render decorative 3D low-poly environment objects (trees, street lamps)
+        for (decorInstance in decorativeInstances) {
+            modelBatch.render(decorInstance, environment)
+        }
+        // Render dedicated Vehicle entities
+        for (vehicle in vehicles) {
+            vehicle.render(modelBatch, environment)
         }
         modelBatch.end()
     }
 
     /**
-     * Raycasts from screen coordinates to check touch collision with the test 3D object.
+     * Raycasts from screen coordinates to select or deselect specific vehicle entities.
      */
-    fun checkTouchIntersection(screenX: Float, screenY: Float): Boolean {
+    fun checkTouchIntersection(screenX: Float, screenY: Float): Vehicle? {
         val ray: Ray = camera.getPickRay(screenX, screenY)
-        val hit = Intersector.intersectRayBoundsFast(ray, testObjectBounds)
+        val hitVehicle = vehicles.firstOrNull { it.checkRayIntersection(ray) }
 
-        if (hit) {
-            isSelected = !isSelected
-            bounceAnimation = 0f
-            // Toggle material color for visual feedback
-            testInstance?.let { instance ->
-                val material = instance.materials.first()
-                val colorAttr = material.get(ColorAttribute.Diffuse) as? ColorAttribute
-                if (colorAttr != null) {
-                    if (isSelected) {
-                        colorAttr.color.set(0.98f, 0.45f, 0.15f, 1.0f) // Highlight Coral Orange
-                    } else {
-                        colorAttr.color.set(0.18f, 0.45f, 0.95f, 1.0f) // Royal Blue
-                    }
-                }
+        if (hitVehicle != null) {
+            if (selectedVehicle == hitVehicle) {
+                // Deselect current
+                hitVehicle.setSelected(false)
+                selectedVehicle = null
+            } else {
+                // Deselect previous, select new
+                selectedVehicle?.setSelected(false)
+                hitVehicle.setSelected(true)
+                selectedVehicle = hitVehicle
             }
         }
-        return hit
+        return hitVehicle
     }
 
     override fun dispose() {
         modelBatch.dispose()
-        testModel?.dispose()
+        for (vehicle in vehicles) {
+            vehicle.dispose()
+        }
         parkingFloorModel?.dispose()
         parkingMarkingModel?.dispose()
         parkingBorderModel?.dispose()
+        treeTrunkModel?.dispose()
+        treeFoliageModel?.dispose()
+        treeFoliageTopModel?.dispose()
+        lampPostModel?.dispose()
+        lampFixtureModel?.dispose()
     }
 }

@@ -1,21 +1,31 @@
 import React, { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 
+export interface VehicleData {
+  id: string;
+  type: 'CAR' | 'BUS' | 'VAN';
+  colorName: string;
+  hex: string;
+  position: { x: number; y: number; z: number };
+  direction: 'DOWN' | 'UP' | 'LEFT' | 'RIGHT';
+  state: 'PARKED' | 'SELECTED' | 'MOVING' | 'EXITED';
+}
+
 interface Phase1SceneProps {
-  onSelectObject: (selected: boolean, pos: { x: number; y: number; z: number }) => void;
+  onSelectVehicle: (vehicle: VehicleData | null) => void;
   showGrid?: boolean;
 }
 
-export const Phase1Scene: React.FC<Phase1SceneProps> = ({ onSelectObject, showGrid = true }) => {
+export const Phase1Scene: React.FC<Phase1SceneProps> = ({ onSelectVehicle }) => {
   const mountRef = useRef<HTMLDivElement>(null);
-  const [selected, setSelected] = useState(false);
+  const [selectedVehicleId, setSelectedVehicleId] = useState<string | null>(null);
   const [touchFeedback, setTouchFeedback] = useState<{ x: number; y: number; text: string } | null>(null);
 
   const sceneRef = useRef<THREE.Scene | null>(null);
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
-  const testMeshRef = useRef<THREE.Group | null>(null);
-  const isSelectedRef = useRef(false);
+  const vehicleGroupsRef = useRef<Map<string, { group: THREE.Group; data: VehicleData; bodyMat: THREE.MeshStandardMaterial; ringMat: THREE.MeshBasicMaterial }>>(new Map());
+  const selectedIdRef = useRef<string | null>(null);
   const bounceTimeRef = useRef(0);
 
   useEffect(() => {
@@ -64,7 +74,6 @@ export const Phase1Scene: React.FC<Phase1SceneProps> = ({ onSelectObject, showGr
     dirLight.shadow.bias = -0.001;
     scene.add(dirLight);
 
-    // Soft secondary fill light
     const fillLight = new THREE.DirectionalLight(0x93c5fd, 0.4);
     fillLight.position.set(-8, 6, -6);
     scene.add(fillLight);
@@ -113,14 +122,8 @@ export const Phase1Scene: React.FC<Phase1SceneProps> = ({ onSelectObject, showGr
 
     // 5c. Static 3D Parking Grid Floor Markings (Dividers, slot boundaries, exit arrows)
     const dividerGeo = new THREE.BoxGeometry(0.12, 0.02, 3.8);
-    const whiteMarkingMat = new THREE.MeshStandardMaterial({
-      color: 0xf8fafc,
-      roughness: 0.4,
-    });
-    const yellowMarkingMat = new THREE.MeshStandardMaterial({
-      color: 0xfacc15, // Golden yellow
-      roughness: 0.4,
-    });
+    const whiteMarkingMat = new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.4 });
+    const yellowMarkingMat = new THREE.MeshStandardMaterial({ color: 0xfacc15, roughness: 0.4 });
 
     // 4 Parking Bay Dividers (X: -4.4, -2.2, 0.0, 2.2, 4.4)
     const slotDividersX = [-4.4, -2.2, 0.0, 2.2, 4.4];
@@ -130,7 +133,6 @@ export const Phase1Scene: React.FC<Phase1SceneProps> = ({ onSelectObject, showGr
       divider.receiveShadow = true;
       scene.add(divider);
 
-      // Small perpendicular end caps for clean parking slot look
       const capGeo = new THREE.BoxGeometry(0.4, 0.02, 0.12);
       const capFront = new THREE.Mesh(capGeo, whiteMarkingMat);
       capFront.position.set(x, 0.16, 1.9);
@@ -139,14 +141,13 @@ export const Phase1Scene: React.FC<Phase1SceneProps> = ({ onSelectObject, showGr
       scene.add(capFront, capBack);
     });
 
-    // Back yellow wheel-stop boundary line
+    // Yellow lines
     const backLineGeo = new THREE.BoxGeometry(9.0, 0.02, 0.14);
     const backLine = new THREE.Mesh(backLineGeo, yellowMarkingMat);
     backLine.position.set(0, 0.16, -1.9);
     backLine.receiveShadow = true;
     scene.add(backLine);
 
-    // Front yellow exit threshold line
     const frontLineGeo = new THREE.BoxGeometry(9.0, 0.02, 0.14);
     const frontLine = new THREE.Mesh(frontLineGeo, yellowMarkingMat);
     frontLine.position.set(0, 0.16, 1.9);
@@ -165,86 +166,190 @@ export const Phase1Scene: React.FC<Phase1SceneProps> = ({ onSelectObject, showGr
     arrowHead.position.set(0, 0.16, 4.2);
     scene.add(arrowHead);
 
-    // 6. Test 3D Object (Positioned in marked Parking Bay #2 at x = -1.1)
-    const testGroup = new THREE.Group();
-    testGroup.position.set(-1.1, 0.76, 0);
+    // 5d. Decorative 3D Low-Poly Trees and Street Lamps
+    const treeGroup = new THREE.Group();
+    const trunkGeo = new THREE.CylinderGeometry(0.18, 0.25, 1.2, 7);
+    const trunkMat = new THREE.MeshStandardMaterial({ color: 0x5c4033, roughness: 0.9 });
+    const foliageLowerGeo = new THREE.ConeGeometry(1.2, 1.6, 6);
+    const foliageUpperGeo = new THREE.ConeGeometry(0.9, 1.4, 6);
+    const foliageMatA = new THREE.MeshStandardMaterial({ color: 0x16a34a, roughness: 0.6, flatShading: true });
+    const foliageMatB = new THREE.MeshStandardMaterial({ color: 0x22c55e, roughness: 0.6, flatShading: true });
 
-    // Main body box (1.8 wide, 1.2 tall, 3.2 long)
-    const bodyGeo = new THREE.BoxGeometry(1.8, 1.0, 3.0);
-    const bodyMat = new THREE.MeshStandardMaterial({
-      color: 0x2563eb, // Royal Blue
-      roughness: 0.3,
-      metalness: 0.2,
-    });
-    const bodyMesh = new THREE.Mesh(bodyGeo, bodyMat);
-    bodyMesh.castShadow = true;
-    bodyMesh.receiveShadow = true;
-    testGroup.add(bodyMesh);
+    const createTree = (x: number, z: number, scale = 1.0) => {
+      const singleTree = new THREE.Group();
+      singleTree.position.set(x, 0, z);
+      singleTree.scale.set(scale, scale, scale);
 
-    // Cabin / Roof
-    const cabinGeo = new THREE.BoxGeometry(1.5, 0.6, 1.6);
-    const cabinMat = new THREE.MeshStandardMaterial({
-      color: 0x1e3a8a, // Deep Navy Blue
+      const trunk = new THREE.Mesh(trunkGeo, trunkMat);
+      trunk.position.y = 0.6;
+      trunk.castShadow = true;
+      singleTree.add(trunk);
+
+      const fLower = new THREE.Mesh(foliageLowerGeo, foliageMatA);
+      fLower.position.y = 1.6;
+      fLower.castShadow = true;
+      fLower.receiveShadow = true;
+      singleTree.add(fLower);
+
+      const fUpper = new THREE.Mesh(foliageUpperGeo, foliageMatB);
+      fUpper.position.y = 2.4;
+      fUpper.rotation.y = 0.5;
+      fUpper.castShadow = true;
+      fUpper.receiveShadow = true;
+      singleTree.add(fUpper);
+
+      treeGroup.add(singleTree);
+    };
+
+    createTree(-4.8, -6.6, 1.1);
+    createTree(-1.8, -6.8, 0.95);
+    createTree(1.8, -6.8, 1.05);
+    createTree(4.8, -6.6, 1.15);
+    createTree(-6.8, 0.5, 1.0);
+    createTree(6.8, 0.5, 1.0);
+    scene.add(treeGroup);
+
+    // Street Lamps
+    const lampGroup = new THREE.Group();
+    const poleGeo = new THREE.CylinderGeometry(0.08, 0.1, 2.8, 8);
+    const poleMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.7 });
+    const armGeo = new THREE.BoxGeometry(0.1, 0.1, 0.65);
+    const fixtureGeo = new THREE.BoxGeometry(0.32, 0.18, 0.32);
+    const fixtureMat = new THREE.MeshStandardMaterial({
+      color: 0xfef08a,
+      emissive: 0xfef08a,
+      emissiveIntensity: 0.6,
       roughness: 0.2,
-      metalness: 0.3,
     });
-    const cabinMesh = new THREE.Mesh(cabinGeo, cabinMat);
-    cabinMesh.position.set(0, 0.65, -0.2);
-    cabinMesh.castShadow = true;
-    testGroup.add(cabinMesh);
 
-    // Front Headlights
-    const lightGeo = new THREE.BoxGeometry(0.35, 0.2, 0.1);
-    const lightMat = new THREE.MeshBasicMaterial({ color: 0xfef08a });
-    const leftLight = new THREE.Mesh(lightGeo, lightMat);
-    leftLight.position.set(0.6, 0, 1.51);
-    const rightLight = new THREE.Mesh(lightGeo, lightMat);
-    rightLight.position.set(-0.6, 0, 1.51);
-    testGroup.add(leftLight, rightLight);
+    const createLamp = (x: number, z: number, armDirX: number) => {
+      const lamp = new THREE.Group();
+      lamp.position.set(x, 0, z);
 
-    // Rear taillights
-    const tailMat = new THREE.MeshBasicMaterial({ color: 0xef4444 });
-    const leftTail = new THREE.Mesh(lightGeo, tailMat);
-    leftTail.position.set(0.6, 0, -1.51);
-    const rightTail = new THREE.Mesh(lightGeo, tailMat);
-    rightTail.position.set(-0.6, 0, -1.51);
-    testGroup.add(leftTail, rightTail);
+      const pole = new THREE.Mesh(poleGeo, poleMat);
+      pole.position.y = 1.4;
+      pole.castShadow = true;
+      lamp.add(pole);
 
-    // Wheels
-    const wheelGeo = new THREE.CylinderGeometry(0.35, 0.35, 0.25, 16);
-    const wheelMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.8 });
-    const wheelPositions = [
-      [1.0, -0.35, 0.9],
-      [-1.0, -0.35, 0.9],
-      [1.0, -0.35, -0.9],
-      [-1.0, -0.35, -0.9],
+      const arm = new THREE.Mesh(armGeo, poleMat);
+      arm.position.set(armDirX * 0.25, 2.7, 0);
+      arm.rotation.y = Math.PI / 2;
+      lamp.add(arm);
+
+      const fixture = new THREE.Mesh(fixtureGeo, fixtureMat);
+      fixture.position.set(armDirX * 0.55, 2.6, 0);
+      lamp.add(fixture);
+
+      const localLight = new THREE.PointLight(0xfef08a, 0.6, 4.5);
+      localLight.position.set(armDirX * 0.55, 2.4, 0);
+      lamp.add(localLight);
+
+      lampGroup.add(lamp);
+    };
+
+    createLamp(-6.4, -3.2, 1);
+    createLamp(-6.4, 3.8, 1);
+    createLamp(6.4, -3.2, -1);
+    createLamp(6.4, 3.8, -1);
+    scene.add(lampGroup);
+
+    // 6. PHASE 3: DEDICATED CAR ENTITY INSTANCES
+    const INITIAL_VEHICLES: VehicleData[] = [
+      { id: 'car_01', type: 'CAR', colorName: 'Royal Blue', hex: '#2563EB', position: { x: -3.3, y: 0.76, z: 0.0 }, direction: 'DOWN', state: 'PARKED' },
+      { id: 'car_02', type: 'CAR', colorName: 'Coral Orange', hex: '#F97316', position: { x: -1.1, y: 0.76, z: 0.0 }, direction: 'DOWN', state: 'PARKED' },
+      { id: 'car_03', type: 'CAR', colorName: 'Fresh Green', hex: '#10B981', position: { x: 1.1, y: 0.76, z: 0.0 }, direction: 'DOWN', state: 'PARKED' },
+      { id: 'car_04', type: 'CAR', colorName: 'Violet Purple', hex: '#8B5CF6', position: { x: 3.3, y: 0.76, z: 0.0 }, direction: 'DOWN', state: 'PARKED' },
     ];
-    wheelPositions.forEach(([wx, wy, wz]) => {
-      const wheel = new THREE.Mesh(wheelGeo, wheelMat);
-      wheel.rotation.z = Math.PI / 2;
-      wheel.position.set(wx, wy, wz);
-      wheel.castShadow = true;
-      testGroup.add(wheel);
-    });
 
-    // Selection ring indicator
+    const bodyGeo = new THREE.BoxGeometry(1.8, 0.9, 3.0);
+    const cabinGeo = new THREE.BoxGeometry(1.5, 0.6, 1.6);
+    const lightGeo = new THREE.BoxGeometry(0.35, 0.18, 0.08);
+    const wheelGeo = new THREE.CylinderGeometry(0.34, 0.34, 0.22, 14);
     const ringGeo = new THREE.RingGeometry(1.6, 1.85, 32);
-    const ringMat = new THREE.MeshBasicMaterial({
-      color: 0xf97316,
-      side: THREE.DoubleSide,
-      transparent: true,
-      opacity: 0,
+
+    const cabinMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.3, metalness: 0.2 });
+    const lightMat = new THREE.MeshBasicMaterial({ color: 0xfef08a });
+    const tailMat = new THREE.MeshBasicMaterial({ color: 0xef4444 });
+    const wheelMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.8 });
+
+    vehicleGroupsRef.current.clear();
+
+    INITIAL_VEHICLES.forEach((vData) => {
+      const carGroup = new THREE.Group();
+      carGroup.position.set(vData.position.x, vData.position.y, vData.position.z);
+      carGroup.userData = { vehicleId: vData.id };
+
+      // Vehicle Chassis with unique entity color
+      const bodyMat = new THREE.MeshStandardMaterial({
+        color: new THREE.Color(vData.hex),
+        roughness: 0.3,
+        metalness: 0.2,
+      });
+      const bodyMesh = new THREE.Mesh(bodyGeo, bodyMat);
+      bodyMesh.castShadow = true;
+      bodyMesh.receiveShadow = true;
+      bodyMesh.userData = { vehicleId: vData.id };
+      carGroup.add(bodyMesh);
+
+      // Cabin / Roof
+      const cabinMesh = new THREE.Mesh(cabinGeo, cabinMat);
+      cabinMesh.position.set(0, 0.6, -0.2);
+      cabinMesh.castShadow = true;
+      cabinMesh.userData = { vehicleId: vData.id };
+      carGroup.add(cabinMesh);
+
+      // Headlights
+      const leftLight = new THREE.Mesh(lightGeo, lightMat);
+      leftLight.position.set(0.6, -0.05, 1.51);
+      const rightLight = new THREE.Mesh(lightGeo, lightMat);
+      rightLight.position.set(-0.6, -0.05, 1.51);
+      carGroup.add(leftLight, rightLight);
+
+      // Taillights
+      const leftTail = new THREE.Mesh(lightGeo, tailMat);
+      leftTail.position.set(0.6, -0.05, -1.51);
+      const rightTail = new THREE.Mesh(lightGeo, tailMat);
+      rightTail.position.set(-0.6, -0.05, -1.51);
+      carGroup.add(leftTail, rightTail);
+
+      // Wheels
+      const wheelPositions = [
+        [0.98, -0.32, 0.9],
+        [-0.98, -0.32, 0.9],
+        [0.98, -0.32, -0.9],
+        [-0.98, -0.32, -0.9],
+      ];
+      wheelPositions.forEach(([wx, wy, wz]) => {
+        const wheel = new THREE.Mesh(wheelGeo, wheelMat);
+        wheel.rotation.z = Math.PI / 2;
+        wheel.position.set(wx, wy, wz);
+        wheel.castShadow = true;
+        carGroup.add(wheel);
+      });
+
+      // Selection Ring
+      const ringMat = new THREE.MeshBasicMaterial({
+        color: 0xf97316,
+        side: THREE.DoubleSide,
+        transparent: true,
+        opacity: 0,
+      });
+      const selectionRing = new THREE.Mesh(ringGeo, ringMat);
+      selectionRing.rotation.x = -Math.PI / 2;
+      selectionRing.position.y = -0.58;
+      selectionRing.name = 'selectionRing';
+      carGroup.add(selectionRing);
+
+      scene.add(carGroup);
+      vehicleGroupsRef.current.set(vData.id, {
+        group: carGroup,
+        data: { ...vData },
+        bodyMat,
+        ringMat,
+      });
     });
-    const selectionRing = new THREE.Mesh(ringGeo, ringMat);
-    selectionRing.rotation.x = -Math.PI / 2;
-    selectionRing.position.y = -0.58;
-    selectionRing.name = 'selectionRing';
-    testGroup.add(selectionRing);
 
-    scene.add(testGroup);
-    testMeshRef.current = testGroup;
-
-    // Raycaster for Touch / Click handling
+    // Raycaster for Touch / Click handling across all vehicles
     const raycaster = new THREE.Raycaster();
     const mouse = new THREE.Vector2();
 
@@ -257,40 +362,79 @@ export const Phase1Scene: React.FC<Phase1SceneProps> = ({ onSelectObject, showGr
       mouse.y = -((clientY - rect.top) / rect.height) * 2 + 1;
 
       raycaster.setFromCamera(mouse, camera);
-      const intersects = raycaster.intersectObjects(testGroup.children, true);
+
+      // Collect all vehicle children meshes
+      const clickableMeshes: THREE.Object3D[] = [];
+      vehicleGroupsRef.current.forEach(({ group }) => {
+        clickableMeshes.push(...group.children);
+      });
+
+      const intersects = raycaster.intersectObjects(clickableMeshes, true);
 
       if (intersects.length > 0) {
-        // Toggle selection state
-        const nextSelected = !isSelectedRef.current;
-        isSelectedRef.current = nextSelected;
-        setSelected(nextSelected);
-        bounceTimeRef.current = 0;
+        // Find which vehicle was clicked by traversing parent or userData
+        let clickedVehicleId: string | null = null;
+        let obj: THREE.Object3D | null = intersects[0].object;
+        while (obj) {
+          if (obj.userData?.vehicleId) {
+            clickedVehicleId = obj.userData.vehicleId;
+            break;
+          }
+          obj = obj.parent;
+        }
 
-        // Change color to highlight
-        bodyMat.color.set(nextSelected ? 0xf97316 : 0x2563eb);
-        ringMat.opacity = nextSelected ? 0.85 : 0;
+        if (clickedVehicleId) {
+          const currentSelectedId = selectedIdRef.current;
+          const isSame = currentSelectedId === clickedVehicleId;
 
-        const hitPoint = intersects[0].point;
-        onSelectObject(nextSelected, {
-          x: parseFloat(hitPoint.x.toFixed(2)),
-          y: parseFloat(hitPoint.y.toFixed(2)),
-          z: parseFloat(hitPoint.z.toFixed(2)),
-        });
+          // Deselect previous vehicle
+          if (currentSelectedId) {
+            const prevEntry = vehicleGroupsRef.current.get(currentSelectedId);
+            if (prevEntry) {
+              prevEntry.ringMat.opacity = 0;
+              prevEntry.group.position.y = prevEntry.data.position.y;
+              prevEntry.data.state = 'PARKED';
+            }
+          }
 
-        // Touch ripple feedback
-        setTouchFeedback({
-          x: clientX - rect.left,
-          y: clientY - rect.top,
-          text: nextSelected ? 'Selected (Hit!)' : 'Deselected',
-        });
-        setTimeout(() => setTouchFeedback(null), 1200);
+          if (isSame) {
+            // Deselected
+            selectedIdRef.current = null;
+            setSelectedVehicleId(null);
+            onSelectVehicle(null);
+            setTouchFeedback({
+              x: clientX - rect.left,
+              y: clientY - rect.top,
+              text: 'Deselected',
+            });
+          } else {
+            // Select new vehicle
+            selectedIdRef.current = clickedVehicleId;
+            setSelectedVehicleId(clickedVehicleId);
+            bounceTimeRef.current = 0;
+
+            const newEntry = vehicleGroupsRef.current.get(clickedVehicleId);
+            if (newEntry) {
+              newEntry.ringMat.opacity = 0.85;
+              newEntry.data.state = 'SELECTED';
+              onSelectVehicle(newEntry.data);
+
+              setTouchFeedback({
+                x: clientX - rect.left,
+                y: clientY - rect.top,
+                text: `${newEntry.data.id} Selected!`,
+              });
+            }
+          }
+          setTimeout(() => setTouchFeedback(null), 1200);
+        }
       }
     };
 
     container.addEventListener('mousedown', handlePointerDown);
     container.addEventListener('touchstart', handlePointerDown, { passive: true });
 
-    // Subtle idle camera drag/orbit
+    // Camera orbit drag
     let isDragging = false;
     let prevMousePos = { x: 0, y: 0 };
     let spherical = { radius: 17.5, theta: Math.PI / 4, phi: Math.PI / 3.8 };
@@ -332,18 +476,20 @@ export const Phase1Scene: React.FC<Phase1SceneProps> = ({ onSelectObject, showGr
       animationFrameId = requestAnimationFrame(animate);
       const delta = clock.getDelta();
 
-      // Bounce animation if selected
-      if (isSelectedRef.current && testMeshRef.current) {
-        bounceTimeRef.current += delta * 6;
-        const bounceOffset = Math.sin(bounceTimeRef.current) * 0.18;
-        testMeshRef.current.position.y = 0.76 + Math.max(0, bounceOffset);
+      // Animate bounce for selected vehicle
+      const currentSelectedId = selectedIdRef.current;
+      if (currentSelectedId) {
+        const entry = vehicleGroupsRef.current.get(currentSelectedId);
+        if (entry) {
+          bounceTimeRef.current += delta * 6;
+          const bounceOffset = Math.sin(bounceTimeRef.current) * 0.16;
+          entry.group.position.y = entry.data.position.y + Math.max(0, bounceOffset);
 
-        const ring = testMeshRef.current.getObjectByName('selectionRing') as THREE.Mesh;
-        if (ring) {
-          ring.rotation.z += delta * 2;
+          const ring = entry.group.getObjectByName('selectionRing') as THREE.Mesh;
+          if (ring) {
+            ring.rotation.z += delta * 2;
+          }
         }
-      } else if (testMeshRef.current) {
-        testMeshRef.current.position.y = 0.76;
       }
 
       renderer.render(scene, camera);
@@ -351,7 +497,6 @@ export const Phase1Scene: React.FC<Phase1SceneProps> = ({ onSelectObject, showGr
 
     animate();
 
-    // Resize Handler
     const handleResize = () => {
       if (!container) return;
       const w = container.clientWidth;
@@ -379,7 +524,7 @@ export const Phase1Scene: React.FC<Phase1SceneProps> = ({ onSelectObject, showGr
       cabinGeo.dispose();
       wheelGeo.dispose();
     };
-  }, [onSelectObject]);
+  }, [onSelectVehicle]);
 
   return (
     <div className="relative w-full h-full select-none overflow-hidden rounded-2xl bg-gradient-to-b from-blue-50/50 to-indigo-50/30">
@@ -397,24 +542,24 @@ export const Phase1Scene: React.FC<Phase1SceneProps> = ({ onSelectObject, showGr
         </div>
       )}
 
-      {/* Floating 3D Scene Controls & Status Pill */}
+      {/* Floating Status Bar */}
       <div className="absolute top-4 left-4 right-4 flex items-center justify-between pointer-events-none">
         <div className="flex items-center gap-2 bg-white/90 backdrop-blur-md px-3 py-1.5 rounded-full shadow-sm border border-slate-200/80 text-xs font-medium text-slate-700 pointer-events-auto">
           <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
-          <span>Phase 1: 3D Scene Active</span>
+          <span>Phase 3: 4 Car Entities Active</span>
         </div>
 
         <div className="flex items-center gap-2 bg-white/90 backdrop-blur-md px-3 py-1.5 rounded-full shadow-sm border border-slate-200/80 text-xs text-slate-600 pointer-events-auto">
-          <span>Target:</span>
-          <span className={selected ? 'font-bold text-orange-600' : 'font-semibold text-blue-600'}>
-            {selected ? 'Vehicle #1 (Selected)' : 'Tap Vehicle to Select'}
+          <span>Active:</span>
+          <span className={selectedVehicleId ? 'font-bold text-orange-600' : 'font-semibold text-blue-600'}>
+            {selectedVehicleId ? `${selectedVehicleId} (Selected)` : 'Tap Any Car to Select'}
           </span>
         </div>
       </div>
 
       {/* Bottom Hint */}
       <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-white/85 backdrop-blur-md px-4 py-1.5 rounded-full shadow-sm border border-slate-200/60 text-xs text-slate-500 pointer-events-none text-center">
-        👆 Tap vehicle to test raycast selection • 🖱️ Drag to orbit camera
+        👆 Tap any parked Car to test entity selection • 🖱️ Orbit camera
       </div>
     </div>
   );
