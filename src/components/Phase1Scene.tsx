@@ -69,11 +69,11 @@ export const Phase1Scene: React.FC<Phase1SceneProps> = ({ onSelectObject, showGr
     fillLight.position.set(-8, 6, -6);
     scene.add(fillLight);
 
-    // 5. Ground Plane & Grid
+    // 5. Ground Plane & Asphalt Parking Lot Pad
     const groundGeo = new THREE.PlaneGeometry(30, 30);
     const groundMat = new THREE.MeshStandardMaterial({
-      color: 0xf8fafc,
-      roughness: 0.85,
+      color: 0xf1f5f9,
+      roughness: 0.9,
       metalness: 0.05,
     });
     const ground = new THREE.Mesh(groundGeo, groundMat);
@@ -82,13 +82,92 @@ export const Phase1Scene: React.FC<Phase1SceneProps> = ({ onSelectObject, showGr
     ground.receiveShadow = true;
     scene.add(ground);
 
-    const gridHelper = new THREE.GridHelper(20, 20, 0x94a3b8, 0xcbd5e1);
-    gridHelper.position.y = 0.01;
+    const gridHelper = new THREE.GridHelper(26, 26, 0xcbd5e1, 0xe2e8f0);
+    gridHelper.position.y = 0.005;
     scene.add(gridHelper);
 
-    // 6. Test 3D Object (Vehicle block representing Phase 1 3D foundation)
+    // 5b. Static 3D Parking Lot Asphalt Pad (12 x 0.15 x 12)
+    const lotPadGeo = new THREE.BoxGeometry(12, 0.15, 12);
+    const lotPadMat = new THREE.MeshStandardMaterial({
+      color: 0x334155, // Dark slate asphalt
+      roughness: 0.8,
+      metalness: 0.1,
+    });
+    const lotPad = new THREE.Mesh(lotPadGeo, lotPadMat);
+    lotPad.position.set(0, 0.075, 0);
+    lotPad.receiveShadow = true;
+    lotPad.castShadow = true;
+    scene.add(lotPad);
+
+    // Concrete curb border around parking lot
+    const curbGeoH = new THREE.BoxGeometry(12.3, 0.22, 0.25);
+    const curbGeoV = new THREE.BoxGeometry(0.25, 0.22, 12.3);
+    const curbMat = new THREE.MeshStandardMaterial({ color: 0x94a3b8, roughness: 0.7 });
+    const backCurb = new THREE.Mesh(curbGeoH, curbMat);
+    backCurb.position.set(0, 0.11, -6.05);
+    const leftCurb = new THREE.Mesh(curbGeoV, curbMat);
+    leftCurb.position.set(-6.05, 0.11, 0);
+    const rightCurb = new THREE.Mesh(curbGeoV, curbMat);
+    rightCurb.position.set(6.05, 0.11, 0);
+    scene.add(backCurb, leftCurb, rightCurb);
+
+    // 5c. Static 3D Parking Grid Floor Markings (Dividers, slot boundaries, exit arrows)
+    const dividerGeo = new THREE.BoxGeometry(0.12, 0.02, 3.8);
+    const whiteMarkingMat = new THREE.MeshStandardMaterial({
+      color: 0xf8fafc,
+      roughness: 0.4,
+    });
+    const yellowMarkingMat = new THREE.MeshStandardMaterial({
+      color: 0xfacc15, // Golden yellow
+      roughness: 0.4,
+    });
+
+    // 4 Parking Bay Dividers (X: -4.4, -2.2, 0.0, 2.2, 4.4)
+    const slotDividersX = [-4.4, -2.2, 0.0, 2.2, 4.4];
+    slotDividersX.forEach((x) => {
+      const divider = new THREE.Mesh(dividerGeo, whiteMarkingMat);
+      divider.position.set(x, 0.16, 0);
+      divider.receiveShadow = true;
+      scene.add(divider);
+
+      // Small perpendicular end caps for clean parking slot look
+      const capGeo = new THREE.BoxGeometry(0.4, 0.02, 0.12);
+      const capFront = new THREE.Mesh(capGeo, whiteMarkingMat);
+      capFront.position.set(x, 0.16, 1.9);
+      const capBack = new THREE.Mesh(capGeo, whiteMarkingMat);
+      capBack.position.set(x, 0.16, -1.9);
+      scene.add(capFront, capBack);
+    });
+
+    // Back yellow wheel-stop boundary line
+    const backLineGeo = new THREE.BoxGeometry(9.0, 0.02, 0.14);
+    const backLine = new THREE.Mesh(backLineGeo, yellowMarkingMat);
+    backLine.position.set(0, 0.16, -1.9);
+    backLine.receiveShadow = true;
+    scene.add(backLine);
+
+    // Front yellow exit threshold line
+    const frontLineGeo = new THREE.BoxGeometry(9.0, 0.02, 0.14);
+    const frontLine = new THREE.Mesh(frontLineGeo, yellowMarkingMat);
+    frontLine.position.set(0, 0.16, 1.9);
+    frontLine.receiveShadow = true;
+    scene.add(frontLine);
+
+    // Exit Direction Arrow on tarmac in front of parking bays
+    const arrowShaftGeo = new THREE.BoxGeometry(0.24, 0.02, 1.2);
+    const arrowShaft = new THREE.Mesh(arrowShaftGeo, yellowMarkingMat);
+    arrowShaft.position.set(0, 0.16, 3.4);
+    scene.add(arrowShaft);
+
+    const arrowHeadGeo = new THREE.ConeGeometry(0.45, 0.7, 3);
+    const arrowHead = new THREE.Mesh(arrowHeadGeo, yellowMarkingMat);
+    arrowHead.rotation.x = -Math.PI / 2;
+    arrowHead.position.set(0, 0.16, 4.2);
+    scene.add(arrowHead);
+
+    // 6. Test 3D Object (Positioned in marked Parking Bay #2 at x = -1.1)
     const testGroup = new THREE.Group();
-    testGroup.position.set(0, 0.6, 0);
+    testGroup.position.set(-1.1, 0.76, 0);
 
     // Main body box (1.8 wide, 1.2 tall, 3.2 long)
     const bodyGeo = new THREE.BoxGeometry(1.8, 1.0, 3.0);
@@ -257,14 +336,14 @@ export const Phase1Scene: React.FC<Phase1SceneProps> = ({ onSelectObject, showGr
       if (isSelectedRef.current && testMeshRef.current) {
         bounceTimeRef.current += delta * 6;
         const bounceOffset = Math.sin(bounceTimeRef.current) * 0.18;
-        testMeshRef.current.position.y = 0.6 + Math.max(0, bounceOffset);
+        testMeshRef.current.position.y = 0.76 + Math.max(0, bounceOffset);
 
         const ring = testMeshRef.current.getObjectByName('selectionRing') as THREE.Mesh;
         if (ring) {
           ring.rotation.z += delta * 2;
         }
       } else if (testMeshRef.current) {
-        testMeshRef.current.position.y = 0.6;
+        testMeshRef.current.position.y = 0.76;
       }
 
       renderer.render(scene, camera);

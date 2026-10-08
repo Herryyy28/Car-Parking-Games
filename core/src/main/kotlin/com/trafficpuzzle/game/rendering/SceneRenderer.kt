@@ -36,6 +36,12 @@ class SceneRenderer : Disposable {
     var testInstance: ModelInstance? = null
         private set
 
+    // Static 3D Parking Grid & Floor Markings
+    private var parkingFloorModel: Model? = null
+    private var parkingMarkingModel: Model? = null
+    private var parkingBorderModel: Model? = null
+    private val parkingFloorInstances: MutableList<ModelInstance> = mutableListOf()
+
     private val testObjectBounds = BoundingBox()
     private val testObjectCenter = Vector3()
     private var isSelected = false
@@ -44,6 +50,7 @@ class SceneRenderer : Disposable {
     init {
         setupCamera()
         setupLighting()
+        createParkingLotMarkings()
         createTest3DObject()
     }
 
@@ -81,6 +88,57 @@ class SceneRenderer : Disposable {
         environment.add(directionalLight)
     }
 
+    private fun createParkingLotMarkings() {
+        val modelBuilder = ModelBuilder()
+        val attributes = (Usage.Position or Usage.Normal).toLong()
+
+        // 1. Asphalt parking pad (12x12 area)
+        parkingFloorModel = modelBuilder.createBox(
+            12.0f, 0.15f, 12.0f,
+            Material(ColorAttribute.createDiffuse(Color(0.25f, 0.29f, 0.36f, 1.0f))),
+            attributes
+        )
+        val padInstance = ModelInstance(parkingFloorModel).apply {
+            transform.setToTranslation(0f, 0.075f, 0f)
+        }
+        parkingFloorInstances.add(padInstance)
+
+        // 2. Parking Lot Markings (White painted stripes defining slots)
+        // Horizontal slot divider stripe model (width 0.12f, height 0.02f, length 3.6f)
+        parkingMarkingModel = modelBuilder.createBox(
+            0.12f, 0.02f, 3.6f,
+            Material(ColorAttribute.createDiffuse(Color(0.95f, 0.96f, 0.98f, 1.0f))),
+            attributes
+        )
+
+        // Create 4 parallel parking slots (x = -3.3f, -1.1f, 1.1f, 3.3f)
+        val dividerPositionsX = floatArrayOf(-4.4f, -2.2f, 0.0f, 2.2f, 4.4f)
+        for (xPos in dividerPositionsX) {
+            val dividerInstance = ModelInstance(parkingMarkingModel).apply {
+                transform.setToTranslation(xPos, 0.16f, 0f)
+            }
+            parkingFloorInstances.add(dividerInstance)
+        }
+
+        // 3. Yellow Exit Demarcation and Back Curb Line
+        parkingBorderModel = modelBuilder.createBox(
+            8.92f, 0.02f, 0.14f,
+            Material(ColorAttribute.createDiffuse(Color(0.98f, 0.75f, 0.15f, 1.0f))),
+            attributes
+        )
+        // Back bumper line
+        val backBumperInstance = ModelInstance(parkingBorderModel).apply {
+            transform.setToTranslation(0f, 0.16f, -1.8f)
+        }
+        parkingFloorInstances.add(backBumperInstance)
+
+        // Front exit threshold line (dashed / open look)
+        val frontThresholdInstance = ModelInstance(parkingBorderModel).apply {
+            transform.setToTranslation(0f, 0.16f, 1.8f)
+        }
+        parkingFloorInstances.add(frontThresholdInstance)
+    }
+
     private fun createTest3DObject() {
         val modelBuilder = ModelBuilder()
         // Create a stylized 3D vehicle/block test object
@@ -91,7 +149,8 @@ class SceneRenderer : Disposable {
         )
 
         testInstance = ModelInstance(testModel).apply {
-            transform.setToTranslation(0f, 0.6f, 0f)
+            // Position vehicle inside parking slot 2 (x = -1.1f)
+            transform.setToTranslation(-1.1f, 0.76f, 0f)
             calculateBoundingBox(testObjectBounds)
             testObjectBounds.mul(transform)
             testObjectBounds.getCenter(testObjectCenter)
@@ -119,16 +178,21 @@ class SceneRenderer : Disposable {
         testInstance?.let { instance ->
             if (isSelected) {
                 bounceAnimation += delta * 6f
-                val bounceY = 0.6f + kotlin.math.sin(bounceAnimation) * 0.15f
-                instance.transform.setToTranslation(0f, bounceY, 0f)
+                val bounceY = 0.76f + kotlin.math.sin(bounceAnimation) * 0.15f
+                instance.transform.setToTranslation(-1.1f, bounceY, 0f)
             } else {
-                instance.transform.setToTranslation(0f, 0.6f, 0f)
+                instance.transform.setToTranslation(-1.1f, 0.76f, 0f)
             }
         }
 
         camera.update()
 
         modelBatch.begin(camera)
+        // Render static parking lot floor and grid markers
+        for (floorInstance in parkingFloorInstances) {
+            modelBatch.render(floorInstance, environment)
+        }
+        // Render test vehicle
         testInstance?.let { instance ->
             modelBatch.render(instance, environment)
         }
@@ -164,5 +228,8 @@ class SceneRenderer : Disposable {
     override fun dispose() {
         modelBatch.dispose()
         testModel?.dispose()
+        parkingFloorModel?.dispose()
+        parkingMarkingModel?.dispose()
+        parkingBorderModel?.dispose()
     }
 }
