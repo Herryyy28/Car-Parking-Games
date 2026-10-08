@@ -12,24 +12,32 @@ $devices = (adb devices) | Where-Object { $_ -match "\tdevice$" }
 if (-not $devices) {
     Write-Host "[WARNING] No authorized device found! Please connect your phone via USB with 'USB Debugging' enabled." -ForegroundColor Red
     Write-Host "Also ensure you tap 'Allow' on your phone's screen if prompted." -ForegroundColor Yellow
+    exit 1
 }
 
 Write-Host "`n========================================" -ForegroundColor Cyan
-Write-Host " 2. Building & installing APK on device..." -ForegroundColor Yellow
+Write-Host " 2. Compiling Android APK..." -ForegroundColor Yellow
 Write-Host "========================================" -ForegroundColor Cyan
-.\gradlew.bat :android:installDebug
+.\gradlew.bat :android:assembleDebug
 
-if ($LASTEXITCODE -eq 0) {
+$apkPath = "$PSScriptRoot\android\build\outputs\apk\debug\android-debug.apk"
+if (Test-Path $apkPath) {
     Write-Host "`n========================================" -ForegroundColor Cyan
-    Write-Host " 3. Launching game live on device..." -ForegroundColor Green
+    Write-Host " 3. Installing APK onto device..." -ForegroundColor Yellow
     Write-Host "========================================" -ForegroundColor Cyan
-    adb shell am start -n com.trafficpuzzle.game/.android.AndroidLauncher
+    Write-Host "APK File: $apkPath"
+    adb install -r -d -g "$apkPath"
 
     Write-Host "`n========================================" -ForegroundColor Cyan
-    Write-Host " 4. Streaming LIVE game logs (Press Ctrl+C to exit)..." -ForegroundColor Magenta
+    Write-Host " 4. Launching game on your device..." -ForegroundColor Green
     Write-Host "========================================" -ForegroundColor Cyan
-    adb logcat -s TrafficGame:V AndroidLauncher:V com.trafficpuzzle.game:V
+    adb shell am start -n com.trafficpuzzle.game/com.trafficpuzzle.game.android.AndroidLauncher
+    adb shell monkey -p com.trafficpuzzle.game -c android.intent.category.LAUNCHER 1
+
+    Write-Host "`n========================================" -ForegroundColor Cyan
+    Write-Host " 5. Streaming LIVE game logs (Press Ctrl+C to exit)..." -ForegroundColor Magenta
+    Write-Host "========================================" -ForegroundColor Cyan
+    adb logcat -s TrafficGame:V AndroidLauncher:V com.trafficpuzzle.game:V AndroidRuntime:E
 } else {
-    Write-Host "`n[ERROR] Build failed. You can also open the project in Android Studio to build:" -ForegroundColor Red
-    Write-Host "& 'C:\Program Files\Android\Android Studio\bin\studio64.exe' '$PSScriptRoot'" -ForegroundColor Yellow
+    Write-Host "`n[ERROR] APK was not found at $apkPath." -ForegroundColor Red
 }

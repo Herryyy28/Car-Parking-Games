@@ -16,8 +16,7 @@ class AndroidLauncher : AndroidApplication() {
             useAccelerometer = false
             useCompass = false
             useImmersiveMode = true
-            // Enable depth buffer and antialiasing for high quality 3D rendering
-            numSamples = 2
+            // Enable 16-bit depth buffer for 3D rendering
             depth = 16
         }
         initialize(TrafficGame(), config)
