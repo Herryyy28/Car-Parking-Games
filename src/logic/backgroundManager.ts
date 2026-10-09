@@ -27,6 +27,7 @@ export class BackgroundEnvironmentManager {
   private sidewalkMesh: THREE.Mesh | null = null;
   private directionalSun: THREE.DirectionalLight | null = null;
   private ambientLight: THREE.AmbientLight | null = null;
+  private skyFillLight: THREE.DirectionalLight | null = null;
   private hemiLightRef: THREE.HemisphereLight | null = null;
   private gridHelperRef: THREE.GridHelper | null = null;
   private safetyCones: THREE.Mesh[] = [];

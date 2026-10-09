@@ -1,4 +1,4 @@
-import { Difficulty, DIFFICULTY_CONFIGS } from './types.ts';
+import { Difficulty, DIFFICULTY_CONFIGS, GameMode } from './types.ts';
 import { RadioStation } from '../utils/radioSynthesizer.ts';
 
 export interface PlayerProgressData {
@@ -7,6 +7,7 @@ export interface PlayerProgressData {
   stars: Record<number, number>; // levelId -> stars 1..3
   coins: number;
   preferredDifficulty: Difficulty;
+  preferredGameMode: GameMode;
   soundEnabled: boolean;
   vibrationEnabled: boolean;
   tutorialCompleted: boolean;
@@ -40,6 +41,9 @@ export class PlayerProgress {
         if (!parsed.preferredDifficulty) {
           parsed.preferredDifficulty = Difficulty.HARD;
         }
+        if (!parsed.preferredGameMode) {
+          parsed.preferredGameMode = GameMode.CLASSIC;
+        }
         // Defaults for new fields
         parsed.activeLivery = parsed.activeLivery || 'DEFAULT';
         parsed.activeUnderglow = parsed.activeUnderglow || 'NONE';
@@ -66,6 +70,7 @@ export class PlayerProgress {
       stars: {},
       coins: 1000,
       preferredDifficulty: Difficulty.HARD,
+      preferredGameMode: GameMode.CLASSIC,
       soundEnabled: true,
       vibrationEnabled: true,
       tutorialCompleted: false,
@@ -140,6 +145,11 @@ export class PlayerProgress {
 
   public static setPreferredDifficulty(difficulty: Difficulty): void {
     this.data.preferredDifficulty = difficulty;
+    this.save();
+  }
+
+  public static setPreferredGameMode(gameMode: GameMode): void {
+    this.data.preferredGameMode = gameMode;
     this.save();
   }
 

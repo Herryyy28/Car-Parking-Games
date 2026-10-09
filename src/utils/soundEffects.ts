@@ -1,23 +1,42 @@
 /**
  * Web Audio API procedural sound synthesizer for game audio.
  * Zero external audio file dependencies, instant playback, zero latency.
+ * Integrated DynamicsCompressorNode ensures zero distortion clipping during multi-voice events.
  */
 
 class SoundManager {
   private ctx: AudioContext | null = null;
+  private masterCompressor: DynamicsCompressorNode | null = null;
   public soundEnabled = true;
   public vibrationEnabled = true;
 
   private initCtx() {
     if (!this.ctx) {
-      const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+      const AudioCtx =
+        window.AudioContext ||
+        (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
       if (AudioCtx) {
         this.ctx = new AudioCtx();
+        try {
+          this.masterCompressor = this.ctx.createDynamicsCompressor();
+          this.masterCompressor.threshold.setValueAtTime(-10, this.ctx.currentTime);
+          this.masterCompressor.knee.setValueAtTime(24, this.ctx.currentTime);
+          this.masterCompressor.ratio.setValueAtTime(12, this.ctx.currentTime);
+          this.masterCompressor.attack.setValueAtTime(0.003, this.ctx.currentTime);
+          this.masterCompressor.release.setValueAtTime(0.25, this.ctx.currentTime);
+          this.masterCompressor.connect(this.ctx.destination);
+        } catch {
+          this.masterCompressor = null;
+        }
       }
     }
     if (this.ctx && this.ctx.state === 'suspended') {
       this.ctx.resume();
     }
+  }
+
+  private getDestinationNode(): AudioNode {
+    return this.masterCompressor || (this.ctx ? this.ctx.destination : (null as unknown as AudioNode));
   }
 
   private hasUserInteracted = false;
@@ -65,7 +84,7 @@ class SoundManager {
     gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.05);
 
     osc.connect(gain);
-    gain.connect(this.ctx.destination);
+    gain.connect(this.getDestinationNode());
     osc.start();
     osc.stop(this.ctx.currentTime + 0.05);
   }
@@ -87,7 +106,7 @@ class SoundManager {
     gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.4);
 
     osc.connect(gain);
-    gain.connect(this.ctx.destination);
+    gain.connect(this.getDestinationNode());
     osc.start();
     osc.stop(this.ctx.currentTime + 0.4);
   }
@@ -110,7 +129,7 @@ class SoundManager {
       gain.gain.exponentialRampToValueAtTime(0.01, this.ctx!.currentTime + 0.22);
 
       osc.connect(gain);
-      gain.connect(this.ctx!.destination);
+      gain.connect(this.getDestinationNode());
       osc.start();
       osc.stop(this.ctx!.currentTime + 0.22);
     });
@@ -119,6 +138,10 @@ class SoundManager {
   // Alias for physical bump/collision sound
   bump() {
     this.playBlocked();
+  }
+
+  playBump() {
+    this.bump();
   }
 
   // Passenger Boarding Chime
@@ -139,7 +162,7 @@ class SoundManager {
     gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.3);
 
     osc.connect(gain);
-    gain.connect(this.ctx.destination);
+    gain.connect(this.getDestinationNode());
     osc.start();
     osc.stop(this.ctx.currentTime + 0.3);
   }
@@ -163,7 +186,7 @@ class SoundManager {
       gain.gain.exponentialRampToValueAtTime(0.01, time + 0.25);
 
       osc.connect(gain);
-      gain.connect(this.ctx!.destination);
+      gain.connect(this.getDestinationNode());
       osc.start(time);
       osc.stop(time + 0.25);
     });
@@ -186,7 +209,7 @@ class SoundManager {
     gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.35);
 
     osc.connect(gain);
-    gain.connect(this.ctx.destination);
+    gain.connect(this.getDestinationNode());
     osc.start();
     osc.stop(this.ctx.currentTime + 0.35);
   }
@@ -209,7 +232,7 @@ class SoundManager {
       gain.gain.exponentialRampToValueAtTime(0.01, this.ctx!.currentTime + 0.8);
 
       osc.connect(gain);
-      gain.connect(this.ctx!.destination);
+      gain.connect(this.getDestinationNode());
       osc.start();
       osc.stop(this.ctx!.currentTime + 0.8);
     });
@@ -234,7 +257,7 @@ class SoundManager {
       gain.gain.exponentialRampToValueAtTime(0.01, time + 0.35);
 
       osc.connect(gain);
-      gain.connect(this.ctx!.destination);
+      gain.connect(this.getDestinationNode());
       osc.start(time);
       osc.stop(time + 0.35);
     });
@@ -257,7 +280,7 @@ class SoundManager {
     gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.03);
 
     osc.connect(gain);
-    gain.connect(this.ctx.destination);
+    gain.connect(this.getDestinationNode());
     osc.start();
     osc.stop(this.ctx.currentTime + 0.03);
   }
@@ -279,7 +302,7 @@ class SoundManager {
     gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.12);
 
     osc.connect(gain);
-    gain.connect(this.ctx.destination);
+    gain.connect(this.getDestinationNode());
     osc.start();
     osc.stop(this.ctx.currentTime + 0.12);
   }
@@ -300,7 +323,7 @@ class SoundManager {
       gain.gain.exponentialRampToValueAtTime(0.01, this.ctx!.currentTime + 0.28);
 
       osc.connect(gain);
-      gain.connect(this.ctx!.destination);
+      gain.connect(this.getDestinationNode());
       osc.start();
       osc.stop(this.ctx!.currentTime + 0.28);
     });
@@ -323,7 +346,7 @@ class SoundManager {
     gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.35);
 
     osc.connect(gain);
-    gain.connect(this.ctx.destination);
+    gain.connect(this.getDestinationNode());
     osc.start();
     osc.stop(this.ctx.currentTime + 0.35);
   }

@@ -2,6 +2,7 @@ import {
   Difficulty,
   DIFFICULTY_CONFIGS,
   Direction,
+  GameMode,
   GameState,
   GameStatus,
   PassengerState,
@@ -276,7 +277,8 @@ export class LevelRepository {
   public static createInitialGameState(
     levelId: number,
     coins = 1000,
-    difficulty: Difficulty = Difficulty.HARD
+    difficulty: Difficulty = Difficulty.HARD,
+    gameMode: GameMode = GameMode.CLASSIC
   ): GameState {
     const data = this.getLevel(levelId, difficulty);
 
@@ -293,10 +295,12 @@ export class LevelRepository {
       loadedPassengers: 0,
     }));
 
-    const passengers: PassengerState[] = data.passengers.map((p) => ({
+    const isVipMode = gameMode === GameMode.VIP_EXPRESS;
+    const passengers: PassengerState[] = data.passengers.map((p, idx) => ({
       id: p.id,
       color: p.color,
       state: 'WAITING',
+      isVip: isVipMode && (idx % 4 === 1), // 25% VIP golden commuters in VIP mode
     }));
 
     const parkingSlots = [
@@ -309,10 +313,24 @@ export class LevelRepository {
     ];
 
     const diffConfig = DIFFICULTY_CONFIGS[difficulty] || DIFFICULTY_CONFIGS[Difficulty.HARD];
-    const baseTime = data.timeLimit || 75;
+    let baseTime = data.timeLimit || 75;
+    let baseMoves = data.parMoves;
+
+    // Apply Game Mode rules
+    let objective = data.objective || 'CLEAR THE TRAFFIC & MATCH PASSENGERS';
+    if (gameMode === GameMode.RUSH_HOUR) {
+      baseTime = Math.round(baseTime * 0.7); // Tighter clock for adrenaline rush
+      objective = '⚡ RUSH HOUR: +15S BONUS PER BUS DEPARTED!';
+    } else if (gameMode === GameMode.PUZZLE_MASTER) {
+      baseMoves = Math.round(baseMoves * 0.75); // Strict moves limit
+      baseTime = Math.round(baseTime * 1.3); // Relaxed clock
+      objective = '🎯 PUZZLE MASTER: STRICT MOVE BUDGET!';
+    } else if (gameMode === GameMode.VIP_EXPRESS) {
+      objective = '👑 VIP EXPRESS: GOLDEN VIPs BOARD ANY BUS!';
+    }
+
     const adjustedTime = Math.max(25, Math.round(baseTime * diffConfig.timeMultiplier));
-    const baseMoves = data.parMoves;
-    const adjustedMoves = Math.max(10, Math.round(baseMoves * diffConfig.moveMultiplier));
+    const adjustedMoves = Math.max(8, Math.round(baseMoves * diffConfig.moveMultiplier));
 
     return {
       levelId: data.id,
@@ -338,11 +356,12 @@ export class LevelRepository {
       },
       status: GameStatus.READY,
       difficulty,
+      gameMode,
       activeHintVehicleId: null,
       hintMessage: 'Tap an unblocked vehicle pointing to an open road!',
       comboCount: 0,
       unlockedDocksCount: 4,
-      objective: data.objective || 'CLEAR THE TRAFFIC & MATCH PASSENGERS',
+      objective,
     };
   }
 }

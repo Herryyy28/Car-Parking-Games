@@ -36,13 +36,25 @@ import {
   Pause,
   Target,
   Check,
+  Palette,
+  Wrench,
+  Crown,
 } from 'lucide-react';
 import { BusMadnessArena } from './components/BusMadnessArena.tsx';
 import { Hero3DShowcase } from './components/Hero3DShowcase.tsx';
+import { BusGarageModal } from './components/BusGarageModal.tsx';
 import { DailyRewardModal, DailyRewardDay } from './components/DailyRewardModal.tsx';
 import { GameGuideModal } from './components/GameGuideModal.tsx';
 import { GameController } from './logic/gameController.ts';
-import { GameState, GameStatus, COLOR_MAP, Difficulty, DIFFICULTY_CONFIGS } from './logic/types.ts';
+import {
+  GameState,
+  GameStatus,
+  COLOR_MAP,
+  Difficulty,
+  DIFFICULTY_CONFIGS,
+  GameMode,
+  GAME_MODE_CONFIGS,
+} from './logic/types.ts';
 import { LevelRepository } from './logic/levelRepository.ts';
 import { PlayerProgress } from './logic/playerProgress.ts';
 import { PuzzleSolver } from './logic/puzzleSolver.ts';
@@ -54,8 +66,16 @@ type ScreenMode = 'HOME' | 'LEVEL_SELECT' | 'GAME';
 export default function App() {
   const [screen, setScreen] = useState<ScreenMode>('GAME');
   const [progress, setProgress] = useState(() => PlayerProgress.get());
+  const [selectedGameMode, setSelectedGameMode] = useState<GameMode>(
+    () => progress.preferredGameMode || GameMode.CLASSIC
+  );
   const [controller] = useState<GameController>(
-    () => new GameController(1, progress.preferredDifficulty || Difficulty.HARD)
+    () =>
+      new GameController(
+        1,
+        progress.preferredDifficulty || Difficulty.HARD,
+        progress.preferredGameMode || GameMode.CLASSIC
+      )
   );
   const [selectedDifficulty, setSelectedDifficulty] = useState<Difficulty>(
     () => progress.preferredDifficulty || Difficulty.HARD
@@ -69,6 +89,7 @@ export default function App() {
   const [soundOn, setSoundOn] = useState(() => progress.soundEnabled);
 
   // Modals
+  const [showGarageModal, setShowGarageModal] = useState(false);
   const [showPauseModal, setShowPauseModal] = useState(false);
   const [showDailyModal, setShowDailyModal] = useState(false);
   const [showShopModal, setShowShopModal] = useState(false);
@@ -151,6 +172,7 @@ export default function App() {
           gameState.parMoves,
           gameState.difficulty
         );
+        controller.refreshCoinsFromStorage();
         setProgress({ ...PlayerProgress.get() });
         setVictoryData(victory);
       } else if (step.type === 'OUT_OF_MOVES') {
@@ -295,8 +317,11 @@ export default function App() {
 
   // Daily Claim
   const handleClaimDaily = (reward: DailyRewardDay) => {
+    if (!isDailyReady) return;
     controller.addCoins(reward.coins);
-    if (reward.bonus === 'shuffle') controller.useBooster('shuffle');
+    if (reward.bonus && (reward.bonus as any) in controller.getState().availableBoosters) {
+      controller.addBooster(reward.bonus as any, 1);
+    }
 
     const now = Date.now();
     setLastClaimedDaily(now);
@@ -308,6 +333,7 @@ export default function App() {
     } catch {
       // Ignore
     }
+    setProgress({ ...PlayerProgress.get() });
 
     setTimeout(() => setShowDailyModal(false), 1200);
   };
@@ -320,10 +346,19 @@ export default function App() {
     controller.setDifficulty(diff);
   };
 
-  const handleLevelSelect = (levelId: number, diffOverride?: Difficulty) => {
+  const handleGameModeChange = (mode: GameMode) => {
+    sounds.playClick();
+    setSelectedGameMode(mode);
+    PlayerProgress.setPreferredGameMode(mode);
+    setProgress({ ...PlayerProgress.get() });
+    controller.setGameMode(mode);
+  };
+
+  const handleLevelSelect = (levelId: number, diffOverride?: Difficulty, modeOverride?: GameMode) => {
     sounds.playClick();
     const diffToUse = diffOverride || selectedDifficulty;
-    controller.loadLevel(levelId, diffToUse);
+    const modeToUse = modeOverride || selectedGameMode;
+    controller.loadLevel(levelId, diffToUse, modeToUse);
     setVictoryData(null);
     setShowGridlockModal(false);
     setShowOutOfMovesModal(false);
@@ -341,13 +376,22 @@ export default function App() {
   }) => {
     sounds.playClick();
     const diffConfig = DIFFICULTY_CONFIGS[selectedDifficulty];
+    const modeConfig = GAME_MODE_CONFIGS[selectedGameMode];
+    let time = lvl.timeLimit;
+    let moves = lvl.parMoves;
+    if (selectedGameMode === GameMode.RUSH_HOUR) time = Math.round(time * 0.7);
+    else if (selectedGameMode === GameMode.PUZZLE_MASTER) {
+      moves = Math.round(moves * 0.75);
+      time = Math.round(time * 1.3);
+    }
+
     setLevelIntro({
       id: lvl.id,
       name: lvl.name,
       world: lvl.world || getWorldIdForLevel(lvl.id),
-      timeLimit: Math.max(25, Math.round(lvl.timeLimit * diffConfig.timeMultiplier)),
-      parMoves: Math.max(10, Math.round(lvl.parMoves * diffConfig.moveMultiplier)),
-      objective: lvl.objective || 'CLEAR THE TRAFFIC & MATCH PASSENGERS',
+      timeLimit: Math.max(25, Math.round(time * diffConfig.timeMultiplier)),
+      parMoves: Math.max(8, Math.round(moves * diffConfig.moveMultiplier)),
+      objective: modeConfig.tagline || lvl.objective || 'CLEAR THE TRAFFIC & MATCH PASSENGERS',
     });
   };
 
@@ -465,25 +509,89 @@ export default function App() {
                 </p>
               </div>
 
-              {/* Action Buttons */}
+              {/* Action Buttons & Game Mode Hub */}
               <div className="w-full space-y-3 mb-5">
+                {/* Primary Play Button */}
                 <button
                   onClick={() => {
                     const currentLvl = LevelRepository.getLevel(gameState.levelId);
                     handleOpenLevelIntro(currentLvl);
                   }}
-                  className="w-full py-4 rounded-2xl game-btn game-btn-emerald shine-sweep text-white font-black text-base flex items-center justify-center gap-2.5 shadow-lg"
+                  className="w-full py-4 rounded-2xl game-btn game-btn-emerald shine-sweep text-white font-black text-base flex items-center justify-center gap-2.5 shadow-lg active:scale-95 transition-transform"
                 >
                   <Play className="w-5 h-5 fill-white" />
                   <span>PLAY LEVEL {gameState.levelId}</span>
                 </button>
 
+                {/* 3D BUS GARAGE & MOD SHOP BUTTON */}
+                <button
+                  onClick={() => {
+                    sounds.playClick();
+                    setShowGarageModal(true);
+                  }}
+                  className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-amber-500 via-orange-500 to-rose-500 hover:from-amber-400 hover:to-rose-400 text-slate-950 font-black text-sm flex items-center justify-center gap-2 shadow-xl border-2 border-yellow-200/60 active:scale-95 transition-all shine-sweep group"
+                >
+                  <Palette className="w-4 h-4 fill-slate-950 text-slate-950 group-hover:rotate-12 transition-transform" />
+                  <span>BUS GARAGE & MOD SHOP</span>
+                  <span className="text-[10px] bg-slate-950/80 text-amber-300 px-2 py-0.5 rounded-full font-black uppercase tracking-wider ml-1 shadow-inner">
+                    3D SHOWROOM
+                  </span>
+                </button>
+
+                {/* GAME TYPE / GAME MODE SELECTOR */}
+                <div className="w-full bg-slate-950/80 border border-slate-800 rounded-2xl p-3 text-left shadow-inner">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-1.5">
+                      <Zap className="w-3.5 h-3.5 text-amber-400" />
+                      <span className="text-xs font-black uppercase tracking-wider text-slate-200">
+                        Choose Game Mode
+                      </span>
+                    </div>
+                    <span className="text-[10px] font-bold text-amber-400">
+                      {GAME_MODE_CONFIGS[selectedGameMode].badge}
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    {Object.values(GAME_MODE_CONFIGS).map((mode) => {
+                      const isActive = selectedGameMode === mode.id;
+                      return (
+                        <button
+                          key={mode.id}
+                          onClick={() => handleGameModeChange(mode.id)}
+                          className={`p-2 rounded-xl border text-left transition-all active:scale-95 flex flex-col justify-between ${
+                            isActive
+                              ? 'bg-amber-500/20 border-amber-400 ring-2 ring-amber-400/40 text-white shadow-md'
+                              : 'bg-slate-900/60 border-slate-800/80 text-slate-400 hover:text-slate-200 hover:border-slate-700'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="text-base">{mode.icon}</span>
+                            {isActive && (
+                              <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping" />
+                            )}
+                          </div>
+                          <div>
+                            <div className={`text-xs font-black leading-tight ${isActive ? 'text-amber-300' : 'text-slate-200'}`}>
+                              {mode.name}
+                            </div>
+                            <div className="text-[9px] text-slate-400 font-semibold truncate mt-0.5">
+                              {mode.tagline}
+                            </div>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Level Select & Auxiliary Buttons */}
                 <button
                   onClick={() => {
                     sounds.playClick();
                     setScreen('LEVEL_SELECT');
                   }}
-                  className="w-full py-3.5 rounded-2xl game-btn game-btn-blue text-white font-black text-sm flex items-center justify-center gap-2"
+                  className="w-full py-3 rounded-2xl game-btn game-btn-blue text-white font-black text-xs sm:text-sm flex items-center justify-center gap-2"
                 >
                   <Grid className="w-4 h-4 text-white" />
                   <span>SELECT LEVEL & DIFFICULTY</span>
@@ -557,6 +665,55 @@ export default function App() {
               >
                 Close
               </button>
+            </div>
+            {/* GAME MODE SELECTION TABS */}
+            <div className="mb-4 bg-slate-950/70 border border-slate-800 rounded-2xl p-3">
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-1.5">
+                  <Zap className="w-4 h-4 text-amber-400" />
+                  <span className="text-xs font-black uppercase tracking-wider text-slate-200">
+                    Game Mode Rule Set
+                  </span>
+                </div>
+                <span className="text-[11px] font-bold text-amber-300">
+                  {GAME_MODE_CONFIGS[selectedGameMode].tagline}
+                </span>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                {Object.values(GAME_MODE_CONFIGS).map((m) => {
+                  const isActive = selectedGameMode === m.id;
+                  return (
+                    <button
+                      key={m.id}
+                      onClick={() => handleGameModeChange(m.id)}
+                      className={`p-2 rounded-xl border text-left transition-all active:scale-95 flex flex-col justify-between ${
+                        isActive
+                          ? 'bg-amber-500/20 border-amber-400 ring-2 ring-amber-400/40 text-white shadow-md'
+                          : 'bg-slate-900/60 border-slate-800 text-slate-400 hover:text-slate-200 hover:border-slate-700'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-base">{m.icon}</span>
+                        <span
+                          className={`text-[9px] font-black px-1.5 py-0.5 rounded uppercase ${
+                            isActive ? 'bg-amber-400 text-slate-950' : 'bg-slate-800 text-slate-400'
+                          }`}
+                        >
+                          {m.badge}
+                        </span>
+                      </div>
+                      <div>
+                        <div className={`text-xs font-black ${isActive ? 'text-amber-300' : 'text-slate-200'}`}>
+                          {m.name}
+                        </div>
+                        <div className="text-[9px] text-slate-400 truncate mt-0.5 font-medium">
+                          {m.features[0]}
+                        </div>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
 
             {/* WORLD THEME SELECTION TABS */}
@@ -851,7 +1008,7 @@ export default function App() {
               <button
                 onClick={() => {
                   const randomLevelId = Math.floor(21 + Math.random() * 80);
-                  handleLevelSelect(randomLevelId, selectedDifficulty);
+                  handleLevelSelect(randomLevelId, selectedDifficulty, selectedGameMode);
                 }}
                 className="w-full sm:w-auto px-4 py-2.5 rounded-xl game-btn game-btn-emerald text-white text-xs font-black flex items-center justify-center gap-2 shrink-0 shadow-md"
               >
@@ -872,7 +1029,7 @@ export default function App() {
             <div className="w-full shrink-0 z-30 bg-slate-950/95 backdrop-blur-md border-b border-slate-800/80 pt-[max(env(safe-area-inset-top),8px)] pb-1.5 px-3 flex flex-col gap-1.5 shadow-lg select-none">
               {/* Row 1: Quick Actions & Primary Info */}
               <div className="flex items-center justify-between gap-1.5">
-                {/* Left: Pause & Level Badge */}
+                {/* Left: Pause, Level Badge & Mode Badge */}
                 <div className="flex items-center gap-1.5 shrink-0">
                   <button
                     onClick={() => {
@@ -896,6 +1053,23 @@ export default function App() {
                     <span className="text-sm">{getWorldConfig(gameState.worldId || getWorldIdForLevel(gameState.levelId)).icon}</span>
                     <span className="text-xs font-black text-white">Lv.{gameState.levelId}</span>
                   </button>
+
+                  {/* Active Game Mode Badge */}
+                  <div
+                    className={`hidden xs:flex items-center gap-1 px-2 py-1 rounded-xl border text-[10px] font-black uppercase tracking-wider ${
+                      (gameState.gameMode || selectedGameMode) === GameMode.RUSH_HOUR
+                        ? 'bg-amber-500/20 border-amber-400 text-amber-300 ring-1 ring-amber-400/30'
+                        : (gameState.gameMode || selectedGameMode) === GameMode.PUZZLE_MASTER
+                        ? 'bg-purple-500/20 border-purple-400 text-purple-300'
+                        : (gameState.gameMode || selectedGameMode) === GameMode.VIP_EXPRESS
+                        ? 'bg-emerald-500/20 border-emerald-400 text-emerald-300'
+                        : 'bg-slate-900 border-slate-700 text-slate-300'
+                    }`}
+                    title={`Game Mode: ${GAME_MODE_CONFIGS[gameState.gameMode || selectedGameMode].name}`}
+                  >
+                    <span>{GAME_MODE_CONFIGS[gameState.gameMode || selectedGameMode].icon}</span>
+                    <span className="hidden sm:inline">{GAME_MODE_CONFIGS[gameState.gameMode || selectedGameMode].name}</span>
+                  </div>
                 </div>
 
                 {/* Center: Objective / Passengers Left Pill */}
@@ -910,7 +1084,7 @@ export default function App() {
                   </div>
                 </div>
 
-                {/* Right: Coins, Sound & Restart */}
+                {/* Right: Coins, Sound, Garage, Restart & Guide */}
                 <div className="flex items-center gap-1 shrink-0">
                   {/* Coin Stash */}
                   <button
@@ -924,6 +1098,18 @@ export default function App() {
                     <span>🪙</span>
                     <span className="font-mono text-xs">{gameState.coins.toLocaleString()}</span>
                     <span className="text-amber-400 text-[10px] bg-amber-400/30 px-1 rounded-md font-black">+</span>
+                  </button>
+
+                  {/* 3D Bus Garage Showroom Shortcut */}
+                  <button
+                    onClick={() => {
+                      sounds.playClick();
+                      setShowGarageModal(true);
+                    }}
+                    className="w-8 h-8 rounded-xl game-btn game-btn-dark flex items-center justify-center text-amber-400 active:scale-95 transition-transform"
+                    title="Bus Garage & Mod Shop"
+                  >
+                    <Palette className="w-3.5 h-3.5" />
                   </button>
 
                   {/* Sound Toggle */}
@@ -1026,6 +1212,26 @@ export default function App() {
                 <div className="bg-gradient-to-r from-amber-500 via-orange-500 to-red-500 text-white font-black text-xs px-4 py-1.5 rounded-full shadow-2xl flex items-center gap-2 border-2 border-yellow-200">
                   <Flame className="w-4 h-4 text-yellow-200 animate-spin" />
                   <span>{gameState.comboCount}X COMBO! SPEEDY ESCAPE!</span>
+                </div>
+              </div>
+            )}
+
+            {/* RUSH HOUR SPEED BONUS ALERT */}
+            {gameState.timeBonusAlert && (
+              <div className="absolute top-16 left-1/2 -translate-x-1/2 z-40 pointer-events-none animate-bounce">
+                <div className="bg-gradient-to-r from-amber-400 via-yellow-400 to-orange-500 text-slate-950 font-black text-xs px-4 py-1 rounded-full shadow-2xl flex items-center gap-1.5 border-2 border-yellow-100 ring-2 ring-amber-400/50">
+                  <Zap className="w-4 h-4 fill-slate-950 text-slate-950 animate-pulse" />
+                  <span>{gameState.timeBonusAlert}</span>
+                </div>
+              </div>
+            )}
+
+            {/* VIP BONUS COIN NOTIFICATION */}
+            {(gameState.vipBonusCoins ?? 0) > 0 && (
+              <div className="absolute top-32 left-1/2 -translate-x-1/2 z-40 pointer-events-none animate-in zoom-in duration-300">
+                <div className="bg-gradient-to-r from-yellow-400 via-amber-300 to-yellow-500 text-slate-950 font-black text-xs px-4 py-1 rounded-full shadow-2xl flex items-center gap-1.5 border-2 border-yellow-100 ring-2 ring-yellow-400/50">
+                  <Crown className="w-4 h-4 text-slate-950 fill-slate-950 animate-bounce" />
+                  <span>+{gameState.vipBonusCoins} VIP GOLD COINS! 👑</span>
                 </div>
               </div>
             )}
@@ -1151,10 +1357,16 @@ export default function App() {
         {levelIntro && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-4 animate-in fade-in duration-200">
             <div className="w-full max-w-sm game-modal-3d border-2 border-emerald-400/80 rounded-[36px] p-6 text-center shadow-2xl relative overflow-hidden">
-              {/* World District Pill */}
-              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-sky-500/20 border border-sky-400/30 text-sky-300 text-xs font-black uppercase tracking-wider mb-2">
-                <span>{getWorldConfig(levelIntro.world).icon}</span>
-                <span>{getWorldConfig(levelIntro.world).name}</span>
+              {/* World District & Game Mode Pills */}
+              <div className="flex items-center justify-center gap-1.5 flex-wrap mb-2">
+                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-sky-500/20 border border-sky-400/30 text-sky-300 text-xs font-black uppercase tracking-wider">
+                  <span>{getWorldConfig(levelIntro.world).icon}</span>
+                  <span>{getWorldConfig(levelIntro.world).name}</span>
+                </div>
+                <div className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-500/20 border border-amber-400/30 text-amber-300 text-xs font-black uppercase tracking-wider">
+                  <span>{GAME_MODE_CONFIGS[selectedGameMode].icon}</span>
+                  <span>{GAME_MODE_CONFIGS[selectedGameMode].name}</span>
+                </div>
               </div>
 
               <h2 className="text-2xl sm:text-3xl font-black text-white mb-0.5">
@@ -1195,7 +1407,7 @@ export default function App() {
               <div className="flex flex-col gap-2.5">
                 <button
                   onClick={() => {
-                    handleLevelSelect(levelIntro.id, selectedDifficulty);
+                    handleLevelSelect(levelIntro.id, selectedDifficulty, selectedGameMode);
                     setLevelIntro(null);
                   }}
                   className="w-full py-4 rounded-2xl game-btn game-btn-emerald shine-sweep text-white font-black text-sm flex items-center justify-center gap-2 shadow-lg"
@@ -1298,6 +1510,18 @@ export default function App() {
                   <span>SELECT LEVEL</span>
                 </button>
 
+                {/* Bus Garage & Mod Shop */}
+                <button
+                  onClick={() => {
+                    sounds.playClick();
+                    setShowGarageModal(true);
+                  }}
+                  className="w-full py-2.5 rounded-2xl game-btn game-btn-dark text-amber-300 font-bold text-xs flex items-center justify-center gap-2 border border-amber-400/30"
+                >
+                  <Palette className="w-4 h-4 text-amber-400" />
+                  <span>BUS GARAGE & MOD SHOP</span>
+                </button>
+
                 {/* How to Play & FAQ */}
                 <button
                   onClick={() => {
@@ -1390,13 +1614,21 @@ export default function App() {
                   <span className="text-[10px] uppercase font-bold text-slate-400 block">Moves Left</span>
                   <span className="text-base font-black text-emerald-400">{gameState.moves}</span>
                 </div>
+                <div className="h-8 w-px bg-slate-800"></div>
+                <div>
+                  <span className="text-[10px] uppercase font-bold text-slate-400 block">Mode</span>
+                  <span className="text-xs font-black text-amber-300 flex items-center justify-center gap-1">
+                    <span>{GAME_MODE_CONFIGS[gameState.gameMode || selectedGameMode].icon}</span>
+                    <span className="truncate max-w-[80px]">{GAME_MODE_CONFIGS[gameState.gameMode || selectedGameMode].name}</span>
+                  </span>
+                </div>
               </div>
 
               <div className="flex flex-col gap-2.5">
                 <button
                   onClick={() => {
                     const nextId = gameState.levelId + 1;
-                    handleLevelSelect(nextId);
+                    handleLevelSelect(nextId, selectedDifficulty, selectedGameMode);
                   }}
                   className="w-full py-4 rounded-2xl game-btn game-btn-emerald shine-sweep text-white font-black text-sm flex items-center justify-center gap-2 shadow-lg"
                 >
@@ -1796,6 +2028,20 @@ export default function App() {
             } catch {
               // Ignore
             }
+          }}
+        />
+
+        {/* 6. BUS GARAGE & 3D MOD SHOP SHOWROOM MODAL */}
+        <BusGarageModal
+          isOpen={showGarageModal}
+          onClose={() => {
+            setShowGarageModal(false);
+            setProgress({ ...PlayerProgress.get() });
+            controller.refreshCoinsFromStorage();
+          }}
+          onCustomizationChanged={() => {
+            setProgress({ ...PlayerProgress.get() });
+            controller.refreshCoinsFromStorage();
           }}
         />
       </main>

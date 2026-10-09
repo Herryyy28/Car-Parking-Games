@@ -2,6 +2,23 @@ import React, { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { sounds } from '../utils/soundEffects.ts';
 
+function disposeHierarchy(obj: THREE.Object3D) {
+  obj.traverse((child) => {
+    if (child instanceof THREE.Mesh || child instanceof THREE.LineSegments || child instanceof THREE.Line) {
+      if (child.geometry) {
+        child.geometry.dispose();
+      }
+      if (child.material) {
+        if (Array.isArray(child.material)) {
+          child.material.forEach((mat) => mat.dispose());
+        } else {
+          child.material.dispose();
+        }
+      }
+    }
+  });
+}
+
 export const Hero3DShowcase: React.FC = () => {
   const mountRef = useRef<HTMLDivElement>(null);
   const [isHonking, setIsHonking] = useState(false);
@@ -291,6 +308,7 @@ export const Hero3DShowcase: React.FC = () => {
       window.removeEventListener('touchend', handlePointerUp);
       container.removeEventListener('click', handleTapBus);
       window.removeEventListener('resize', handleResize);
+      disposeHierarchy(scene);
       renderer.dispose();
       if (container.contains(renderer.domElement)) {
         container.removeChild(renderer.domElement);

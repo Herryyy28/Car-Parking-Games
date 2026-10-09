@@ -34,13 +34,32 @@ import { inCabRadio } from '../utils/radioSynthesizer.ts';
 import { sounds } from '../utils/soundEffects.ts';
 
 interface BusGarageModalProps {
+  isOpen?: boolean;
   onClose: () => void;
-  onCustomizationChanged: () => void;
+  onCustomizationChanged?: () => void;
 }
 
 type GarageTab = 'LIVERIES' | 'UNDERGLOW' | 'RIMS' | 'HORNS' | 'TUNING';
 
-export function BusGarageModal({ onClose, onCustomizationChanged }: BusGarageModalProps) {
+function disposeHierarchy(obj: THREE.Object3D) {
+  obj.traverse((child) => {
+    if (child instanceof THREE.Mesh || child instanceof THREE.LineSegments || child instanceof THREE.Line) {
+      if (child.geometry) {
+        child.geometry.dispose();
+      }
+      if (child.material) {
+        if (Array.isArray(child.material)) {
+          child.material.forEach((mat) => mat.dispose());
+        } else {
+          child.material.dispose();
+        }
+      }
+    }
+  });
+}
+
+export function BusGarageModal({ isOpen = true, onClose, onCustomizationChanged }: BusGarageModalProps) {
+  if (isOpen === false) return null;
   const [activeTab, setActiveTab] = useState<GarageTab>('LIVERIES');
   const [progress, setProgress] = useState<PlayerProgressData>(() => PlayerProgress.get());
   const [selectedLivery, setSelectedLivery] = useState<string>(progress.activeLivery);
@@ -67,7 +86,7 @@ export function BusGarageModal({ onClose, onCustomizationChanged }: BusGarageMod
     setSelectedUnderglow(p.activeUnderglow);
     setSelectedRim(p.activeRim);
     setSelectedHorn(p.activeHorn);
-    onCustomizationChanged();
+    onCustomizationChanged?.();
   };
 
   // Setup 3D Showroom Scene
@@ -233,6 +252,9 @@ export function BusGarageModal({ onClose, onCustomizationChanged }: BusGarageMod
       window.removeEventListener('touchmove', handleTouchMove);
       window.removeEventListener('touchend', handleTouchEnd);
       window.removeEventListener('resize', onResize);
+      if (sceneRef.current) {
+        disposeHierarchy(sceneRef.current);
+      }
       renderer.dispose();
     };
   }, []);
@@ -249,7 +271,10 @@ export function BusGarageModal({ onClose, onCustomizationChanged }: BusGarageMod
         toRemove.push(c);
       }
     });
-    toRemove.forEach((c) => busGroup.remove(c));
+    toRemove.forEach((c) => {
+      busGroup.remove(c);
+      disposeHierarchy(c);
+    });
 
     const liveryCfg = LIVERIES.find((l) => l.id === selectedLivery) || LIVERIES[0];
     const rimCfg = RIMS.find((r) => r.id === selectedRim) || RIMS[0];

@@ -3,6 +3,8 @@ import {
   Difficulty,
   DIFFICULTY_CONFIGS,
   Direction,
+  GameMode,
+  GAME_MODE_CONFIGS,
   GameState,
   GameStatus,
   PassengerState,
@@ -14,19 +16,32 @@ import { LogicalGrid } from './logicalGrid.ts';
 import { PathFinder } from './pathFinder.ts';
 import { PuzzleSolver } from './puzzleSolver.ts';
 import { LevelRepository } from './levelRepository.ts';
+import { PlayerProgress } from './playerProgress.ts';
 
 type StateListener = (state: GameState) => void;
 
 export class GameController {
   private state: GameState;
   private currentDifficulty: Difficulty = Difficulty.HARD;
+  private currentGameMode: GameMode = GameMode.CLASSIC;
   private historyStack: GameState[] = [];
   private listeners: Set<StateListener> = new Set();
   private grid: LogicalGrid;
 
-  constructor(initialLevelId = 1, initialDifficulty: Difficulty = Difficulty.HARD) {
+  constructor(
+    initialLevelId = 1,
+    initialDifficulty: Difficulty = Difficulty.HARD,
+    initialGameMode: GameMode = GameMode.CLASSIC
+  ) {
     this.currentDifficulty = initialDifficulty;
-    this.state = LevelRepository.createInitialGameState(initialLevelId, 1000, initialDifficulty);
+    this.currentGameMode = initialGameMode;
+    const initialCoins = PlayerProgress.get().coins || 1000;
+    this.state = LevelRepository.createInitialGameState(
+      initialLevelId,
+      initialCoins,
+      initialDifficulty,
+      initialGameMode
+    );
     this.grid = new LogicalGrid(this.state.gridRows, this.state.gridCols);
     this.grid.rebuild(this.state.vehicles);
     this.updateHint();
@@ -40,11 +55,20 @@ export class GameController {
     return this.currentDifficulty;
   }
 
+  public getGameMode(): GameMode {
+    return this.currentGameMode;
+  }
+
   public setDifficulty(difficulty: Difficulty): void {
     if (this.currentDifficulty === difficulty && this.state.difficulty === difficulty) return;
     this.currentDifficulty = difficulty;
-    // Reload current level with newly selected difficulty
-    this.loadLevel(this.state.levelId, difficulty);
+    this.loadLevel(this.state.levelId, difficulty, this.currentGameMode);
+  }
+
+  public setGameMode(gameMode: GameMode): void {
+    if (this.currentGameMode === gameMode && this.state.gameMode === gameMode) return;
+    this.currentGameMode = gameMode;
+    this.loadLevel(this.state.levelId, this.currentDifficulty, gameMode);
   }
 
   public subscribe(listener: StateListener): () => void {
@@ -61,7 +85,6 @@ export class GameController {
   }
 
   private pushHistory(): void {
-    // Clone state snapshot
     const snapshot: GameState = JSON.parse(JSON.stringify(this.state));
     this.historyStack.push(snapshot);
     if (this.historyStack.length > 20) {
@@ -69,18 +92,27 @@ export class GameController {
     }
   }
 
+  private syncCoins(): void {
+    PlayerProgress.setCoins(this.state.coins);
+  }
+
   /**
    * Load a new level into the controller.
    */
-  public loadLevel(levelId: number, difficulty?: Difficulty): void {
+  public loadLevel(levelId: number, difficulty?: Difficulty, gameMode?: GameMode): void {
     if (difficulty) {
       this.currentDifficulty = difficulty;
     }
+    if (gameMode) {
+      this.currentGameMode = gameMode;
+    }
     this.historyStack = [];
+    const coins = PlayerProgress.get().coins || this.state.coins;
     this.state = LevelRepository.createInitialGameState(
       levelId,
-      this.state.coins,
-      this.currentDifficulty
+      coins,
+      this.currentDifficulty,
+      this.currentGameMode
     );
     this.state.status = GameStatus.READY;
     this.grid = new LogicalGrid(this.state.gridRows, this.state.gridCols);
@@ -126,7 +158,6 @@ export class GameController {
     const pathResult = PathFinder.isPathClear(vehicle, this.grid);
 
     if (!pathResult.clear) {
-      // Vehicle is blocked!
       return {
         success: false,
         blockerId: pathResult.blockerId,
@@ -134,7 +165,7 @@ export class GameController {
       };
     }
 
-    // 3. Move is valid!
+    // 3. Move is valid! Push undo history before mutating
     this.pushHistory();
 
     this.state.moves = Math.max(0, this.state.moves - 1);
@@ -171,7 +202,9 @@ export class GameController {
         : v
     );
 
-    this.state.status = GameStatus.PLAYING;
+    if (this.state.status === GameStatus.VEHICLE_MOVING) {
+      this.state.status = GameStatus.PLAYING;
+    }
     this.updateHint();
     this.notify();
   }
@@ -208,14 +241,30 @@ export class GameController {
             idx === i ? { ...s, vehicleId: null } : s
           );
 
-          this.state.coins += 45;
-          this.state.score += 100;
+          // Rush Hour mode bonus: +15 seconds extra time per bus departed
+          if (this.currentGameMode === GameMode.RUSH_HOUR) {
+            this.addTime(15);
+            this.state.timeBonusAlert = 15;
+            this.state.coins += 65;
+            this.state.score += 250;
+            this.syncCoins();
+            setTimeout(() => {
+              this.state.timeBonusAlert = null;
+              this.notify();
+            }, 1800);
+          } else {
+            this.state.coins += 45;
+            this.state.score += 100;
+            this.syncCoins();
+          }
+
           this.state.comboCount += 1;
 
-          // Check if all vehicles and passengers are complete!
+          // Check if all vehicles and passengers are complete
           if (this.isLevelComplete()) {
             this.state.status = GameStatus.COMPLETED;
             this.state.coins += 250;
+            this.syncCoins();
             this.notify();
             return { type: 'COMPLETED', vehicleId: bus.id };
           }
@@ -232,18 +281,20 @@ export class GameController {
     if (waitingPassengers.length > 0) {
       const front = waitingPassengers[0];
 
-      // Find matching docked bus
       for (let i = 0; i < this.state.unlockedDocksCount; i++) {
         const slot = this.state.parkingSlots[i];
         if (slot && slot.vehicleId) {
           const bus = this.state.vehicles.find((v) => v.id === slot.vehicleId);
+          const isColorMatch = bus && bus.color === front.color;
+          const isVipMatch = bus && Boolean(front.isVip);
+
           if (
             bus &&
             bus.state === VehicleStateType.DOCKED &&
-            bus.color === front.color &&
+            (isColorMatch || isVipMatch) &&
             bus.loadedPassengers < bus.capacity
           ) {
-            // Board front passenger!
+            // Board front passenger
             this.state.passengers = this.state.passengers.map((p) =>
               p.id === front.id ? { ...p, state: 'LOADED' } : p
             );
@@ -251,6 +302,13 @@ export class GameController {
             this.state.vehicles = this.state.vehicles.map((v) =>
               v.id === bus.id ? { ...v, loadedPassengers: v.loadedPassengers + 1 } : v
             );
+
+            if (front.isVip) {
+              this.state.coins += 100;
+              this.state.score += 200;
+              this.state.vipBonusCoins = (this.state.vipBonusCoins || 0) + 100;
+              this.syncCoins();
+            }
 
             this.notify();
             return { type: 'BOARDED', passengerId: front.id, vehicleId: bus.id };
@@ -266,7 +324,7 @@ export class GameController {
       return { type: 'OUT_OF_MOVES' };
     }
 
-    // 4. Gridlock Check
+    // 4. Gridlock Check (Guarded against false alarms while vehicles are moving or departing)
     if (PuzzleSolver.isGridlocked(this.state)) {
       this.state.status = GameStatus.FAILED;
       this.notify();
@@ -301,7 +359,7 @@ export class GameController {
   }
 
   /**
-   * Booster actions.
+   * Booster actions with complete validation and currency safety.
    */
   public useBooster(type: 'undo' | 'hint' | 'shuffle' | 'extraSpace' | 'passengerSwap'): boolean {
     switch (type) {
@@ -320,9 +378,9 @@ export class GameController {
 
         const prev = this.historyStack.pop()!;
         this.state = prev;
-        // Keep updated boosters and coins post-use
         this.state.availableBoosters = currentBoosters;
         this.state.coins = currentCoins;
+        this.syncCoins();
 
         if (this.state.status === GameStatus.FAILED && this.state.moves > 0) {
           this.state.status = GameStatus.PLAYING;
@@ -342,23 +400,68 @@ export class GameController {
       case 'shuffle': {
         if (this.state.availableBoosters.shuffle <= 0 && this.state.coins < 80) return false;
 
-        if (this.state.availableBoosters.shuffle > 0) {
-          this.state.availableBoosters.shuffle--;
-        } else {
-          this.state.coins -= 80;
-        }
+        const parkedVehicles = this.state.vehicles.filter((v) => v.state === VehicleStateType.PARKED);
+        if (parkedVehicles.length === 0) return false;
 
-        // Reverse parked vehicles 180 degrees along their travel axis to open opposite escape routes
-        this.state.vehicles = this.state.vehicles.map((v) => {
-          if (v.state !== VehicleStateType.PARKED) return v;
+        // Test reversing 180 degrees along travel axis
+        const candidateVehicles = this.state.vehicles.map((v) => {
+          if (v.state !== VehicleStateType.PARKED) return { ...v };
           let nextDir = v.direction;
           if (v.direction === Direction.UP) nextDir = Direction.DOWN;
           else if (v.direction === Direction.DOWN) nextDir = Direction.UP;
           else if (v.direction === Direction.LEFT) nextDir = Direction.RIGHT;
           else if (v.direction === Direction.RIGHT) nextDir = Direction.LEFT;
-
           return { ...v, direction: nextDir };
         });
+
+        // Validate that this creates at least one legal escape path
+        const testGrid = new LogicalGrid(this.state.gridRows, this.state.gridCols);
+        testGrid.rebuild(candidateVehicles);
+        const availableMoves = PathFinder.getAvailableMoves(candidateVehicles, testGrid);
+
+        if (availableMoves.length === 0) {
+          // If a blanket reversal yields no moves, try reversing only currently blocked vehicles
+          const selectiveVehicles = this.state.vehicles.map((v) => {
+            if (v.state !== VehicleStateType.PARKED) return { ...v };
+            const isCurrentlyClear = PathFinder.isPathClear(v, this.grid).clear;
+            if (isCurrentlyClear) return { ...v }; // keep clear vehicle as is
+
+            let nextDir = v.direction;
+            if (v.direction === Direction.UP) nextDir = Direction.DOWN;
+            else if (v.direction === Direction.DOWN) nextDir = Direction.UP;
+            else if (v.direction === Direction.LEFT) nextDir = Direction.RIGHT;
+            else if (v.direction === Direction.RIGHT) nextDir = Direction.LEFT;
+            return { ...v, direction: nextDir };
+          });
+
+          testGrid.rebuild(selectiveVehicles);
+          const selectiveMoves = PathFinder.getAvailableMoves(selectiveVehicles, testGrid);
+
+          if (selectiveMoves.length === 0) {
+            // Cannot find a valid unblocking shuffle configuration; refund without penalty!
+            return false;
+          }
+
+          // Apply selective shuffle
+          if (this.state.availableBoosters.shuffle > 0) {
+            this.state.availableBoosters.shuffle--;
+          } else {
+            this.state.coins -= 80;
+            this.syncCoins();
+          }
+
+          this.state.vehicles = selectiveVehicles;
+        } else {
+          // Apply blanket shuffle
+          if (this.state.availableBoosters.shuffle > 0) {
+            this.state.availableBoosters.shuffle--;
+          } else {
+            this.state.coins -= 80;
+            this.syncCoins();
+          }
+
+          this.state.vehicles = candidateVehicles;
+        }
 
         if (this.state.status === GameStatus.FAILED && this.state.moves > 0) {
           this.state.status = GameStatus.PLAYING;
@@ -377,6 +480,7 @@ export class GameController {
           this.state.availableBoosters.extraSpace--;
         } else {
           this.state.coins -= 150;
+          this.syncCoins();
         }
 
         this.state.unlockedDocksCount++;
@@ -395,25 +499,35 @@ export class GameController {
       case 'passengerSwap': {
         if (this.state.availableBoosters.passengerSwap <= 0 && this.state.coins < 90) return false;
 
-        if (this.state.availableBoosters.passengerSwap > 0) {
-          this.state.availableBoosters.passengerSwap--;
-        } else {
-          this.state.coins -= 90;
-        }
-
-        // Bring passengers matching any docked bus right to front
         const dockedColors = this.state.vehicles
           .filter((v) => v.state === VehicleStateType.DOCKED)
           .map((v) => v.color);
 
-        const loadedPassengers = this.state.passengers.filter((p) => p.state !== 'WAITING');
         const waitingPassengers = this.state.passengers.filter((p) => p.state === 'WAITING');
 
+        // Check if there are any matching waiting passengers to prioritize
+        const hasMatchingCommuters = waitingPassengers.some(
+          (p) => dockedColors.includes(p.color) || p.isVip
+        );
+
+        if (!hasMatchingCommuters || dockedColors.length === 0) {
+          // Cannot improve queue order; do not waste booster charge!
+          return false;
+        }
+
+        if (this.state.availableBoosters.passengerSwap > 0) {
+          this.state.availableBoosters.passengerSwap--;
+        } else {
+          this.state.coins -= 90;
+          this.syncCoins();
+        }
+
+        const loadedPassengers = this.state.passengers.filter((p) => p.state !== 'WAITING');
         const matching: PassengerState[] = [];
         const nonMatching: PassengerState[] = [];
 
         for (const p of waitingPassengers) {
-          if (dockedColors.includes(p.color)) {
+          if (dockedColors.includes(p.color) || p.isVip) {
             matching.push(p);
           } else {
             nonMatching.push(p);
@@ -434,6 +548,7 @@ export class GameController {
 
   public addCoins(amount: number): void {
     this.state.coins += amount;
+    this.syncCoins();
     this.notify();
   }
 
@@ -443,6 +558,21 @@ export class GameController {
       this.state.status = GameStatus.PLAYING;
     }
     this.notify();
+  }
+
+  public addBooster(type: keyof BoosterState, count = 1): void {
+    if (this.state.availableBoosters[type] !== undefined) {
+      this.state.availableBoosters[type] += count;
+      this.notify();
+    }
+  }
+
+  public refreshCoinsFromStorage(): void {
+    const savedCoins = PlayerProgress.get().coins;
+    if (typeof savedCoins === 'number' && !isNaN(savedCoins)) {
+      this.state.coins = savedCoins;
+      this.notify();
+    }
   }
 
   /**
@@ -497,6 +627,7 @@ export class GameController {
       return false;
     }
     this.state.coins -= coinCost;
+    this.syncCoins();
     this.addTime(seconds);
     return true;
   }
