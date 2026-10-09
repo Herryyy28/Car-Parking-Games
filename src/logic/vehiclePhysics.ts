@@ -29,6 +29,8 @@ export interface NaturalPhysicsState {
   pathT: number;               // parameter 0..1 along curve
   pathLength: number;
   config: VehiclePhysicsConfig;
+  initialHeading?: number;
+  timeInMotion?: number;
 }
 
 export class NaturalVehiclePhysics {
@@ -50,14 +52,14 @@ export class NaturalVehiclePhysics {
 
     return {
       position: startPos.clone(),
-      velocity: 0.2,
+      velocity: 0.1, // Smooth rolling start from standstill
       targetSpeed: config.targetSpeed,
       acceleration: config.acceleration,
       brakingPower: config.brakingPower,
       headingAngle: initialHeading,
       steeringAngle: 0,
       bodyRollAngle: 0,
-      bodyPitchAngle: -0.06 * (config.mass / 2000), // initial acceleration squat
+      bodyPitchAngle: -0.05 * (config.mass / 2000), // initial gentle launch squat
       suspensionOffset: 0,
       wheelRotation: 0,
       motionState: VehicleMotionState.ACCELERATING,
@@ -65,6 +67,8 @@ export class NaturalVehiclePhysics {
       pathT: 0,
       pathLength: Math.max(1, totalLen),
       config,
+      initialHeading,
+      timeInMotion: 0,
     };
   }
 
@@ -78,6 +82,7 @@ export class NaturalVehiclePhysics {
   ): boolean {
     if (!physics.curve) return true;
 
+    physics.timeInMotion = (physics.timeInMotion ?? 0) + delta;
     const cfg = physics.config;
 
     // 1. Calculate remaining distance to destination
@@ -87,32 +92,41 @@ export class NaturalVehiclePhysics {
     // 2. State machine transitions
     if (physics.pathT >= 0.98 || remainingDist < 0.4) {
       physics.motionState = VehicleMotionState.PARKING;
-      physics.targetSpeed = 2.5;
+      physics.targetSpeed = 2.0;
     } else if (remainingDist <= stoppingDist * 1.35) {
       physics.motionState = VehicleMotionState.BRAKING;
       physics.targetSpeed = 1.0;
     } else if (Math.abs(physics.steeringAngle) > 0.12) {
       physics.motionState = VehicleMotionState.STEERING;
-      physics.targetSpeed = cfg.targetSpeed * 0.85;
+      physics.targetSpeed = cfg.targetSpeed * 0.88;
     } else if (physics.velocity > 7.0) {
       physics.motionState = VehicleMotionState.CRUISING;
     }
 
-    // 3. Acceleration / Deceleration physics
+    // 3. Smooth Acceleration Easing (Progressive Launch Profile out of Grid Slot)
+    // When departing from the grid, vehicle smoothly ramps up torque rather than jumping abruptly
+    const exitLaunchT = Math.min(1.0, physics.pathT / 0.18);
+    // Cubic Hermite smoothstep curve: 0 at start, easing up to 1.0 as car leaves parking bay
+    const launchRamp = exitLaunchT * exitLaunchT * (3.0 - 2.0 * exitLaunchT);
+    const effectiveAcceleration = physics.acceleration * (0.2 + 0.8 * launchRamp);
+
     if (physics.velocity < physics.targetSpeed) {
       physics.velocity = Math.min(
         physics.targetSpeed,
-        physics.velocity + physics.acceleration * delta
+        physics.velocity + effectiveAcceleration * delta
       );
-      // Nose lifts slightly on hard acceleration
-      physics.bodyPitchAngle = THREE.MathUtils.lerp(physics.bodyPitchAngle, -0.05, delta * 6);
+      // Nose squat easing on launch: settles smoothly as vehicle reaches cruise speed
+      const launchSquat = -0.07 * (1.0 - launchRamp) * (cfg.mass / 2000);
+      const cruiseSquat = -0.02;
+      const targetPitch = THREE.MathUtils.lerp(launchSquat, cruiseSquat, launchRamp);
+      physics.bodyPitchAngle = THREE.MathUtils.lerp(physics.bodyPitchAngle, targetPitch, delta * 7.0);
     } else {
       physics.velocity = Math.max(
         0.5,
         physics.velocity - physics.brakingPower * delta
       );
-      // Nose dives slightly during braking
-      physics.bodyPitchAngle = THREE.MathUtils.lerp(physics.bodyPitchAngle, 0.07, delta * 8);
+      // Nose dives slightly during braking and parking
+      physics.bodyPitchAngle = THREE.MathUtils.lerp(physics.bodyPitchAngle, 0.06, delta * 8.0);
     }
 
     // 4. Progress along spline
@@ -126,21 +140,47 @@ export class NaturalVehiclePhysics {
 
     physics.position.copy(currentPoint);
 
-    // 5. Natural Steering & Heading Calculation
+    // 5. Smooth Rotation Easing & Natural Steering Calculation
     const moveDir = new THREE.Vector3().subVectors(lookAheadPoint, currentPoint);
     if (moveDir.lengthSq() > 0.0001) {
       moveDir.normalize();
-      const targetHeading = Math.atan2(moveDir.x, -moveDir.z);
+      // Correct coordinate mapping matching Three.js forward direction [0, 0, -1]
+      const rawTargetHeading = Math.atan2(-moveDir.x, -moveDir.z);
 
-      // Smooth heading interpolation based on vehicle steering speed
+      // Grid exit orientation blend:
+      // While vehicle is physically rolling out of its parking stall (first 14% of path),
+      // it smoothly eases from its initial grid angle into the arterial road spline
+      const exitTurnT = Math.min(1.0, physics.pathT / 0.14);
+      const rotationBlend = exitTurnT * exitTurnT * (3.0 - 2.0 * exitTurnT);
+      const initialHeading = physics.initialHeading ?? physics.headingAngle;
+
+      // Calculate minimal angular difference from initial heading to curve heading
+      const splineHeadingDiff = THREE.MathUtils.euclideanModulo(rawTargetHeading - initialHeading + Math.PI, Math.PI * 2) - Math.PI;
+      let targetHeading = initialHeading + splineHeadingDiff * rotationBlend;
+
+      // Dock arrival alignment: smoothly ease heading straight towards North (0 rad) as it docks
+      if (physics.pathT >= 0.88) {
+        const dockAlignT = (physics.pathT - 0.88) / 0.12;
+        const dockEase = dockAlignT * dockAlignT * (3.0 - 2.0 * dockAlignT);
+        const dockDiff = THREE.MathUtils.euclideanModulo(0 - targetHeading + Math.PI, Math.PI * 2) - Math.PI;
+        targetHeading += dockDiff * dockEase;
+      }
+
+      // Smooth rotational heading interpolation with exponential momentum damping
       const angleDiff = THREE.MathUtils.euclideanModulo(targetHeading - physics.headingAngle + Math.PI, Math.PI * 2) - Math.PI;
-      physics.headingAngle += angleDiff * Math.min(1.0, delta * cfg.steeringSpeed);
+      const rotSteerSpeed = cfg.steeringSpeed * (0.65 + 0.35 * rotationBlend);
+      const rotAlpha = 1.0 - Math.exp(-rotSteerSpeed * delta);
+      physics.headingAngle += angleDiff * THREE.MathUtils.clamp(rotAlpha, 0.01, 0.95);
 
-      // Front wheels turn in the direction of curvature clamped to maxSteerAngle
-      const desiredSteer = Math.max(-cfg.maxSteerAngle, Math.min(cfg.maxSteerAngle, angleDiff * 3.5));
+      // Front wheels turn smoothly into the curve clamped to maxSteerAngle
+      const desiredSteer = THREE.MathUtils.clamp(
+        angleDiff * 3.5 * rotationBlend,
+        -cfg.maxSteerAngle,
+        cfg.maxSteerAngle
+      );
       physics.steeringAngle = THREE.MathUtils.lerp(physics.steeringAngle, desiredSteer, delta * 12.0);
 
-      // Chassis roll (lean outward into the turn centrifugal force multiplied by bodyRollFactor)
+      // Chassis roll (lean outward into the turn centrifugal force)
       const targetRoll = -desiredSteer * (physics.velocity / 18.0) * cfg.bodyRollFactor * 1.5;
       physics.bodyRollAngle = THREE.MathUtils.lerp(physics.bodyRollAngle, targetRoll, delta * 8.0);
     } else {

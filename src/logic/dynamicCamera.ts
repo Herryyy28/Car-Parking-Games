@@ -69,8 +69,8 @@ export class DynamicCameraController {
   private camera: THREE.PerspectiveCamera;
 
   // Active state
-  private mode: CameraMode = 'CINEMATIC_INTRO';
-  private autoDirectorEnabled = true;
+  private mode: CameraMode = 'EXPLORATION';
+  private autoDirectorEnabled = false;
   private onModeChangeCallback?: (mode: CameraMode) => void;
 
   // Position and look-at interpolation targets
@@ -80,30 +80,30 @@ export class DynamicCameraController {
   private targetLookAt: THREE.Vector3;
 
   // Dynamic FOV
-  private defaultFOV = 52;
-  private currentFOV = 52;
-  private targetFOV = 52;
+  private defaultFOV = 48;
+  private currentFOV = 48;
+  private targetFOV = 48;
 
   // Camera Roll / Banking
   private currentRoll = 0;
   private targetRoll = 0;
 
   // Exploration Spherical Orbit
-  private orbitRadius = 31.0;
-  private targetOrbitRadius = 31.0;
+  private orbitRadius = 32.0;
+  private targetOrbitRadius = 32.0;
   private orbitTheta = 0; // horizontal angle in radians
   private targetOrbitTheta = 0;
-  private orbitPhi = Math.PI / 4.4; // elevation angle in radians
-  private targetOrbitPhi = Math.PI / 4.4;
+  private orbitPhi = Math.PI / 4.2; // elevation angle in radians (~43 deg for perfect 3D diorama)
+  private targetOrbitPhi = Math.PI / 4.2;
 
   private orbitPanTarget: THREE.Vector3 = new THREE.Vector3(0, 0, 1.2);
   private targetOrbitPanTarget: THREE.Vector3 = new THREE.Vector3(0, 0, 1.2);
 
   // Cinematic Intro animation
   private introProgress = 0;
-  private introDuration = 1.9; // seconds
-  private introStartPos = new THREE.Vector3(0, 46, 38);
-  private introStartLookAt = new THREE.Vector3(0, 0, 6.0);
+  private introDuration = 0.8; // quick, non-disruptive ease
+  private introStartPos = new THREE.Vector3(0, 32, 28);
+  private introStartLookAt = new THREE.Vector3(0, 0, 1.2);
 
   // Completion Orbit animation
   private completionTime = 0;
@@ -115,14 +115,18 @@ export class DynamicCameraController {
 
   constructor(camera: THREE.PerspectiveCamera) {
     this.camera = camera;
-    this.defaultFOV = camera.fov || 52;
+    this.defaultFOV = camera.fov || 48;
     this.currentFOV = this.defaultFOV;
     this.targetFOV = this.defaultFOV;
 
-    this.currentPosition = new THREE.Vector3().copy(this.introStartPos);
+    this.currentPosition = new THREE.Vector3(0, 24, 21);
     this.targetPosition = new THREE.Vector3(0, 24, 21);
-    this.currentLookAt = new THREE.Vector3().copy(this.introStartLookAt);
+    this.currentLookAt = new THREE.Vector3(0, 0, 1.2);
     this.targetLookAt = new THREE.Vector3(0, 0, 1.2);
+
+    this.computeExplorationTarget();
+    this.currentPosition.copy(this.targetPosition);
+    this.currentLookAt.copy(this.targetLookAt);
 
     this.camera.position.copy(this.currentPosition);
     this.camera.lookAt(this.currentLookAt);
@@ -184,12 +188,9 @@ export class DynamicCameraController {
    * Resets cinematic entrance approach when a new level begins
    */
   public triggerLevelEntrance(): void {
-    this.introProgress = 0;
-    this.introStartPos.set(0, 48, 38);
-    this.introStartLookAt.set(0, 0, 6.0);
-    this.currentPosition.copy(this.introStartPos);
-    this.currentLookAt.copy(this.introStartLookAt);
-    this.setMode('CINEMATIC_INTRO', true);
+    this.computeExplorationTarget();
+    this.targetFOV = this.defaultFOV;
+    this.setMode('EXPLORATION', true);
   }
 
   /**
@@ -272,12 +273,14 @@ export class DynamicCameraController {
   public setBoardDimensions(rows: number, cols: number, aspect: number): void {
     const maxDim = Math.max(rows, cols);
     const dimScale = maxDim / 7.0;
-    const baseRadius = (aspect < 0.6 ? 35.5 : aspect < 0.85 ? 33.0 : 31.0) * Math.max(0.85, Math.min(1.45, dimScale));
+    // Mobile portrait needs slightly higher altitude & distance to keep dock bays & grid cells visible
+    const baseRadius = (aspect < 0.65 ? 36.5 : aspect < 0.9 ? 34.0 : 31.5) * Math.max(0.85, Math.min(1.4, dimScale));
     this.orbitRadius = baseRadius;
     this.targetOrbitRadius = baseRadius;
-    this.defaultFOV = aspect < 0.6 ? 54 : 52;
+    this.defaultFOV = aspect < 0.65 ? 50 : 48;
 
-    const centerZ = 4.5 * 0.3;
+    // Sweet spot target centered between terminal bays (z: -6.8) and main puzzle grid (z: 4.5)
+    const centerZ = 0.8;
     this.orbitPanTarget.set(0, 0, centerZ);
     this.targetOrbitPanTarget.set(0, 0, centerZ);
 

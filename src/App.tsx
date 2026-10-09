@@ -56,7 +56,7 @@ import {
   GAME_MODE_CONFIGS,
 } from './logic/types.ts';
 import { LevelRepository } from './logic/levelRepository.ts';
-import { PlayerProgress } from './logic/playerProgress.ts';
+import { PlayerProgress, GraphicsQuality } from './logic/playerProgress.ts';
 import { PuzzleSolver } from './logic/puzzleSolver.ts';
 import { sounds } from './utils/soundEffects.ts';
 import { WORLD_THEMES, getWorldConfig, getWorldIdForLevel } from './logic/worldThemes.ts';
@@ -87,6 +87,7 @@ export default function App() {
   const arenaContainerRef = useRef<HTMLDivElement>(null);
 
   const [soundOn, setSoundOn] = useState(() => progress.soundEnabled);
+  const [graphicsQuality, setGraphicsQuality] = useState<GraphicsQuality>(() => PlayerProgress.getGraphicsQuality());
 
   // Modals
   const [showGarageModal, setShowGarageModal] = useState(false);
@@ -1084,44 +1085,20 @@ export default function App() {
                   </div>
                 </div>
 
-                {/* Right: Coins, Sound, Garage, Restart & Guide */}
-                <div className="flex items-center gap-1 shrink-0">
+                {/* Right: Coins & Quick Restart */}
+                <div className="flex items-center gap-1.5 shrink-0">
                   {/* Coin Stash */}
                   <button
                     onClick={() => {
                       sounds.playClick();
                       setShowShopModal(true);
                     }}
-                    className="flex items-center gap-1 bg-amber-500/15 hover:bg-amber-500/25 border border-amber-400/40 px-2 py-1 rounded-xl text-xs font-black text-amber-300 active:scale-95 transition-transform shadow-sm"
+                    className="flex items-center gap-1 bg-amber-500/15 hover:bg-amber-500/25 border border-amber-400/40 px-2 py-1.5 rounded-xl text-xs font-black text-amber-300 active:scale-95 transition-transform shadow-sm"
                     title="Coin Shop"
                   >
                     <span>🪙</span>
                     <span className="font-mono text-xs">{gameState.coins.toLocaleString()}</span>
                     <span className="text-amber-400 text-[10px] bg-amber-400/30 px-1 rounded-md font-black">+</span>
-                  </button>
-
-                  {/* 3D Bus Garage Showroom Shortcut */}
-                  <button
-                    onClick={() => {
-                      sounds.playClick();
-                      setShowGarageModal(true);
-                    }}
-                    className="w-8 h-8 rounded-xl game-btn game-btn-dark flex items-center justify-center text-amber-400 active:scale-95 transition-transform"
-                    title="Bus Garage & Mod Shop"
-                  >
-                    <Palette className="w-3.5 h-3.5" />
-                  </button>
-
-                  {/* Sound Toggle */}
-                  <button
-                    onClick={() => {
-                      setSoundOn(!soundOn);
-                      sounds.playClick();
-                    }}
-                    className="w-8 h-8 rounded-xl game-btn game-btn-dark flex items-center justify-center text-slate-300"
-                    title="Toggle Audio"
-                  >
-                    {soundOn ? <Volume2 className="w-3.5 h-3.5 text-amber-400" /> : <VolumeX className="w-3.5 h-3.5 text-slate-500" />}
                   </button>
 
                   {/* Quick Restart */}
@@ -1134,22 +1111,10 @@ export default function App() {
                       setShowGridlockModal(false);
                       setShowPauseModal(false);
                     }}
-                    className="w-8 h-8 rounded-xl game-btn game-btn-dark flex items-center justify-center text-slate-300"
+                    className="w-9 h-9 rounded-xl game-btn game-btn-dark flex items-center justify-center text-slate-300 active:scale-95 transition-transform"
                     title="Restart Level"
                   >
-                    <RotateCcw className="w-3.5 h-3.5" />
-                  </button>
-
-                  {/* How to Play & FAQ Guide */}
-                  <button
-                    onClick={() => {
-                      sounds.playClick();
-                      setShowHelpModal(true);
-                    }}
-                    className="w-8 h-8 rounded-xl game-btn game-btn-dark flex items-center justify-center text-amber-300"
-                    title="How to Play & FAQ"
-                  >
-                    <HelpCircle className="w-3.5 h-3.5" />
+                    <RotateCcw className="w-4 h-4" />
                   </button>
                 </div>
               </div>
@@ -1246,6 +1211,7 @@ export default function App() {
                 activeHintId={gameState.activeHintVehicleId}
                 isCompleted={!!victoryData || gameState.status === GameStatus.COMPLETED}
                 onParkingEvaluated={handleParkingEvaluated}
+                graphicsQuality={graphicsQuality}
               />
             </div>
 
@@ -1496,6 +1462,53 @@ export default function App() {
                   {soundOn ? <Volume2 className="w-4 h-4 text-slate-950" /> : <VolumeX className="w-4 h-4 text-slate-950" />}
                   <span>SOUND: {soundOn ? 'ON' : 'OFF'}</span>
                 </button>
+
+                {/* Global Graphics Quality Setting */}
+                <div className="bg-slate-950/80 border border-slate-800 rounded-2xl p-2.5 flex flex-col gap-1.5 shadow-inner text-left">
+                  <div className="flex items-center justify-between px-1">
+                    <span className="text-[11px] font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+                      <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+                      Graphics Quality
+                    </span>
+                    <span className="text-[10px] font-semibold text-sky-400">
+                      {graphicsQuality === 'HIGH' ? 'High Fidelity' : '60 FPS Mode'}
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-1.5">
+                    <button
+                      onClick={() => {
+                        sounds.playClick();
+                        setGraphicsQuality('HIGH');
+                        PlayerProgress.setGraphicsQuality('HIGH');
+                      }}
+                      className={`py-2 px-2 rounded-xl text-xs font-black transition-all flex flex-col items-center justify-center gap-0.5 border ${
+                        graphicsQuality === 'HIGH'
+                          ? 'bg-amber-500/20 border-amber-400 text-amber-300 shadow-md ring-1 ring-amber-400/40'
+                          : 'bg-slate-900/60 border-slate-800 text-slate-400 hover:text-slate-200 hover:border-slate-700'
+                      }`}
+                    >
+                      <span>High (with shadows)</span>
+                      <span className="text-[9px] font-normal text-slate-400">Crisp 3D Shadows</span>
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        sounds.playClick();
+                        setGraphicsQuality('PERFORMANCE');
+                        PlayerProgress.setGraphicsQuality('PERFORMANCE');
+                      }}
+                      className={`py-2 px-2 rounded-xl text-xs font-black transition-all flex flex-col items-center justify-center gap-0.5 border ${
+                        graphicsQuality === 'PERFORMANCE'
+                          ? 'bg-emerald-500/20 border-emerald-400 text-emerald-300 shadow-md ring-1 ring-emerald-400/40'
+                          : 'bg-slate-900/60 border-slate-800 text-slate-400 hover:text-slate-200 hover:border-slate-700'
+                      }`}
+                    >
+                      <span>Performance (no shadows)</span>
+                      <span className="text-[9px] font-normal text-slate-400">Optimized Performance</span>
+                    </button>
+                  </div>
+                </div>
 
                 {/* Select Level */}
                 <button

@@ -32,6 +32,7 @@ import {
 import { PlayerProgress, PlayerProgressData } from '../logic/playerProgress.ts';
 import { inCabRadio } from '../utils/radioSynthesizer.ts';
 import { sounds } from '../utils/soundEffects.ts';
+import { buildDioramaVehicleMesh } from '../logic/vehicleModelFactory.ts';
 
 interface BusGarageModalProps {
   isOpen?: boolean;
@@ -108,21 +109,30 @@ export function BusGarageModal({ isOpen = true, onClose, onCustomizationChanged 
       canvas,
       antialias: true,
       alpha: true,
+      powerPreference: 'high-performance',
     });
     renderer.setSize(width, height, false);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2.5));
     renderer.shadowMap.enabled = true;
-    renderer.shadowMap.type = THREE.PCFShadowMap;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.2;
 
-    // Showroom Lighting
-    const ambientLight = new THREE.AmbientLight(0xffffff, 1.2);
+    // Showroom Lighting with Hemisphere Fill
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.45);
     scene.add(ambientLight);
 
-    const keyLight = new THREE.DirectionalLight(0xfff5ea, 2.2);
-    keyLight.position.set(6, 9, 7);
+    const hemi = new THREE.HemisphereLight(0x7dd3fc, 0x1e293b, 0.6);
+    scene.add(hemi);
+
+    const keyLight = new THREE.DirectionalLight(0xfff5ea, 2.4);
+    keyLight.position.set(6, 10, 7);
     keyLight.castShadow = true;
     keyLight.shadow.mapSize.width = 1024;
     keyLight.shadow.mapSize.height = 1024;
+    keyLight.shadow.bias = -0.0004;
+    keyLight.shadow.radius = 1.5;
     scene.add(keyLight);
 
     const rimLight = new THREE.DirectionalLight(0x38bdf8, 1.4);
@@ -279,141 +289,20 @@ export function BusGarageModal({ isOpen = true, onClose, onCustomizationChanged 
     const liveryCfg = LIVERIES.find((l) => l.id === selectedLivery) || LIVERIES[0];
     const rimCfg = RIMS.find((r) => r.id === selectedRim) || RIMS[0];
 
-    const busColorHex = liveryCfg.id === 'SCHOOL_BUS' ? 0xf59e0b : 0x3b82f6; // Vibrant blue base or school bus amber
+    const busColorHex = liveryCfg.id === 'SCHOOL_BUS' ? '#F59E0B' : '#3B82F6';
 
-    // Main Bus Chassis
-    const bodyGeo = new THREE.BoxGeometry(1.65, 1.25, 3.8);
-    const bodyMat = new THREE.MeshStandardMaterial({
-      color: busColorHex,
-      roughness: liveryCfg.roughness,
-      metalness: liveryCfg.metalness,
+    const busRig = buildDioramaVehicleMesh({
+      vehicleId: 'garage_bus',
+      type: 'BUS',
+      colorHex: busColorHex,
+      length: 3,
+      loadedPassengers: 1,
+      capacity: 4,
+      liveryConfig: liveryCfg,
+      rimConfig: rimCfg,
     });
-    const body = new THREE.Mesh(bodyGeo, bodyMat);
-    body.position.y = 0.88;
-    body.castShadow = true;
-    busGroup.add(body);
-
-    // Tinted Glass Cabin
-    const glassGeo = new THREE.BoxGeometry(1.48, 0.65, 3.2);
-    const glassMat = new THREE.MeshStandardMaterial({
-      color: 0x0f172a,
-      roughness: 0.1,
-      metalness: 0.8,
-    });
-    const glass = new THREE.Mesh(glassGeo, glassMat);
-    glass.position.set(0, 1.35, -0.1);
-    glass.castShadow = true;
-    busGroup.add(glass);
-
-    // Roof & Livery Decals
-    const roofGeo = new THREE.BoxGeometry(1.5, 0.14, 3.4);
-    const roofMat = new THREE.MeshStandardMaterial({
-      color: liveryCfg.roofColor,
-      roughness: liveryCfg.roughness,
-      metalness: liveryCfg.metalness,
-    });
-    const roof = new THREE.Mesh(roofGeo, roofMat);
-    roof.position.set(0, 1.72, -0.1);
-    busGroup.add(roof);
-
-    // Livery Specific Decals
-    if (liveryCfg.patternType === 'racing_stripes') {
-      // Twin GT racing stripes
-      [-0.28, 0.28].forEach((xOffset) => {
-        const stripeGeo = new THREE.BoxGeometry(0.18, 0.02, 3.78);
-        const stripeMat = new THREE.MeshBasicMaterial({ color: liveryCfg.stripeColor });
-        const stripe = new THREE.Mesh(stripeGeo, stripeMat);
-        stripe.position.set(xOffset, 1.8, -0.1);
-        busGroup.add(stripe);
-      });
-    } else if (liveryCfg.patternType === 'cyber_circuit') {
-      // Glowing cyber grid lines along sides
-      [-0.84, 0.84].forEach((xSide) => {
-        const lineGeo = new THREE.BoxGeometry(0.02, 0.06, 3.5);
-        const lineMat = new THREE.MeshBasicMaterial({ color: liveryCfg.stripeColor });
-        const line = new THREE.Mesh(lineGeo, lineMat);
-        line.position.set(xSide, 0.95, 0);
-        busGroup.add(line);
-      });
-    } else if (liveryCfg.patternType === 'school_bus') {
-      // Heritage black rub rails
-      [-0.84, 0.84].forEach((xSide) => {
-        const railGeo = new THREE.BoxGeometry(0.04, 0.08, 3.6);
-        const railMat = new THREE.MeshBasicMaterial({ color: 0x111827 });
-        const rail = new THREE.Mesh(railGeo, railMat);
-        rail.position.set(xSide, 0.72, 0);
-        busGroup.add(rail);
-      });
-    } else if (liveryCfg.patternType === 'gold_chrome') {
-      // Golden Crown Emblem
-      const crownGeo = new THREE.BoxGeometry(0.3, 0.12, 0.6);
-      const crownMat = new THREE.MeshStandardMaterial({
-        color: 0xfef08a,
-        metalness: 0.95,
-        roughness: 0.05,
-      });
-      const crown = new THREE.Mesh(crownGeo, crownMat);
-      crown.position.set(0, 1.82, -0.2);
-      busGroup.add(crown);
-    }
-
-    // Headlights & Grille
-    const hlMat = new THREE.MeshStandardMaterial({
-      color: 0xffffff,
-      emissive: 0xfef08a,
-      emissiveIntensity: 2.0,
-    });
-    [-0.55, 0.55].forEach((x) => {
-      const hl = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.14, 0.06, 12), hlMat);
-      hl.rotation.x = Math.PI / 2;
-      hl.position.set(x, 0.75, -1.91);
-      busGroup.add(hl);
-    });
-
-    // Taillights
-    const tlMat = new THREE.MeshStandardMaterial({
-      color: 0xffffff,
-      emissive: 0xef4444,
-      emissiveIntensity: 1.6,
-    });
-    [-0.55, 0.55].forEach((x) => {
-      const tl = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 0.06, 12), tlMat);
-      tl.rotation.x = Math.PI / 2;
-      tl.position.set(x, 0.75, 1.91);
-      busGroup.add(tl);
-    });
-
-    // Wheels with custom rims
-    const tireGeo = new THREE.CylinderGeometry(0.38, 0.38, 0.24, 16);
-    const tireMat = new THREE.MeshStandardMaterial({ color: 0x090d16, roughness: 0.85 });
-    const rimGeo = new THREE.CylinderGeometry(0.22, 0.22, 0.25, 14);
-    const rimMat = new THREE.MeshStandardMaterial({
-      color: rimCfg.colorHex,
-      metalness: rimCfg.metalness,
-      roughness: rimCfg.roughness,
-    });
-
-    const wheelPositions = [
-      [-0.9, 0.38, -1.2],
-      [0.9, 0.38, -1.2],
-      [-0.9, 0.38, 1.2],
-      [0.9, 0.38, 1.2],
-    ];
-
-    wheelPositions.forEach(([x, y, z]) => {
-      const wGroup = new THREE.Group();
-      wGroup.position.set(x, y, z);
-
-      const tire = new THREE.Mesh(tireGeo, tireMat);
-      tire.rotation.z = Math.PI / 2;
-      tire.castShadow = true;
-
-      const rim = new THREE.Mesh(rimGeo, rimMat);
-      rim.rotation.z = Math.PI / 2;
-
-      wGroup.add(tire, rim);
-      busGroup.add(wGroup);
-    });
+    busRig.group.position.y = 0.52;
+    busGroup.add(busRig.group);
   }, [selectedLivery, selectedRim]);
 
   // Update Underglow Neon Lighting

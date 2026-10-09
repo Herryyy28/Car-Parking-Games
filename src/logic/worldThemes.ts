@@ -6,6 +6,10 @@ export interface WorldThemeConfig {
   subtitle: string;
   icon: string;
   badge: string;
+  levelStart: number;
+  levelEnd: number;
+  unlockRequirementLevel: number;
+  chapters: string[];
   skyColor: number;
   fogColor: number;
   fogDensity: number;
@@ -32,13 +36,23 @@ export interface WorldThemeConfig {
 }
 
 export const WORLD_THEMES: Record<number, WorldThemeConfig> = {
-  // WORLD 1 — Sunny City Parking (Bright, Friendly, Casual)
+  // WORLD 1 — Sunny City Parking (Levels 1 - 125)
   1: {
     id: 1,
     name: 'City Parking',
     subtitle: 'Sunny downtown streets & colorful parking bays',
     icon: '🌱',
     badge: 'World 1',
+    levelStart: 1,
+    levelEnd: 125,
+    unlockRequirementLevel: 1,
+    chapters: [
+      'Downtown Commute',
+      'Central Plaza',
+      'Midtown Rush',
+      'Metro Loop',
+      'Grand City Depot',
+    ],
     skyColor: 0xd4ecfc,       // soft bright powder blue sky
     fogColor: 0xd4ecfc,
     fogDensity: 0.005,        // very light, far atmospheric depth
@@ -64,13 +78,23 @@ export const WORLD_THEMES: Record<number, WorldThemeConfig> = {
     propType: 'city',
   },
 
-  // WORLD 2 — Central Transit Hub
+  // WORLD 2 — Central Transit Terminal (Levels 126 - 250)
   2: {
     id: 2,
     name: 'Transit Terminal',
     subtitle: 'Vibrant city transit terminal & bustling passenger platforms',
     icon: '🚗',
     badge: 'World 2',
+    levelStart: 126,
+    levelEnd: 250,
+    unlockRequirementLevel: 25,
+    chapters: [
+      'Terminal Platform',
+      'Bus Concourse',
+      'Depot Junction',
+      'Express Overpass',
+      'Central Interchange',
+    ],
     skyColor: 0xcee5fd,
     fogColor: 0xcee5fd,
     fogDensity: 0.005,
@@ -96,13 +120,23 @@ export const WORLD_THEMES: Record<number, WorldThemeConfig> = {
     propType: 'station',
   },
 
-  // WORLD 3 — Downtown Skyline & Boutiques
+  // WORLD 3 — Downtown Skyline & Boutiques (Levels 251 - 375)
   3: {
     id: 3,
     name: 'Downtown Skyline',
     subtitle: 'Charming shopping boulevard with storefronts & awnings',
     icon: '🚌',
     badge: 'World 3',
+    levelStart: 251,
+    levelEnd: 375,
+    unlockRequirementLevel: 125,
+    chapters: [
+      'Boutique Alley',
+      'Skyline Boulevard',
+      'Fashion District',
+      'Highrise Crossing',
+      'Metropolitan Tower',
+    ],
     skyColor: 0xdbeafe,
     fogColor: 0xdbeafe,
     fogDensity: 0.005,
@@ -128,13 +162,23 @@ export const WORLD_THEMES: Record<number, WorldThemeConfig> = {
     propType: 'downtown',
   },
 
-  // WORLD 4 — Palm Beach Harbor
+  // WORLD 4 — Palm Beach Harbor (Levels 376 - 500)
   4: {
     id: 4,
     name: 'Palm Beach Harbor',
     subtitle: 'Sunny coastal boulevard with turquoise water & palm trees',
     icon: '🎨',
     badge: 'World 4',
+    levelStart: 376,
+    levelEnd: 500,
+    unlockRequirementLevel: 250,
+    chapters: [
+      'Pier Express',
+      'Coastal Causeway',
+      'Marina Boardwalk',
+      'Lighthouse Turn',
+      'Ocean Terminal',
+    ],
     skyColor: 0xbae6fd,
     fogColor: 0xbae6fd,
     fogDensity: 0.004,
@@ -160,13 +204,23 @@ export const WORLD_THEMES: Record<number, WorldThemeConfig> = {
     propType: 'beach',
   },
 
-  // WORLD 5 — Airport Skyway
+  // WORLD 5 — Airport Skyway (Levels 501 - 625)
   5: {
     id: 5,
     name: 'Airport Express',
     subtitle: 'Clear skies, aero concourse & streamlined departure lanes',
     icon: '🅿️',
     badge: 'World 5',
+    levelStart: 501,
+    levelEnd: 625,
+    unlockRequirementLevel: 375,
+    chapters: [
+      'Departure Ramp',
+      'Runway Crossing',
+      'Hangar Ring',
+      'Skybridge Arterial',
+      'International Skyport',
+    ],
     skyColor: 0xe0f2fe,
     fogColor: 0xe0f2fe,
     fogDensity: 0.005,
@@ -192,13 +246,23 @@ export const WORLD_THEMES: Record<number, WorldThemeConfig> = {
     propType: 'airport',
   },
 
-  // WORLD 6 — Carnival Fairground
+  // WORLD 6 — Carnival Fairground (Levels 626 - 750)
   6: {
     id: 6,
     name: 'Carnival Fairground',
     subtitle: 'Festive plazas with colorful balloons, banners & candy stalls',
     icon: '🚧',
     badge: 'World 6',
+    levelStart: 626,
+    levelEnd: 750,
+    unlockRequirementLevel: 500,
+    chapters: [
+      'Carnival Parade',
+      'Grand Midway',
+      'Ferris Way',
+      'Celebration Boulevard',
+      'Carnival Grand Finale',
+    ],
     skyColor: 0xfce7f3,       // playful candy sky
     fogColor: 0xfce7f3,
     fogDensity: 0.005,
@@ -224,13 +288,23 @@ export const WORLD_THEMES: Record<number, WorldThemeConfig> = {
     propType: 'festival',
   },
 
-  // WORLD 7 — Sunset Promenade
+  // WORLD 7 — Sunset Promenade (Levels 751 - 875)
   7: {
     id: 7,
     name: 'Sunset Promenade',
     subtitle: 'Warm golden hour city with cozy cafe umbrellas & amber glow',
     icon: '🔄',
     badge: 'World 7',
+    levelStart: 751,
+    levelEnd: 875,
+    unlockRequirementLevel: 625,
+    chapters: [
+      'Golden Hour Avenue',
+      'Twilight Square',
+      'Amber Highway',
+      'Sunset Viaduct',
+      'Horizon Central',
+    ],
     skyColor: 0xffedd5,       // warm peach/apricot golden hour sky
     fogColor: 0xffedd5,
     fogDensity: 0.005,
@@ -256,13 +330,23 @@ export const WORLD_THEMES: Record<number, WorldThemeConfig> = {
     propType: 'sunset',
   },
 
-  // WORLD 8 — Alpine Meadow Valley
+  // WORLD 8 — Alpine Meadow Valley (Levels 876 - 1000)
   8: {
     id: 8,
     name: 'Alpine Valley',
     subtitle: 'Clear mountain breeze, pine trees & timber chalet station',
     icon: '🚍',
     badge: 'World 8',
+    levelStart: 876,
+    levelEnd: 1000,
+    unlockRequirementLevel: 750,
+    chapters: [
+      'Glacier Foothills',
+      'Pine Forest Switchbacks',
+      'Mountain Pass',
+      'Summit Ridge',
+      'Mount Olympus Peak',
+    ],
     skyColor: 0xdbeafe,
     fogColor: 0xdbeafe,
     fogDensity: 0.004,
@@ -294,6 +378,22 @@ export function getWorldConfig(worldId: number): WorldThemeConfig {
 }
 
 export function getWorldIdForLevel(levelId: number): number {
-  const w = Math.floor((levelId - 1) / 5) + 1;
+  const w = Math.floor((levelId - 1) / 125) + 1;
   return Math.min(8, Math.max(1, w));
+}
+
+export function getChapterInfo(levelId: number): {
+  worldId: number;
+  chapterIndex: number; // 1 to 5
+  chapterName: string;
+  levelInChapter: number; // 1 to 25
+  levelInWorld: number; // 1 to 125
+} {
+  const worldId = getWorldIdForLevel(levelId);
+  const levelInWorld = ((levelId - 1) % 125) + 1;
+  const chapterIndex = Math.min(5, Math.floor((levelInWorld - 1) / 25) + 1);
+  const levelInChapter = ((levelInWorld - 1) % 25) + 1;
+  const theme = getWorldConfig(worldId);
+  const chapterName = theme.chapters?.[chapterIndex - 1] || `Chapter ${chapterIndex}`;
+  return { worldId, chapterIndex, chapterName, levelInChapter, levelInWorld };
 }

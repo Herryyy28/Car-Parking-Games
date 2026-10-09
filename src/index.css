@@ -21,6 +21,14 @@
     background-color: #080d1a;
     color: #f8fafc;
   }
+
+  canvas {
+    display: block;
+    image-rendering: -webkit-optimize-contrast;
+    image-rendering: crisp-edges;
+    transform: translateZ(0);
+    backface-visibility: hidden;
+  }
 }
 
 /* ========================================================

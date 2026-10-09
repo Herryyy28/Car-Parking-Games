@@ -13,10 +13,11 @@ import {
 import { LevelData } from './levelRepository.ts';
 import { LogicalGrid } from './logicalGrid.ts';
 import { PathFinder } from './pathFinder.ts';
+import { getChapterInfo } from './worldThemes.ts';
 
 /**
  * Procedural Level Generator with Solvability Verification & Smart Difficulty Engine.
- * Generates infinite deterministic levels for any levelId.
+ * Generates infinite deterministic levels for any levelId across 1,000 levels.
  * Guarantees 100% solvability by forward-simulating exit paths before finalizing.
  */
 export class ProceduralLevelGenerator {
@@ -37,25 +38,28 @@ export class ProceduralLevelGenerator {
     difficulty: Difficulty = Difficulty.HARD
   ): LevelData {
     // Deterministic pseudo-random seed based on levelId
-    let seed = levelId * 16807 % 2147483647;
+    let seed = (levelId * 16807) % 2147483647;
     const random = () => {
       seed = (seed * 16807) % 2147483647;
       return (seed - 1) / 2147483646;
     };
 
-    // World calculation: 5 levels per world across 8 worlds
-    const world = Math.min(8, Math.floor((levelId - 1) / 5) + 1);
+    // World & chapter hierarchy (8 Worlds, 5 Chapters per World, 25 Levels per Chapter)
+    const { worldId: world, chapterIndex, chapterName, levelInChapter } = getChapterInfo(levelId);
 
-    // Grid dimensions scale dynamically with level progression (6x6 -> 7x7 -> 7x8 -> 8x8)
+    // Grid dimensions scale dynamically with level progression across 1,000 levels
     let rows = 7;
     let cols = 7;
     if (levelId <= 3) {
       rows = 6;
       cols = 6;
-    } else if (levelId <= 15) {
+    } else if (levelId <= 25) {
       rows = 7;
       cols = 7;
-    } else if (levelId <= 30) {
+    } else if (levelId <= 150) {
+      rows = 7;
+      cols = 7;
+    } else if (levelId <= 400) {
       rows = 7;
       cols = 8;
     } else {
@@ -63,11 +67,12 @@ export class ProceduralLevelGenerator {
       cols = 8;
     }
 
-    // Difficulty-weighted vehicle counts
+    // Vehicle counts scale according to world progression and chapter difficulty
     const diffMultiplier = difficulty === Difficulty.CASUAL ? 0.8 : difficulty === Difficulty.EXPERT ? 1.25 : 1.0;
+    const progressInWorld = ((levelId - 1) % 125) / 125;
     const baseVehicleCount = Math.min(
-      11,
-      Math.max(4, Math.floor(4 + (levelId * 0.45) * diffMultiplier))
+      10,
+      Math.max(4, Math.floor(4 + progressInWorld * 4 + Math.min(2, Math.floor(world * 0.3)) * diffMultiplier))
     );
 
     // Attempt generation with strict 100% solvability validation
@@ -79,6 +84,8 @@ export class ProceduralLevelGenerator {
         const generated = this.attemptGenerateLayout(
           levelId,
           world,
+          chapterName,
+          levelInChapter,
           rows,
           cols,
           currentCount,
@@ -97,6 +104,8 @@ export class ProceduralLevelGenerator {
       candidateLevel = this.attemptGenerateLayout(
         levelId,
         world,
+        chapterName,
+        levelInChapter,
         rows,
         cols,
         4,
@@ -113,6 +122,8 @@ export class ProceduralLevelGenerator {
   private static attemptGenerateLayout(
     levelId: number,
     world: number,
+    chapterName: string,
+    levelInChapter: number,
     rows: number,
     cols: number,
     vehicleCount: number,
@@ -230,14 +241,25 @@ export class ProceduralLevelGenerator {
     const timeLimit = Math.max(45, Math.ceil(vehicles.length * 12));
 
     const busCount = vehicles.filter((v) => v.type === VehicleType.BUS).length;
+    const isBossLevel = levelInChapter === 25;
+    const isMilestone = levelInChapter % 5 === 0;
+
+    const levelTitle = isBossLevel
+      ? `${chapterName} Climax`
+      : isMilestone
+      ? `${chapterName} Express`
+      : `${chapterName} - Stage ${levelInChapter}`;
+
     const objective =
-      busCount > 0
+      isBossLevel
+        ? `🔥 CHAPTER CLIMAX: ESCAPE ALL ${vehicles.length} VEHICLES!`
+        : busCount > 0
         ? `SORT ${busCount} BUSES & CLEAR ${vehicles.length} VEHICLES`
         : `CLEAR ${vehicles.length} VEHICLES FROM THE LOT`;
 
     return {
       id: levelId,
-      name: `Procedural Junction #${levelId}`,
+      name: levelTitle,
       world,
       parMoves,
       timeLimit,

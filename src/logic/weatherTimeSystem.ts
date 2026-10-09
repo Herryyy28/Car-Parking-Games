@@ -342,11 +342,13 @@ export class WeatherTimeSystem {
 
     // 1. Atmosphere: Background & Fog
     this.scene.background = new THREE.Color(cfg.skyColor);
-    if (this.scene.fog && this.scene.fog instanceof THREE.FogExp2) {
+    // Linear fog ensures gameplay board (0-65m) has 100% crystal-clear clarity with zero fog washout
+    if (this.scene.fog && this.scene.fog instanceof THREE.Fog) {
       this.scene.fog.color.set(cfg.fogColor);
-      this.scene.fog.density = cfg.fogDensity;
+      this.scene.fog.near = 75;
+      this.scene.fog.far = 160;
     } else {
-      this.scene.fog = new THREE.FogExp2(cfg.fogColor, cfg.fogDensity);
+      this.scene.fog = new THREE.Fog(cfg.fogColor, 75, 160);
     }
 
     // 2. Dynamic Lighting: Sun, Ambient, and Sky Fill

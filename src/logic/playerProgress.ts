@@ -26,7 +26,11 @@ export interface PlayerProgressData {
   // Radio
   radioStation: RadioStation;
   radioVolume: number;
+  // Graphics Settings
+  graphicsQuality: GraphicsQuality;
 }
+
+export type GraphicsQuality = 'HIGH' | 'PERFORMANCE';
 
 const STORAGE_KEY = 'bus_game_player_progress_v3';
 
@@ -58,6 +62,7 @@ export class PlayerProgress {
         parsed.unlockedHorns = parsed.unlockedHorns || ['STANDARD'];
         parsed.radioStation = parsed.radioStation || 'OFF';
         parsed.radioVolume = parsed.radioVolume ?? 0.25;
+        parsed.graphicsQuality = parsed.graphicsQuality || 'HIGH';
         return parsed;
       }
     } catch {
@@ -87,6 +92,7 @@ export class PlayerProgress {
       unlockedHorns: ['STANDARD'],
       radioStation: 'OFF',
       radioVolume: 0.25,
+      graphicsQuality: 'HIGH',
     };
   }
 
@@ -168,9 +174,9 @@ export class PlayerProgress {
       this.data.stars[levelId] = stars;
     }
 
-    // Unlock next level
+    // Unlock next level (capped at 1000)
     if (levelId >= this.data.unlockedLevel) {
-      this.data.unlockedLevel = levelId + 1;
+      this.data.unlockedLevel = Math.min(1000, levelId + 1);
     }
 
     const diffConfig = DIFFICULTY_CONFIGS[difficulty] || DIFFICULTY_CONFIGS[Difficulty.HARD];
@@ -190,5 +196,14 @@ export class PlayerProgress {
   public static setCoins(coins: number): void {
     this.data.coins = coins;
     this.save();
+  }
+
+  public static setGraphicsQuality(quality: GraphicsQuality): void {
+    this.data.graphicsQuality = quality;
+    this.save();
+  }
+
+  public static getGraphicsQuality(): GraphicsQuality {
+    return this.data.graphicsQuality || 'HIGH';
   }
 }

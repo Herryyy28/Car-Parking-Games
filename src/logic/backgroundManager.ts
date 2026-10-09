@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { WorldThemeConfig, getWorldConfig } from '../logic/worldThemes.ts';
+import { DioramaTerrainSystem } from './dioramaTerrainSystem.ts';
 
 /**
  * BackgroundEnvironmentManager
@@ -17,6 +18,12 @@ export class BackgroundEnvironmentManager {
     initialY: number;
     offset: number;
   }> = [];
+
+  private resolveTerrainY(x: number, y: number, z: number): number {
+    if (y !== 0) return y;
+    const th = DioramaTerrainSystem.getTerrainHeight(x, z);
+    return Math.max(0, th);
+  }
 
   // Theme reference pointers for dynamic material color updates
   private groundMesh: THREE.Mesh | null = null;
@@ -85,11 +92,14 @@ export class BackgroundEnvironmentManager {
 
     // 1. Update Scene Sky, Fog, and Lighting
     this.scene.background = new THREE.Color(theme.skyColor);
-    if (this.scene.fog && this.scene.fog instanceof THREE.FogExp2) {
+    // Clean Linear Fog: only gently softens distant background horizons (75 to 160 units),
+    // keeping the entire puzzle arena, vehicles, and road 100% crystal-clear with zero fog washout
+    if (this.scene.fog && this.scene.fog instanceof THREE.Fog) {
       this.scene.fog.color.set(theme.fogColor);
-      this.scene.fog.density = theme.fogDensity;
+      this.scene.fog.near = 75;
+      this.scene.fog.far = 160;
     } else {
-      this.scene.fog = new THREE.FogExp2(theme.fogColor, theme.fogDensity);
+      this.scene.fog = new THREE.Fog(theme.fogColor, 75, 160);
     }
 
     if (this.directionalSun) {
@@ -505,7 +515,7 @@ export class BackgroundEnvironmentManager {
     awningColor2: number
   ): void {
     const bGroup = new THREE.Group();
-    bGroup.position.set(x, y, z);
+    bGroup.position.set(x, this.resolveTerrainY(x, y, z), z);
 
     // 1. Main Pastel Facade Body
     const bodyGeo = new THREE.BoxGeometry(w, h, d);
@@ -614,7 +624,7 @@ export class BackgroundEnvironmentManager {
    */
   private createStylizedTree(x: number, y: number, z: number, scale = 1.0): void {
     const tree = new THREE.Group();
-    tree.position.set(x, y, z);
+    tree.position.set(x, this.resolveTerrainY(x, y, z), z);
     tree.scale.set(scale, scale, scale);
 
     // Trunk
@@ -874,7 +884,7 @@ export class BackgroundEnvironmentManager {
 
   private createPineTree(x: number, y: number, z: number, scale = 1.0): void {
     const pine = new THREE.Group();
-    pine.position.set(x, y, z);
+    pine.position.set(x, this.resolveTerrainY(x, y, z), z);
     pine.scale.set(scale, scale, scale);
 
     // Trunk
@@ -1451,7 +1461,7 @@ export class BackgroundEnvironmentManager {
 
   private createTimberCabin(x: number, y: number, z: number, wallColor: number, roofColor: number): void {
     const cabin = new THREE.Group();
-    cabin.position.set(x, y, z);
+    cabin.position.set(x, this.resolveTerrainY(x, y, z), z);
 
     const walls = new THREE.Mesh(
       new THREE.BoxGeometry(4.5, 3.2, 4.0),
@@ -1476,7 +1486,8 @@ export class BackgroundEnvironmentManager {
       new THREE.DodecahedronGeometry(0.85, 1),
       new THREE.MeshStandardMaterial({ color: 0x475569, roughness: 0.95 })
     );
-    rock.position.set(x, 0.45 * scale, z);
+    const groundY = this.resolveTerrainY(x, 0, z);
+    rock.position.set(x, groundY + 0.45 * scale, z);
     rock.scale.set(scale * 1.3, scale * 0.9, scale * 1.1);
     this.propsContainer.add(rock);
   }

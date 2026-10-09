@@ -255,23 +255,58 @@ export const LEVELS_DATA: LevelData[] = [
 ];
 
 export class LevelRepository {
-  private static cachedLevels: LevelData[] | null = null;
+  public static readonly TOTAL_LEVELS = 1000;
+  private static levelCache: Map<number, LevelData> = new Map();
 
-  public static getAllLevels(): LevelData[] {
-    if (this.cachedLevels) return this.cachedLevels;
-    const list = [...LEVELS_DATA];
-    for (let i = 7; i <= 40; i++) {
-      list.push(ProceduralLevelGenerator.generateLevel(i, Difficulty.HARD));
+  public static getLevel(id: number, difficulty: Difficulty = Difficulty.HARD): LevelData {
+    const validId = Math.min(LevelRepository.TOTAL_LEVELS, Math.max(1, id));
+    if (this.levelCache.has(validId)) {
+      return this.levelCache.get(validId)!;
     }
-    this.cachedLevels = list;
+
+    let level: LevelData;
+    if (validId <= LEVELS_DATA.length) {
+      level = LEVELS_DATA[validId - 1];
+    } else {
+      level = ProceduralLevelGenerator.generateLevel(validId, difficulty);
+    }
+
+    this.levelCache.set(validId, level);
+    return level;
+  }
+
+  public static getLevelsForWorld(worldId: number, difficulty: Difficulty = Difficulty.HARD): LevelData[] {
+    const start = (worldId - 1) * 125 + 1;
+    const end = Math.min(LevelRepository.TOTAL_LEVELS, worldId * 125);
+    const list: LevelData[] = [];
+    for (let i = start; i <= end; i++) {
+      list.push(this.getLevel(i, difficulty));
+    }
     return list;
   }
 
-  public static getLevel(id: number, difficulty: Difficulty = Difficulty.HARD): LevelData {
-    const all = this.getAllLevels();
-    const found = all.find((l) => l.id === id);
-    if (found) return found;
-    return ProceduralLevelGenerator.generateLevel(id, difficulty);
+  public static getLevelsForChapter(
+    worldId: number,
+    chapterIndex: number,
+    difficulty: Difficulty = Difficulty.HARD
+  ): LevelData[] {
+    const worldStart = (worldId - 1) * 125 + 1;
+    const chapterStart = worldStart + (chapterIndex - 1) * 25;
+    const chapterEnd = Math.min(LevelRepository.TOTAL_LEVELS, chapterStart + 24);
+    const list: LevelData[] = [];
+    for (let i = chapterStart; i <= chapterEnd; i++) {
+      list.push(this.getLevel(i, difficulty));
+    }
+    return list;
+  }
+
+  public static getAllLevels(): LevelData[] {
+    const list: LevelData[] = [];
+    // Efficiently preload first 40 levels by default
+    for (let i = 1; i <= Math.min(40, LevelRepository.TOTAL_LEVELS); i++) {
+      list.push(this.getLevel(i));
+    }
+    return list;
   }
 
   public static createInitialGameState(

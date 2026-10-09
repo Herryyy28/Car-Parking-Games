@@ -17,12 +17,16 @@ export class AmbientTrafficSystem {
   private cars: AmbientTrafficCar[] = [];
   private loops: THREE.CatmullRomCurve3[] = [];
 
-  constructor(scene: THREE.Scene) {
+  constructor(scene: THREE.Scene, customLoops?: THREE.CatmullRomCurve3[]) {
     this.trafficGroup = new THREE.Group();
     this.trafficGroup.name = 'AmbientTrafficSystem';
     scene.add(this.trafficGroup);
 
-    this.createPerimeterLoops();
+    if (customLoops && customLoops.length > 0) {
+      this.loops = customLoops;
+    } else {
+      this.createPerimeterLoops();
+    }
     this.spawnAmbientVehicles();
   }
 
@@ -143,12 +147,18 @@ export class AmbientTrafficSystem {
       const nextT = (car.progress + 0.02) % 1.0;
       const nextPos = car.curve.getPointAt(nextT);
 
-      car.mesh.position.set(pos.x, 0.55, pos.z);
+      // Follow 3D curve elevation with chassis clearance above road surface
+      const roadY = typeof pos.y === 'number' && !isNaN(pos.y) ? pos.y + 0.32 : 0.55;
+      car.mesh.position.set(pos.x, roadY, pos.z);
 
       const dir = new THREE.Vector3().subVectors(nextPos, pos).normalize();
       if (dir.lengthSq() > 0.001) {
         const yaw = Math.atan2(dir.x, -dir.z);
         car.mesh.rotation.y = yaw;
+
+        // Subtle pitch when climbing or descending terrain slopes
+        const pitch = Math.asin(THREE.MathUtils.clamp(dir.y, -0.5, 0.5));
+        car.mesh.rotation.x = -pitch;
       }
     });
   }
