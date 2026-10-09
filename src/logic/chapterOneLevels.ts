@@ -1,0 +1,583 @@
+import { Direction, VehicleType } from './types.ts';
+import type { LevelData } from './levelRepository.ts';
+
+export const CHAPTER_ONE_EXTENDED_LEVELS: LevelData[] = [
+  // ========================================================
+  // LEVEL 7: Parallel Transit
+  // ========================================================
+  {
+    id: 7,
+    name: 'Parallel Transit',
+    world: 1,
+    parMoves: 22,
+    timeLimit: 85,
+    grid: { rows: 7, cols: 7 },
+    vehicles: [
+      { id: 'l7_v1', type: VehicleType.CAR, color: 'GREEN', row: 0, col: 2, direction: Direction.UP, length: 2, capacity: 3 },
+      { id: 'l7_v2', type: VehicleType.CAR, color: 'YELLOW', row: 0, col: 4, direction: Direction.UP, length: 2, capacity: 3 },
+      { id: 'l7_v3', type: VehicleType.BUS, color: 'RED', row: 2, col: 2, direction: Direction.UP, length: 3, capacity: 4 },
+      { id: 'l7_v4', type: VehicleType.BUS, color: 'BLUE', row: 2, col: 4, direction: Direction.UP, length: 3, capacity: 4 },
+      { id: 'l7_v5', type: VehicleType.CAR, color: 'GREEN', row: 5, col: 0, direction: Direction.LEFT, length: 2, capacity: 3 },
+      { id: 'l7_v6', type: VehicleType.CAR, color: 'YELLOW', row: 5, col: 5, direction: Direction.RIGHT, length: 2, capacity: 3 },
+      { id: 'l7_v7', type: VehicleType.VAN, color: 'RED', row: 5, col: 2, direction: Direction.DOWN, length: 2, capacity: 4 },
+      { id: 'l7_v8', type: VehicleType.VAN, color: 'BLUE', row: 5, col: 4, direction: Direction.DOWN, length: 2, capacity: 4 },
+    ],
+    passengers: [
+      { id: 'l7_p1', color: 'GREEN' }, { id: 'l7_p2', color: 'GREEN' }, { id: 'l7_p3', color: 'GREEN' }, { id: 'l7_p4', color: 'YELLOW' },
+      { id: 'l7_p5', color: 'YELLOW' }, { id: 'l7_p6', color: 'YELLOW' }, { id: 'l7_p7', color: 'RED' }, { id: 'l7_p8', color: 'RED' },
+      { id: 'l7_p9', color: 'RED' }, { id: 'l7_p10', color: 'RED' }, { id: 'l7_p11', color: 'BLUE' }, { id: 'l7_p12', color: 'BLUE' },
+      { id: 'l7_p13', color: 'BLUE' }, { id: 'l7_p14', color: 'BLUE' }, { id: 'l7_p15', color: 'GREEN' }, { id: 'l7_p16', color: 'GREEN' },
+      { id: 'l7_p17', color: 'GREEN' }, { id: 'l7_p18', color: 'YELLOW' }, { id: 'l7_p19', color: 'YELLOW' }, { id: 'l7_p20', color: 'YELLOW' },
+      { id: 'l7_p21', color: 'RED' }, { id: 'l7_p22', color: 'RED' }, { id: 'l7_p23', color: 'RED' }, { id: 'l7_p24', color: 'RED' },
+      { id: 'l7_p25', color: 'BLUE' }, { id: 'l7_p26', color: 'BLUE' }, { id: 'l7_p27', color: 'BLUE' }, { id: 'l7_p28', color: 'BLUE' },
+    ],
+  },
+  // ========================================================
+  // LEVEL 8: The Zipper Junction
+  // ========================================================
+  {
+    id: 8,
+    name: 'The Zipper Junction',
+    world: 1,
+    parMoves: 24,
+    timeLimit: 90,
+    grid: { rows: 7, cols: 7 },
+    vehicles: [
+      { id: 'l8_v1', type: VehicleType.CAR, color: 'PURPLE', row: 0, col: 0, direction: Direction.LEFT, length: 2, capacity: 3 },
+      { id: 'l8_v2', type: VehicleType.CAR, color: 'ORANGE', row: 1, col: 5, direction: Direction.RIGHT, length: 2, capacity: 3 },
+      { id: 'l8_v3', type: VehicleType.BUS, color: 'BLUE', row: 1, col: 2, direction: Direction.UP, length: 3, capacity: 4 },
+      { id: 'l8_v4', type: VehicleType.BUS, color: 'GREEN', row: 3, col: 4, direction: Direction.DOWN, length: 3, capacity: 4 },
+      { id: 'l8_v5', type: VehicleType.CAR, color: 'PURPLE', row: 3, col: 0, direction: Direction.LEFT, length: 2, capacity: 3 },
+      { id: 'l8_v6', type: VehicleType.CAR, color: 'ORANGE', row: 5, col: 5, direction: Direction.RIGHT, length: 2, capacity: 3 },
+      { id: 'l8_v7', type: VehicleType.VAN, color: 'YELLOW', row: 5, col: 2, direction: Direction.DOWN, length: 2, capacity: 4 },
+    ],
+    passengers: [
+      { id: 'l8_p1', color: 'PURPLE' }, { id: 'l8_p2', color: 'PURPLE' }, { id: 'l8_p3', color: 'PURPLE' }, { id: 'l8_p4', color: 'ORANGE' },
+      { id: 'l8_p5', color: 'ORANGE' }, { id: 'l8_p6', color: 'ORANGE' }, { id: 'l8_p7', color: 'BLUE' }, { id: 'l8_p8', color: 'BLUE' },
+      { id: 'l8_p9', color: 'BLUE' }, { id: 'l8_p10', color: 'BLUE' }, { id: 'l8_p11', color: 'GREEN' }, { id: 'l8_p12', color: 'GREEN' },
+      { id: 'l8_p13', color: 'GREEN' }, { id: 'l8_p14', color: 'GREEN' }, { id: 'l8_p15', color: 'PURPLE' }, { id: 'l8_p16', color: 'PURPLE' },
+      { id: 'l8_p17', color: 'PURPLE' }, { id: 'l8_p18', color: 'ORANGE' }, { id: 'l8_p19', color: 'ORANGE' }, { id: 'l8_p20', color: 'ORANGE' },
+      { id: 'l8_p21', color: 'YELLOW' }, { id: 'l8_p22', color: 'YELLOW' }, { id: 'l8_p23', color: 'YELLOW' }, { id: 'l8_p24', color: 'YELLOW' },
+    ],
+  },
+  // ========================================================
+  // LEVEL 9: Cornerstone Pocket
+  // ========================================================
+  {
+    id: 9,
+    name: 'Cornerstone Pocket',
+    world: 1,
+    parMoves: 26,
+    timeLimit: 95,
+    grid: { rows: 7, cols: 7 },
+    vehicles: [
+      { id: 'l9_v1', type: VehicleType.CAR, color: 'RED', row: 0, col: 1, direction: Direction.LEFT, length: 2, capacity: 3 },
+      { id: 'l9_v2', type: VehicleType.CAR, color: 'BLUE', row: 0, col: 4, direction: Direction.RIGHT, length: 2, capacity: 3 },
+      { id: 'l9_v3', type: VehicleType.BUS, color: 'GREEN', row: 2, col: 1, direction: Direction.UP, length: 3, capacity: 4 },
+      { id: 'l9_v4', type: VehicleType.BUS, color: 'YELLOW', row: 2, col: 5, direction: Direction.UP, length: 3, capacity: 4 },
+      { id: 'l9_v5', type: VehicleType.VAN, color: 'RED', row: 3, col: 3, direction: Direction.UP, length: 2, capacity: 4 },
+      { id: 'l9_v6', type: VehicleType.CAR, color: 'BLUE', row: 6, col: 1, direction: Direction.LEFT, length: 2, capacity: 3 },
+      { id: 'l9_v7', type: VehicleType.BUS, color: 'GREEN', row: 5, col: 3, direction: Direction.DOWN, length: 2, capacity: 4 },
+    ],
+    passengers: [
+      { id: 'l9_p1', color: 'RED' }, { id: 'l9_p2', color: 'RED' }, { id: 'l9_p3', color: 'RED' }, { id: 'l9_p4', color: 'BLUE' },
+      { id: 'l9_p5', color: 'BLUE' }, { id: 'l9_p6', color: 'BLUE' }, { id: 'l9_p7', color: 'GREEN' }, { id: 'l9_p8', color: 'GREEN' },
+      { id: 'l9_p9', color: 'GREEN' }, { id: 'l9_p10', color: 'GREEN' }, { id: 'l9_p11', color: 'YELLOW' }, { id: 'l9_p12', color: 'YELLOW' },
+      { id: 'l9_p13', color: 'YELLOW' }, { id: 'l9_p14', color: 'YELLOW' }, { id: 'l9_p15', color: 'RED' }, { id: 'l9_p16', color: 'RED' },
+      { id: 'l9_p17', color: 'RED' }, { id: 'l9_p18', color: 'RED' }, { id: 'l9_p19', color: 'BLUE' }, { id: 'l9_p20', color: 'BLUE' },
+      { id: 'l9_p21', color: 'BLUE' }, { id: 'l9_p22', color: 'GREEN' }, { id: 'l9_p23', color: 'GREEN' }, { id: 'l9_p24', color: 'GREEN' },
+      { id: 'l9_p25', color: 'GREEN' },
+    ],
+  },
+  // ========================================================
+  // LEVEL 10: Milestone: Metro Express
+  // ========================================================
+  {
+    id: 10,
+    name: 'Milestone: Metro Express',
+    world: 1,
+    parMoves: 28,
+    timeLimit: 100,
+    grid: { rows: 7, cols: 7 },
+    vehicles: [
+      { id: 'l10_v1', type: VehicleType.CAR, color: 'YELLOW', row: 0, col: 0, direction: Direction.LEFT, length: 2, capacity: 3 },
+      { id: 'l10_v2', type: VehicleType.CAR, color: 'YELLOW', row: 0, col: 5, direction: Direction.RIGHT, length: 2, capacity: 3 },
+      { id: 'l10_v3', type: VehicleType.BUS, color: 'RED', row: 0, col: 3, direction: Direction.UP, length: 3, capacity: 4 },
+      { id: 'l10_v4', type: VehicleType.BUS, color: 'BLUE', row: 2, col: 1, direction: Direction.LEFT, length: 2, capacity: 4 },
+      { id: 'l10_v5', type: VehicleType.BUS, color: 'GREEN', row: 2, col: 4, direction: Direction.RIGHT, length: 2, capacity: 4 },
+      { id: 'l10_v6', type: VehicleType.VAN, color: 'PURPLE', row: 4, col: 3, direction: Direction.DOWN, length: 2, capacity: 4 },
+      { id: 'l10_v7', type: VehicleType.CAR, color: 'BLUE', row: 5, col: 0, direction: Direction.LEFT, length: 2, capacity: 3 },
+      { id: 'l10_v8', type: VehicleType.CAR, color: 'GREEN', row: 5, col: 5, direction: Direction.RIGHT, length: 2, capacity: 3 },
+    ],
+    passengers: [
+      { id: 'l10_p1', color: 'YELLOW' }, { id: 'l10_p2', color: 'YELLOW' }, { id: 'l10_p3', color: 'YELLOW' }, { id: 'l10_p4', color: 'YELLOW' },
+      { id: 'l10_p5', color: 'YELLOW' }, { id: 'l10_p6', color: 'YELLOW' }, { id: 'l10_p7', color: 'RED' }, { id: 'l10_p8', color: 'RED' },
+      { id: 'l10_p9', color: 'RED' }, { id: 'l10_p10', color: 'RED' }, { id: 'l10_p11', color: 'BLUE' }, { id: 'l10_p12', color: 'BLUE' },
+      { id: 'l10_p13', color: 'BLUE' }, { id: 'l10_p14', color: 'BLUE' }, { id: 'l10_p15', color: 'GREEN' }, { id: 'l10_p16', color: 'GREEN' },
+      { id: 'l10_p17', color: 'GREEN' }, { id: 'l10_p18', color: 'GREEN' }, { id: 'l10_p19', color: 'PURPLE' }, { id: 'l10_p20', color: 'PURPLE' },
+      { id: 'l10_p21', color: 'PURPLE' }, { id: 'l10_p22', color: 'PURPLE' }, { id: 'l10_p23', color: 'BLUE' }, { id: 'l10_p24', color: 'BLUE' },
+      { id: 'l10_p25', color: 'BLUE' }, { id: 'l10_p26', color: 'GREEN' }, { id: 'l10_p27', color: 'GREEN' }, { id: 'l10_p28', color: 'GREEN' },
+    ],
+  },
+  // ========================================================
+  // LEVEL 11: T-Bone Crossway
+  // ========================================================
+  {
+    id: 11,
+    name: 'T-Bone Crossway',
+    world: 1,
+    parMoves: 26,
+    timeLimit: 95,
+    grid: { rows: 7, cols: 7 },
+    vehicles: [
+      { id: 'l11_v1', type: VehicleType.CAR, color: 'ORANGE', row: 0, col: 2, direction: Direction.UP, length: 2, capacity: 3 },
+      { id: 'l11_v2', type: VehicleType.CAR, color: 'ORANGE', row: 0, col: 4, direction: Direction.UP, length: 2, capacity: 3 },
+      { id: 'l11_v3', type: VehicleType.BUS, color: 'PURPLE', row: 2, col: 1, direction: Direction.RIGHT, length: 3, capacity: 4 },
+      { id: 'l11_v4', type: VehicleType.BUS, color: 'YELLOW', row: 3, col: 3, direction: Direction.DOWN, length: 3, capacity: 4 },
+      { id: 'l11_v5', type: VehicleType.CAR, color: 'RED', row: 5, col: 0, direction: Direction.LEFT, length: 2, capacity: 3 },
+      { id: 'l11_v6', type: VehicleType.CAR, color: 'BLUE', row: 5, col: 5, direction: Direction.RIGHT, length: 2, capacity: 3 },
+      { id: 'l11_v7', type: VehicleType.BUS, color: 'PURPLE', row: 6, col: 2, direction: Direction.LEFT, length: 2, capacity: 4 },
+    ],
+    passengers: [
+      { id: 'l11_p1', color: 'ORANGE' }, { id: 'l11_p2', color: 'ORANGE' }, { id: 'l11_p3', color: 'ORANGE' }, { id: 'l11_p4', color: 'ORANGE' },
+      { id: 'l11_p5', color: 'ORANGE' }, { id: 'l11_p6', color: 'ORANGE' }, { id: 'l11_p7', color: 'PURPLE' }, { id: 'l11_p8', color: 'PURPLE' },
+      { id: 'l11_p9', color: 'PURPLE' }, { id: 'l11_p10', color: 'PURPLE' }, { id: 'l11_p11', color: 'RED' }, { id: 'l11_p12', color: 'RED' },
+      { id: 'l11_p13', color: 'RED' }, { id: 'l11_p14', color: 'BLUE' }, { id: 'l11_p15', color: 'BLUE' }, { id: 'l11_p16', color: 'BLUE' },
+      { id: 'l11_p17', color: 'PURPLE' }, { id: 'l11_p18', color: 'PURPLE' }, { id: 'l11_p19', color: 'PURPLE' }, { id: 'l11_p20', color: 'PURPLE' },
+      { id: 'l11_p21', color: 'YELLOW' }, { id: 'l11_p22', color: 'YELLOW' }, { id: 'l11_p23', color: 'YELLOW' }, { id: 'l11_p24', color: 'YELLOW' },
+    ],
+  },
+  // ========================================================
+  // LEVEL 12: The Roundabout Maze
+  // ========================================================
+  {
+    id: 12,
+    name: 'The Roundabout Maze',
+    world: 1,
+    parMoves: 30,
+    timeLimit: 105,
+    grid: { rows: 7, cols: 7 },
+    vehicles: [
+      { id: 'l12_v1', type: VehicleType.CAR, color: 'BLUE', row: 0, col: 2, direction: Direction.RIGHT, length: 2, capacity: 3 },
+      { id: 'l12_v2', type: VehicleType.BUS, color: 'GREEN', row: 1, col: 5, direction: Direction.DOWN, length: 3, capacity: 4 },
+      { id: 'l12_v3', type: VehicleType.CAR, color: 'RED', row: 5, col: 3, direction: Direction.LEFT, length: 2, capacity: 3 },
+      { id: 'l12_v4', type: VehicleType.BUS, color: 'YELLOW', row: 3, col: 1, direction: Direction.UP, length: 3, capacity: 4 },
+      { id: 'l12_v5', type: VehicleType.VAN, color: 'BLUE', row: 2, col: 3, direction: Direction.UP, length: 2, capacity: 4 },
+      { id: 'l12_v6', type: VehicleType.CAR, color: 'GREEN', row: 4, col: 2, direction: Direction.RIGHT, length: 2, capacity: 3 },
+      { id: 'l12_v7', type: VehicleType.VAN, color: 'RED', row: 3, col: 4, direction: Direction.DOWN, length: 2, capacity: 4 },
+    ],
+    passengers: [
+      { id: 'l12_p1', color: 'BLUE' }, { id: 'l12_p2', color: 'BLUE' }, { id: 'l12_p3', color: 'BLUE' }, { id: 'l12_p4', color: 'GREEN' },
+      { id: 'l12_p5', color: 'GREEN' }, { id: 'l12_p6', color: 'GREEN' }, { id: 'l12_p7', color: 'GREEN' }, { id: 'l12_p8', color: 'YELLOW' },
+      { id: 'l12_p9', color: 'YELLOW' }, { id: 'l12_p10', color: 'YELLOW' }, { id: 'l12_p11', color: 'YELLOW' }, { id: 'l12_p12', color: 'RED' },
+      { id: 'l12_p13', color: 'RED' }, { id: 'l12_p14', color: 'RED' }, { id: 'l12_p15', color: 'BLUE' }, { id: 'l12_p16', color: 'BLUE' },
+      { id: 'l12_p17', color: 'BLUE' }, { id: 'l12_p18', color: 'BLUE' }, { id: 'l12_p19', color: 'RED' }, { id: 'l12_p20', color: 'RED' },
+      { id: 'l12_p21', color: 'RED' }, { id: 'l12_p22', color: 'RED' }, { id: 'l12_p23', color: 'GREEN' }, { id: 'l12_p24', color: 'GREEN' },
+      { id: 'l12_p25', color: 'GREEN' },
+    ],
+  },
+  // ========================================================
+  // LEVEL 13: Gridlock Alley
+  // ========================================================
+  {
+    id: 13,
+    name: 'Gridlock Alley',
+    world: 1,
+    parMoves: 32,
+    timeLimit: 110,
+    grid: { rows: 7, cols: 7 },
+    vehicles: [
+      { id: 'l13_v1', type: VehicleType.CAR, color: 'PINK', row: 0, col: 1, direction: Direction.LEFT, length: 2, capacity: 3 },
+      { id: 'l13_v2', type: VehicleType.CAR, color: 'PINK', row: 0, col: 4, direction: Direction.RIGHT, length: 2, capacity: 3 },
+      { id: 'l13_v3', type: VehicleType.BUS, color: 'RED', row: 1, col: 2, direction: Direction.UP, length: 3, capacity: 4 },
+      { id: 'l13_v4', type: VehicleType.BUS, color: 'BLUE', row: 1, col: 5, direction: Direction.DOWN, length: 3, capacity: 4 },
+      { id: 'l13_v5', type: VehicleType.CAR, color: 'GREEN', row: 4, col: 0, direction: Direction.LEFT, length: 2, capacity: 3 },
+      { id: 'l13_v6', type: VehicleType.BUS, color: 'RED', row: 4, col: 2, direction: Direction.DOWN, length: 3, capacity: 4 },
+      { id: 'l13_v7', type: VehicleType.CAR, color: 'YELLOW', row: 5, col: 4, direction: Direction.RIGHT, length: 2, capacity: 3 },
+    ],
+    passengers: [
+      { id: 'l13_p1', color: 'PINK' }, { id: 'l13_p2', color: 'PINK' }, { id: 'l13_p3', color: 'PINK' }, { id: 'l13_p4', color: 'PINK' },
+      { id: 'l13_p5', color: 'PINK' }, { id: 'l13_p6', color: 'PINK' }, { id: 'l13_p7', color: 'RED' }, { id: 'l13_p8', color: 'RED' },
+      { id: 'l13_p9', color: 'RED' }, { id: 'l13_p10', color: 'RED' }, { id: 'l13_p11', color: 'GREEN' }, { id: 'l13_p12', color: 'GREEN' },
+      { id: 'l13_p13', color: 'GREEN' }, { id: 'l13_p14', color: 'RED' }, { id: 'l13_p15', color: 'RED' }, { id: 'l13_p16', color: 'RED' },
+      { id: 'l13_p17', color: 'RED' }, { id: 'l13_p18', color: 'YELLOW' }, { id: 'l13_p19', color: 'YELLOW' }, { id: 'l13_p20', color: 'YELLOW' },
+      { id: 'l13_p21', color: 'BLUE' }, { id: 'l13_p22', color: 'BLUE' }, { id: 'l13_p23', color: 'BLUE' }, { id: 'l13_p24', color: 'BLUE' },
+    ],
+  },
+  // ========================================================
+  // LEVEL 14: Double Trouble
+  // ========================================================
+  {
+    id: 14,
+    name: 'Double Trouble',
+    world: 1,
+    parMoves: 30,
+    timeLimit: 105,
+    grid: { rows: 7, cols: 7 },
+    vehicles: [
+      { id: 'l14_v1', type: VehicleType.CAR, color: 'BLUE', row: 0, col: 0, direction: Direction.LEFT, length: 2, capacity: 3 },
+      { id: 'l14_v2', type: VehicleType.CAR, color: 'BLUE', row: 0, col: 5, direction: Direction.RIGHT, length: 2, capacity: 3 },
+      { id: 'l14_v3', type: VehicleType.BUS, color: 'RED', row: 1, col: 1, direction: Direction.UP, length: 3, capacity: 4 },
+      { id: 'l14_v4', type: VehicleType.BUS, color: 'RED', row: 1, col: 4, direction: Direction.UP, length: 3, capacity: 4 },
+      { id: 'l14_v5', type: VehicleType.VAN, color: 'YELLOW', row: 3, col: 2, direction: Direction.RIGHT, length: 2, capacity: 4 },
+      { id: 'l14_v6', type: VehicleType.CAR, color: 'GREEN', row: 5, col: 0, direction: Direction.LEFT, length: 2, capacity: 3 },
+      { id: 'l14_v7', type: VehicleType.BUS, color: 'BLUE', row: 4, col: 3, direction: Direction.DOWN, length: 3, capacity: 4 },
+      { id: 'l14_v8', type: VehicleType.CAR, color: 'GREEN', row: 6, col: 4, direction: Direction.RIGHT, length: 2, capacity: 3 },
+    ],
+    passengers: [
+      { id: 'l14_p1', color: 'BLUE' }, { id: 'l14_p2', color: 'BLUE' }, { id: 'l14_p3', color: 'BLUE' }, { id: 'l14_p4', color: 'BLUE' },
+      { id: 'l14_p5', color: 'BLUE' }, { id: 'l14_p6', color: 'BLUE' }, { id: 'l14_p7', color: 'RED' }, { id: 'l14_p8', color: 'RED' },
+      { id: 'l14_p9', color: 'RED' }, { id: 'l14_p10', color: 'RED' }, { id: 'l14_p11', color: 'RED' }, { id: 'l14_p12', color: 'RED' },
+      { id: 'l14_p13', color: 'RED' }, { id: 'l14_p14', color: 'RED' }, { id: 'l14_p15', color: 'YELLOW' }, { id: 'l14_p16', color: 'YELLOW' },
+      { id: 'l14_p17', color: 'YELLOW' }, { id: 'l14_p18', color: 'YELLOW' }, { id: 'l14_p19', color: 'GREEN' }, { id: 'l14_p20', color: 'GREEN' },
+      { id: 'l14_p21', color: 'GREEN' }, { id: 'l14_p22', color: 'BLUE' }, { id: 'l14_p23', color: 'BLUE' }, { id: 'l14_p24', color: 'BLUE' },
+      { id: 'l14_p25', color: 'BLUE' }, { id: 'l14_p26', color: 'GREEN' }, { id: 'l14_p27', color: 'GREEN' }, { id: 'l14_p28', color: 'GREEN' },
+    ],
+  },
+  // ========================================================
+  // LEVEL 15: Milestone: Central Interchange
+  // ========================================================
+  {
+    id: 15,
+    name: 'Milestone: Central Interchange',
+    world: 1,
+    parMoves: 34,
+    timeLimit: 120,
+    grid: { rows: 7, cols: 7 },
+    vehicles: [
+      { id: 'l15_v1', type: VehicleType.CAR, color: 'PURPLE', row: 0, col: 2, direction: Direction.UP, length: 2, capacity: 3 },
+      { id: 'l15_v2', type: VehicleType.CAR, color: 'ORANGE', row: 0, col: 4, direction: Direction.UP, length: 2, capacity: 3 },
+      { id: 'l15_v3', type: VehicleType.BUS, color: 'YELLOW', row: 2, col: 0, direction: Direction.LEFT, length: 2, capacity: 4 },
+      { id: 'l15_v4', type: VehicleType.BUS, color: 'RED', row: 2, col: 5, direction: Direction.RIGHT, length: 2, capacity: 4 },
+      { id: 'l15_v5', type: VehicleType.BUS, color: 'BLUE', row: 2, col: 2, direction: Direction.DOWN, length: 3, capacity: 4 },
+      { id: 'l15_v6', type: VehicleType.BUS, color: 'GREEN', row: 2, col: 4, direction: Direction.DOWN, length: 3, capacity: 4 },
+      { id: 'l15_v7', type: VehicleType.VAN, color: 'PURPLE', row: 5, col: 1, direction: Direction.LEFT, length: 2, capacity: 4 },
+      { id: 'l15_v8', type: VehicleType.VAN, color: 'ORANGE', row: 5, col: 5, direction: Direction.RIGHT, length: 2, capacity: 4 },
+    ],
+    passengers: [
+      { id: 'l15_p1', color: 'PURPLE' }, { id: 'l15_p2', color: 'PURPLE' }, { id: 'l15_p3', color: 'PURPLE' }, { id: 'l15_p4', color: 'ORANGE' },
+      { id: 'l15_p5', color: 'ORANGE' }, { id: 'l15_p6', color: 'ORANGE' }, { id: 'l15_p7', color: 'YELLOW' }, { id: 'l15_p8', color: 'YELLOW' },
+      { id: 'l15_p9', color: 'YELLOW' }, { id: 'l15_p10', color: 'YELLOW' }, { id: 'l15_p11', color: 'RED' }, { id: 'l15_p12', color: 'RED' },
+      { id: 'l15_p13', color: 'RED' }, { id: 'l15_p14', color: 'RED' }, { id: 'l15_p15', color: 'GREEN' }, { id: 'l15_p16', color: 'GREEN' },
+      { id: 'l15_p17', color: 'GREEN' }, { id: 'l15_p18', color: 'GREEN' }, { id: 'l15_p19', color: 'PURPLE' }, { id: 'l15_p20', color: 'PURPLE' },
+      { id: 'l15_p21', color: 'PURPLE' }, { id: 'l15_p22', color: 'PURPLE' }, { id: 'l15_p23', color: 'BLUE' }, { id: 'l15_p24', color: 'BLUE' },
+      { id: 'l15_p25', color: 'BLUE' }, { id: 'l15_p26', color: 'BLUE' }, { id: 'l15_p27', color: 'ORANGE' }, { id: 'l15_p28', color: 'ORANGE' },
+      { id: 'l15_p29', color: 'ORANGE' }, { id: 'l15_p30', color: 'ORANGE' },
+    ],
+  },
+  // ========================================================
+  // LEVEL 16: The Hourglass
+  // ========================================================
+  {
+    id: 16,
+    name: 'The Hourglass',
+    world: 1,
+    parMoves: 32,
+    timeLimit: 115,
+    grid: { rows: 7, cols: 7 },
+    vehicles: [
+      { id: 'l16_v1', type: VehicleType.CAR, color: 'RED', row: 0, col: 1, direction: Direction.LEFT, length: 2, capacity: 3 },
+      { id: 'l16_v2', type: VehicleType.CAR, color: 'BLUE', row: 0, col: 4, direction: Direction.RIGHT, length: 2, capacity: 3 },
+      { id: 'l16_v3', type: VehicleType.BUS, color: 'GREEN', row: 1, col: 2, direction: Direction.UP, length: 3, capacity: 4 },
+      { id: 'l16_v4', type: VehicleType.BUS, color: 'YELLOW', row: 1, col: 4, direction: Direction.UP, length: 3, capacity: 4 },
+      { id: 'l16_v5', type: VehicleType.VAN, color: 'RED', row: 3, col: 0, direction: Direction.LEFT, length: 2, capacity: 4 },
+      { id: 'l16_v6', type: VehicleType.VAN, color: 'BLUE', row: 3, col: 5, direction: Direction.RIGHT, length: 2, capacity: 4 },
+      { id: 'l16_v7', type: VehicleType.BUS, color: 'PURPLE', row: 4, col: 3, direction: Direction.DOWN, length: 3, capacity: 4 },
+      { id: 'l16_v8', type: VehicleType.CAR, color: 'GREEN', row: 6, col: 1, direction: Direction.LEFT, length: 2, capacity: 3 },
+    ],
+    passengers: [
+      { id: 'l16_p1', color: 'RED' }, { id: 'l16_p2', color: 'RED' }, { id: 'l16_p3', color: 'RED' }, { id: 'l16_p4', color: 'BLUE' },
+      { id: 'l16_p5', color: 'BLUE' }, { id: 'l16_p6', color: 'BLUE' }, { id: 'l16_p7', color: 'GREEN' }, { id: 'l16_p8', color: 'GREEN' },
+      { id: 'l16_p9', color: 'GREEN' }, { id: 'l16_p10', color: 'GREEN' }, { id: 'l16_p11', color: 'YELLOW' }, { id: 'l16_p12', color: 'YELLOW' },
+      { id: 'l16_p13', color: 'YELLOW' }, { id: 'l16_p14', color: 'YELLOW' }, { id: 'l16_p15', color: 'RED' }, { id: 'l16_p16', color: 'RED' },
+      { id: 'l16_p17', color: 'RED' }, { id: 'l16_p18', color: 'RED' }, { id: 'l16_p19', color: 'BLUE' }, { id: 'l16_p20', color: 'BLUE' },
+      { id: 'l16_p21', color: 'BLUE' }, { id: 'l16_p22', color: 'BLUE' }, { id: 'l16_p23', color: 'PURPLE' }, { id: 'l16_p24', color: 'PURPLE' },
+      { id: 'l16_p25', color: 'PURPLE' }, { id: 'l16_p26', color: 'PURPLE' }, { id: 'l16_p27', color: 'GREEN' }, { id: 'l16_p28', color: 'GREEN' },
+      { id: 'l16_p29', color: 'GREEN' },
+    ],
+  },
+  // ========================================================
+  // LEVEL 17: Crosswind Depot
+  // ========================================================
+  {
+    id: 17,
+    name: 'Crosswind Depot',
+    world: 1,
+    parMoves: 32,
+    timeLimit: 115,
+    grid: { rows: 7, cols: 7 },
+    vehicles: [
+      { id: 'l17_v1', type: VehicleType.CAR, color: 'YELLOW', row: 0, col: 1, direction: Direction.UP, length: 2, capacity: 3 },
+      { id: 'l17_v2', type: VehicleType.CAR, color: 'PURPLE', row: 0, col: 5, direction: Direction.UP, length: 2, capacity: 3 },
+      { id: 'l17_v3', type: VehicleType.BUS, color: 'BLUE', row: 2, col: 0, direction: Direction.LEFT, length: 2, capacity: 4 },
+      { id: 'l17_v4', type: VehicleType.BUS, color: 'RED', row: 2, col: 3, direction: Direction.RIGHT, length: 3, capacity: 4 },
+      { id: 'l17_v5', type: VehicleType.VAN, color: 'GREEN', row: 3, col: 2, direction: Direction.UP, length: 2, capacity: 4 },
+      { id: 'l17_v6', type: VehicleType.BUS, color: 'YELLOW', row: 4, col: 1, direction: Direction.DOWN, length: 3, capacity: 4 },
+      { id: 'l17_v7', type: VehicleType.CAR, color: 'PURPLE', row: 4, col: 5, direction: Direction.DOWN, length: 2, capacity: 3 },
+      { id: 'l17_v8', type: VehicleType.VAN, color: 'BLUE', row: 6, col: 3, direction: Direction.RIGHT, length: 2, capacity: 4 },
+    ],
+    passengers: [
+      { id: 'l17_p1', color: 'YELLOW' }, { id: 'l17_p2', color: 'YELLOW' }, { id: 'l17_p3', color: 'YELLOW' }, { id: 'l17_p4', color: 'PURPLE' },
+      { id: 'l17_p5', color: 'PURPLE' }, { id: 'l17_p6', color: 'PURPLE' }, { id: 'l17_p7', color: 'BLUE' }, { id: 'l17_p8', color: 'BLUE' },
+      { id: 'l17_p9', color: 'BLUE' }, { id: 'l17_p10', color: 'BLUE' }, { id: 'l17_p11', color: 'RED' }, { id: 'l17_p12', color: 'RED' },
+      { id: 'l17_p13', color: 'RED' }, { id: 'l17_p14', color: 'RED' }, { id: 'l17_p15', color: 'GREEN' }, { id: 'l17_p16', color: 'GREEN' },
+      { id: 'l17_p17', color: 'GREEN' }, { id: 'l17_p18', color: 'GREEN' }, { id: 'l17_p19', color: 'YELLOW' }, { id: 'l17_p20', color: 'YELLOW' },
+      { id: 'l17_p21', color: 'YELLOW' }, { id: 'l17_p22', color: 'YELLOW' }, { id: 'l17_p23', color: 'PURPLE' }, { id: 'l17_p24', color: 'PURPLE' },
+      { id: 'l17_p25', color: 'PURPLE' }, { id: 'l17_p26', color: 'BLUE' }, { id: 'l17_p27', color: 'BLUE' }, { id: 'l17_p28', color: 'BLUE' },
+      { id: 'l17_p29', color: 'BLUE' },
+    ],
+  },
+  // ========================================================
+  // LEVEL 18: Symmetric Split
+  // ========================================================
+  {
+    id: 18,
+    name: 'Symmetric Split',
+    world: 1,
+    parMoves: 34,
+    timeLimit: 120,
+    grid: { rows: 7, cols: 7 },
+    vehicles: [
+      { id: 'l18_v1', type: VehicleType.CAR, color: 'ORANGE', row: 0, col: 1, direction: Direction.LEFT, length: 2, capacity: 3 },
+      { id: 'l18_v2', type: VehicleType.CAR, color: 'ORANGE', row: 0, col: 4, direction: Direction.RIGHT, length: 2, capacity: 3 },
+      { id: 'l18_v3', type: VehicleType.BUS, color: 'RED', row: 1, col: 2, direction: Direction.UP, length: 3, capacity: 4 },
+      { id: 'l18_v4', type: VehicleType.BUS, color: 'BLUE', row: 1, col: 4, direction: Direction.UP, length: 3, capacity: 4 },
+      { id: 'l18_v5', type: VehicleType.CAR, color: 'GREEN', row: 4, col: 0, direction: Direction.LEFT, length: 2, capacity: 3 },
+      { id: 'l18_v6', type: VehicleType.CAR, color: 'GREEN', row: 4, col: 5, direction: Direction.RIGHT, length: 2, capacity: 3 },
+      { id: 'l18_v7', type: VehicleType.BUS, color: 'YELLOW', row: 4, col: 2, direction: Direction.DOWN, length: 3, capacity: 4 },
+      { id: 'l18_v8', type: VehicleType.BUS, color: 'PURPLE', row: 4, col: 4, direction: Direction.DOWN, length: 3, capacity: 4 },
+    ],
+    passengers: [
+      { id: 'l18_p1', color: 'ORANGE' }, { id: 'l18_p2', color: 'ORANGE' }, { id: 'l18_p3', color: 'ORANGE' }, { id: 'l18_p4', color: 'ORANGE' },
+      { id: 'l18_p5', color: 'ORANGE' }, { id: 'l18_p6', color: 'ORANGE' }, { id: 'l18_p7', color: 'RED' }, { id: 'l18_p8', color: 'RED' },
+      { id: 'l18_p9', color: 'RED' }, { id: 'l18_p10', color: 'RED' }, { id: 'l18_p11', color: 'BLUE' }, { id: 'l18_p12', color: 'BLUE' },
+      { id: 'l18_p13', color: 'BLUE' }, { id: 'l18_p14', color: 'BLUE' }, { id: 'l18_p15', color: 'GREEN' }, { id: 'l18_p16', color: 'GREEN' },
+      { id: 'l18_p17', color: 'GREEN' }, { id: 'l18_p18', color: 'GREEN' }, { id: 'l18_p19', color: 'GREEN' }, { id: 'l18_p20', color: 'GREEN' },
+      { id: 'l18_p21', color: 'YELLOW' }, { id: 'l18_p22', color: 'YELLOW' }, { id: 'l18_p23', color: 'YELLOW' }, { id: 'l18_p24', color: 'YELLOW' },
+      { id: 'l18_p25', color: 'PURPLE' }, { id: 'l18_p26', color: 'PURPLE' }, { id: 'l18_p27', color: 'PURPLE' }, { id: 'l18_p28', color: 'PURPLE' },
+    ],
+  },
+  // ========================================================
+  // LEVEL 19: The Spiral Exit
+  // ========================================================
+  {
+    id: 19,
+    name: 'The Spiral Exit',
+    world: 1,
+    parMoves: 36,
+    timeLimit: 125,
+    grid: { rows: 7, cols: 7 },
+    vehicles: [
+      { id: 'l19_v1', type: VehicleType.CAR, color: 'BLUE', row: 0, col: 0, direction: Direction.LEFT, length: 2, capacity: 3 },
+      { id: 'l19_v2', type: VehicleType.CAR, color: 'BLUE', row: 0, col: 4, direction: Direction.RIGHT, length: 2, capacity: 3 },
+      { id: 'l19_v3', type: VehicleType.BUS, color: 'PINK', row: 1, col: 6, direction: Direction.DOWN, length: 3, capacity: 4 },
+      { id: 'l19_v4', type: VehicleType.BUS, color: 'GREEN', row: 5, col: 4, direction: Direction.RIGHT, length: 2, capacity: 4 },
+      { id: 'l19_v5', type: VehicleType.BUS, color: 'RED', row: 4, col: 0, direction: Direction.LEFT, length: 2, capacity: 4 },
+      { id: 'l19_v6', type: VehicleType.BUS, color: 'YELLOW', row: 1, col: 2, direction: Direction.UP, length: 3, capacity: 4 },
+      { id: 'l19_v7', type: VehicleType.VAN, color: 'PINK', row: 3, col: 3, direction: Direction.UP, length: 2, capacity: 4 },
+      { id: 'l19_v8', type: VehicleType.CAR, color: 'GREEN', row: 5, col: 1, direction: Direction.DOWN, length: 2, capacity: 3 },
+    ],
+    passengers: [
+      { id: 'l19_p1', color: 'BLUE' }, { id: 'l19_p2', color: 'BLUE' }, { id: 'l19_p3', color: 'BLUE' }, { id: 'l19_p4', color: 'BLUE' },
+      { id: 'l19_p5', color: 'BLUE' }, { id: 'l19_p6', color: 'BLUE' }, { id: 'l19_p7', color: 'PINK' }, { id: 'l19_p8', color: 'PINK' },
+      { id: 'l19_p9', color: 'PINK' }, { id: 'l19_p10', color: 'PINK' }, { id: 'l19_p11', color: 'GREEN' }, { id: 'l19_p12', color: 'GREEN' },
+      { id: 'l19_p13', color: 'GREEN' }, { id: 'l19_p14', color: 'GREEN' }, { id: 'l19_p15', color: 'RED' }, { id: 'l19_p16', color: 'RED' },
+      { id: 'l19_p17', color: 'RED' }, { id: 'l19_p18', color: 'RED' }, { id: 'l19_p19', color: 'YELLOW' }, { id: 'l19_p20', color: 'YELLOW' },
+      { id: 'l19_p21', color: 'YELLOW' }, { id: 'l19_p22', color: 'YELLOW' }, { id: 'l19_p23', color: 'PINK' }, { id: 'l19_p24', color: 'PINK' },
+      { id: 'l19_p25', color: 'PINK' }, { id: 'l19_p26', color: 'PINK' }, { id: 'l19_p27', color: 'GREEN' }, { id: 'l19_p28', color: 'GREEN' },
+      { id: 'l19_p29', color: 'GREEN' },
+    ],
+  },
+  // ========================================================
+  // LEVEL 20: Milestone: Golden Terminal
+  // ========================================================
+  {
+    id: 20,
+    name: 'Milestone: Golden Terminal',
+    world: 1,
+    parMoves: 38,
+    timeLimit: 130,
+    grid: { rows: 7, cols: 7 },
+    vehicles: [
+      { id: 'l20_v1', type: VehicleType.CAR, color: 'YELLOW', row: 0, col: 1, direction: Direction.UP, length: 2, capacity: 3 },
+      { id: 'l20_v2', type: VehicleType.CAR, color: 'YELLOW', row: 0, col: 6, direction: Direction.UP, length: 2, capacity: 3 },
+      { id: 'l20_v3', type: VehicleType.BUS, color: 'PURPLE', row: 1, col: 2, direction: Direction.LEFT, length: 2, capacity: 4 },
+      { id: 'l20_v4', type: VehicleType.BUS, color: 'ORANGE', row: 1, col: 4, direction: Direction.RIGHT, length: 2, capacity: 4 },
+      { id: 'l20_v5', type: VehicleType.BUS, color: 'BLUE', row: 2, col: 3, direction: Direction.UP, length: 3, capacity: 4 },
+      { id: 'l20_v6', type: VehicleType.VAN, color: 'RED', row: 3, col: 0, direction: Direction.LEFT, length: 2, capacity: 4 },
+      { id: 'l20_v7', type: VehicleType.VAN, color: 'GREEN', row: 3, col: 5, direction: Direction.RIGHT, length: 2, capacity: 4 },
+      { id: 'l20_v8', type: VehicleType.BUS, color: 'BLUE', row: 4, col: 1, direction: Direction.DOWN, length: 3, capacity: 4 },
+      { id: 'l20_v9', type: VehicleType.BUS, color: 'RED', row: 4, col: 5, direction: Direction.DOWN, length: 3, capacity: 4 },
+    ],
+    passengers: [
+      { id: 'l20_p1', color: 'YELLOW' }, { id: 'l20_p2', color: 'YELLOW' }, { id: 'l20_p3', color: 'YELLOW' }, { id: 'l20_p4', color: 'YELLOW' },
+      { id: 'l20_p5', color: 'YELLOW' }, { id: 'l20_p6', color: 'YELLOW' }, { id: 'l20_p7', color: 'PURPLE' }, { id: 'l20_p8', color: 'PURPLE' },
+      { id: 'l20_p9', color: 'PURPLE' }, { id: 'l20_p10', color: 'PURPLE' }, { id: 'l20_p11', color: 'ORANGE' }, { id: 'l20_p12', color: 'ORANGE' },
+      { id: 'l20_p13', color: 'ORANGE' }, { id: 'l20_p14', color: 'ORANGE' }, { id: 'l20_p15', color: 'BLUE' }, { id: 'l20_p16', color: 'BLUE' },
+      { id: 'l20_p17', color: 'BLUE' }, { id: 'l20_p18', color: 'BLUE' }, { id: 'l20_p19', color: 'RED' }, { id: 'l20_p20', color: 'RED' },
+      { id: 'l20_p21', color: 'RED' }, { id: 'l20_p22', color: 'RED' }, { id: 'l20_p23', color: 'GREEN' }, { id: 'l20_p24', color: 'GREEN' },
+      { id: 'l20_p25', color: 'GREEN' }, { id: 'l20_p26', color: 'GREEN' }, { id: 'l20_p27', color: 'BLUE' }, { id: 'l20_p28', color: 'BLUE' },
+      { id: 'l20_p29', color: 'BLUE' }, { id: 'l20_p30', color: 'BLUE' }, { id: 'l20_p31', color: 'RED' }, { id: 'l20_p32', color: 'RED' },
+      { id: 'l20_p33', color: 'RED' }, { id: 'l20_p34', color: 'RED' },
+    ],
+  },
+  // ========================================================
+  // LEVEL 21: Cascade Crossing
+  // ========================================================
+  {
+    id: 21,
+    name: 'Cascade Crossing',
+    world: 1,
+    parMoves: 36,
+    timeLimit: 125,
+    grid: { rows: 7, cols: 7 },
+    vehicles: [
+      { id: 'l21_v1', type: VehicleType.CAR, color: 'RED', row: 0, col: 0, direction: Direction.LEFT, length: 2, capacity: 3 },
+      { id: 'l21_v2', type: VehicleType.CAR, color: 'BLUE', row: 0, col: 4, direction: Direction.RIGHT, length: 2, capacity: 3 },
+      { id: 'l21_v3', type: VehicleType.BUS, color: 'GREEN', row: 1, col: 2, direction: Direction.UP, length: 3, capacity: 4 },
+      { id: 'l21_v4', type: VehicleType.BUS, color: 'YELLOW', row: 2, col: 4, direction: Direction.DOWN, length: 3, capacity: 4 },
+      { id: 'l21_v5', type: VehicleType.VAN, color: 'RED', row: 3, col: 0, direction: Direction.LEFT, length: 2, capacity: 4 },
+      { id: 'l21_v6', type: VehicleType.VAN, color: 'BLUE', row: 4, col: 1, direction: Direction.DOWN, length: 2, capacity: 4 },
+      { id: 'l21_v7', type: VehicleType.BUS, color: 'PURPLE', row: 5, col: 3, direction: Direction.RIGHT, length: 3, capacity: 4 },
+    ],
+    passengers: [
+      { id: 'l21_p1', color: 'RED' }, { id: 'l21_p2', color: 'RED' }, { id: 'l21_p3', color: 'RED' }, { id: 'l21_p4', color: 'BLUE' },
+      { id: 'l21_p5', color: 'BLUE' }, { id: 'l21_p6', color: 'BLUE' }, { id: 'l21_p7', color: 'GREEN' }, { id: 'l21_p8', color: 'GREEN' },
+      { id: 'l21_p9', color: 'GREEN' }, { id: 'l21_p10', color: 'GREEN' }, { id: 'l21_p11', color: 'RED' }, { id: 'l21_p12', color: 'RED' },
+      { id: 'l21_p13', color: 'RED' }, { id: 'l21_p14', color: 'RED' }, { id: 'l21_p15', color: 'BLUE' }, { id: 'l21_p16', color: 'BLUE' },
+      { id: 'l21_p17', color: 'BLUE' }, { id: 'l21_p18', color: 'BLUE' }, { id: 'l21_p19', color: 'PURPLE' }, { id: 'l21_p20', color: 'PURPLE' },
+      { id: 'l21_p21', color: 'PURPLE' }, { id: 'l21_p22', color: 'PURPLE' }, { id: 'l21_p23', color: 'YELLOW' }, { id: 'l21_p24', color: 'YELLOW' },
+      { id: 'l21_p25', color: 'YELLOW' }, { id: 'l21_p26', color: 'YELLOW' },
+    ],
+  },
+  // ========================================================
+  // LEVEL 22: Twin Express
+  // ========================================================
+  {
+    id: 22,
+    name: 'Twin Express',
+    world: 1,
+    parMoves: 38,
+    timeLimit: 130,
+    grid: { rows: 7, cols: 7 },
+    vehicles: [
+      { id: 'l22_v1', type: VehicleType.CAR, color: 'GREEN', row: 0, col: 2, direction: Direction.UP, length: 2, capacity: 3 },
+      { id: 'l22_v2', type: VehicleType.CAR, color: 'GREEN', row: 0, col: 4, direction: Direction.UP, length: 2, capacity: 3 },
+      { id: 'l22_v3', type: VehicleType.BUS, color: 'BLUE', row: 2, col: 2, direction: Direction.UP, length: 3, capacity: 4 },
+      { id: 'l22_v4', type: VehicleType.BUS, color: 'BLUE', row: 2, col: 4, direction: Direction.UP, length: 3, capacity: 4 },
+      { id: 'l22_v5', type: VehicleType.VAN, color: 'ORANGE', row: 4, col: 0, direction: Direction.LEFT, length: 2, capacity: 4 },
+      { id: 'l22_v6', type: VehicleType.VAN, color: 'ORANGE', row: 4, col: 5, direction: Direction.RIGHT, length: 2, capacity: 4 },
+      { id: 'l22_v7', type: VehicleType.BUS, color: 'RED', row: 5, col: 2, direction: Direction.DOWN, length: 2, capacity: 4 },
+      { id: 'l22_v8', type: VehicleType.BUS, color: 'RED', row: 5, col: 4, direction: Direction.DOWN, length: 2, capacity: 4 },
+    ],
+    passengers: [
+      { id: 'l22_p1', color: 'GREEN' }, { id: 'l22_p2', color: 'GREEN' }, { id: 'l22_p3', color: 'GREEN' }, { id: 'l22_p4', color: 'GREEN' },
+      { id: 'l22_p5', color: 'GREEN' }, { id: 'l22_p6', color: 'GREEN' }, { id: 'l22_p7', color: 'BLUE' }, { id: 'l22_p8', color: 'BLUE' },
+      { id: 'l22_p9', color: 'BLUE' }, { id: 'l22_p10', color: 'BLUE' }, { id: 'l22_p11', color: 'BLUE' }, { id: 'l22_p12', color: 'BLUE' },
+      { id: 'l22_p13', color: 'BLUE' }, { id: 'l22_p14', color: 'BLUE' }, { id: 'l22_p15', color: 'ORANGE' }, { id: 'l22_p16', color: 'ORANGE' },
+      { id: 'l22_p17', color: 'ORANGE' }, { id: 'l22_p18', color: 'ORANGE' }, { id: 'l22_p19', color: 'ORANGE' }, { id: 'l22_p20', color: 'ORANGE' },
+      { id: 'l22_p21', color: 'ORANGE' }, { id: 'l22_p22', color: 'ORANGE' }, { id: 'l22_p23', color: 'RED' }, { id: 'l22_p24', color: 'RED' },
+      { id: 'l22_p25', color: 'RED' }, { id: 'l22_p26', color: 'RED' }, { id: 'l22_p27', color: 'RED' }, { id: 'l22_p28', color: 'RED' },
+      { id: 'l22_p29', color: 'RED' }, { id: 'l22_p30', color: 'RED' },
+    ],
+  },
+  // ========================================================
+  // LEVEL 23: The Labyrinth
+  // ========================================================
+  {
+    id: 23,
+    name: 'The Labyrinth',
+    world: 1,
+    parMoves: 40,
+    timeLimit: 135,
+    grid: { rows: 7, cols: 7 },
+    vehicles: [
+      { id: 'l23_v1', type: VehicleType.CAR, color: 'YELLOW', row: 0, col: 1, direction: Direction.LEFT, length: 2, capacity: 3 },
+      { id: 'l23_v2', type: VehicleType.CAR, color: 'YELLOW', row: 0, col: 4, direction: Direction.RIGHT, length: 2, capacity: 3 },
+      { id: 'l23_v3', type: VehicleType.BUS, color: 'PURPLE', row: 1, col: 2, direction: Direction.UP, length: 3, capacity: 4 },
+      { id: 'l23_v4', type: VehicleType.BUS, color: 'BLUE', row: 1, col: 5, direction: Direction.DOWN, length: 3, capacity: 4 },
+      { id: 'l23_v5', type: VehicleType.VAN, color: 'RED', row: 3, col: 0, direction: Direction.LEFT, length: 2, capacity: 4 },
+      { id: 'l23_v6', type: VehicleType.VAN, color: 'GREEN', row: 4, col: 3, direction: Direction.UP, length: 2, capacity: 4 },
+      { id: 'l23_v7', type: VehicleType.BUS, color: 'PURPLE', row: 4, col: 1, direction: Direction.DOWN, length: 3, capacity: 4 },
+      { id: 'l23_v8', type: VehicleType.CAR, color: 'RED', row: 6, col: 4, direction: Direction.RIGHT, length: 2, capacity: 3 },
+    ],
+    passengers: [
+      { id: 'l23_p1', color: 'YELLOW' }, { id: 'l23_p2', color: 'YELLOW' }, { id: 'l23_p3', color: 'YELLOW' }, { id: 'l23_p4', color: 'YELLOW' },
+      { id: 'l23_p5', color: 'YELLOW' }, { id: 'l23_p6', color: 'YELLOW' }, { id: 'l23_p7', color: 'PURPLE' }, { id: 'l23_p8', color: 'PURPLE' },
+      { id: 'l23_p9', color: 'PURPLE' }, { id: 'l23_p10', color: 'PURPLE' }, { id: 'l23_p11', color: 'RED' }, { id: 'l23_p12', color: 'RED' },
+      { id: 'l23_p13', color: 'RED' }, { id: 'l23_p14', color: 'RED' }, { id: 'l23_p15', color: 'GREEN' }, { id: 'l23_p16', color: 'GREEN' },
+      { id: 'l23_p17', color: 'GREEN' }, { id: 'l23_p18', color: 'GREEN' }, { id: 'l23_p19', color: 'PURPLE' }, { id: 'l23_p20', color: 'PURPLE' },
+      { id: 'l23_p21', color: 'PURPLE' }, { id: 'l23_p22', color: 'PURPLE' }, { id: 'l23_p23', color: 'RED' }, { id: 'l23_p24', color: 'RED' },
+      { id: 'l23_p25', color: 'RED' }, { id: 'l23_p26', color: 'BLUE' }, { id: 'l23_p27', color: 'BLUE' }, { id: 'l23_p28', color: 'BLUE' },
+      { id: 'l23_p29', color: 'BLUE' },
+    ],
+  },
+  // ========================================================
+  // LEVEL 24: Diamond Lock
+  // ========================================================
+  {
+    id: 24,
+    name: 'Diamond Lock',
+    world: 1,
+    parMoves: 40,
+    timeLimit: 135,
+    grid: { rows: 7, cols: 7 },
+    vehicles: [
+      { id: 'l24_v1', type: VehicleType.CAR, color: 'PINK', row: 0, col: 3, direction: Direction.UP, length: 2, capacity: 3 },
+      { id: 'l24_v2', type: VehicleType.BUS, color: 'BLUE', row: 1, col: 1, direction: Direction.LEFT, length: 2, capacity: 4 },
+      { id: 'l24_v3', type: VehicleType.BUS, color: 'GREEN', row: 1, col: 4, direction: Direction.RIGHT, length: 2, capacity: 4 },
+      { id: 'l24_v4', type: VehicleType.VAN, color: 'YELLOW', row: 2, col: 3, direction: Direction.DOWN, length: 2, capacity: 4 },
+      { id: 'l24_v5', type: VehicleType.CAR, color: 'PINK', row: 3, col: 0, direction: Direction.LEFT, length: 2, capacity: 3 },
+      { id: 'l24_v6', type: VehicleType.CAR, color: 'PINK', row: 3, col: 5, direction: Direction.RIGHT, length: 2, capacity: 3 },
+      { id: 'l24_v7', type: VehicleType.BUS, color: 'RED', row: 4, col: 2, direction: Direction.LEFT, length: 2, capacity: 4 },
+      { id: 'l24_v8', type: VehicleType.BUS, color: 'RED', row: 4, col: 4, direction: Direction.RIGHT, length: 2, capacity: 4 },
+      { id: 'l24_v9', type: VehicleType.VAN, color: 'BLUE', row: 5, col: 3, direction: Direction.DOWN, length: 2, capacity: 4 },
+    ],
+    passengers: [
+      { id: 'l24_p1', color: 'PINK' }, { id: 'l24_p2', color: 'PINK' }, { id: 'l24_p3', color: 'PINK' }, { id: 'l24_p4', color: 'BLUE' },
+      { id: 'l24_p5', color: 'BLUE' }, { id: 'l24_p6', color: 'BLUE' }, { id: 'l24_p7', color: 'BLUE' }, { id: 'l24_p8', color: 'GREEN' },
+      { id: 'l24_p9', color: 'GREEN' }, { id: 'l24_p10', color: 'GREEN' }, { id: 'l24_p11', color: 'GREEN' }, { id: 'l24_p12', color: 'PINK' },
+      { id: 'l24_p13', color: 'PINK' }, { id: 'l24_p14', color: 'PINK' }, { id: 'l24_p15', color: 'PINK' }, { id: 'l24_p16', color: 'PINK' },
+      { id: 'l24_p17', color: 'PINK' }, { id: 'l24_p18', color: 'RED' }, { id: 'l24_p19', color: 'RED' }, { id: 'l24_p20', color: 'RED' },
+      { id: 'l24_p21', color: 'RED' }, { id: 'l24_p22', color: 'RED' }, { id: 'l24_p23', color: 'RED' }, { id: 'l24_p24', color: 'RED' },
+      { id: 'l24_p25', color: 'RED' }, { id: 'l24_p26', color: 'BLUE' }, { id: 'l24_p27', color: 'BLUE' }, { id: 'l24_p28', color: 'BLUE' },
+      { id: 'l24_p29', color: 'BLUE' }, { id: 'l24_p30', color: 'YELLOW' }, { id: 'l24_p31', color: 'YELLOW' }, { id: 'l24_p32', color: 'YELLOW' },
+      { id: 'l24_p33', color: 'YELLOW' },
+    ],
+  },
+  // ========================================================
+  // LEVEL 25: Metro Megacity Finale
+  // ========================================================
+  {
+    id: 25,
+    name: 'Metro Megacity Finale',
+    world: 1,
+    parMoves: 44,
+    timeLimit: 145,
+    grid: { rows: 8, cols: 8 },
+    vehicles: [
+      { id: 'l25_v1', type: VehicleType.CAR, color: 'RED', row: 0, col: 1, direction: Direction.UP, length: 2, capacity: 3 },
+      { id: 'l25_v2', type: VehicleType.CAR, color: 'BLUE', row: 0, col: 6, direction: Direction.UP, length: 2, capacity: 3 },
+      { id: 'l25_v3', type: VehicleType.BUS, color: 'YELLOW', row: 1, col: 2, direction: Direction.RIGHT, length: 3, capacity: 4 },
+      { id: 'l25_v4', type: VehicleType.BUS, color: 'GREEN', row: 2, col: 0, direction: Direction.LEFT, length: 2, capacity: 4 },
+      { id: 'l25_v5', type: VehicleType.BUS, color: 'PURPLE', row: 2, col: 6, direction: Direction.RIGHT, length: 2, capacity: 4 },
+      { id: 'l25_v6', type: VehicleType.VAN, color: 'ORANGE', row: 3, col: 3, direction: Direction.UP, length: 2, capacity: 4 },
+      { id: 'l25_v7', type: VehicleType.BUS, color: 'RED', row: 3, col: 4, direction: Direction.DOWN, length: 3, capacity: 4 },
+      { id: 'l25_v8', type: VehicleType.BUS, color: 'BLUE', row: 5, col: 1, direction: Direction.LEFT, length: 2, capacity: 4 },
+      { id: 'l25_v9', type: VehicleType.BUS, color: 'GREEN', row: 5, col: 5, direction: Direction.RIGHT, length: 2, capacity: 4 },
+      { id: 'l25_v10', type: VehicleType.CAR, color: 'YELLOW', row: 6, col: 2, direction: Direction.DOWN, length: 2, capacity: 3 },
+    ],
+    passengers: [
+      { id: 'l25_p1', color: 'RED' }, { id: 'l25_p2', color: 'RED' }, { id: 'l25_p3', color: 'RED' }, { id: 'l25_p4', color: 'BLUE' },
+      { id: 'l25_p5', color: 'BLUE' }, { id: 'l25_p6', color: 'BLUE' }, { id: 'l25_p7', color: 'YELLOW' }, { id: 'l25_p8', color: 'YELLOW' },
+      { id: 'l25_p9', color: 'YELLOW' }, { id: 'l25_p10', color: 'YELLOW' }, { id: 'l25_p11', color: 'GREEN' }, { id: 'l25_p12', color: 'GREEN' },
+      { id: 'l25_p13', color: 'GREEN' }, { id: 'l25_p14', color: 'GREEN' }, { id: 'l25_p15', color: 'PURPLE' }, { id: 'l25_p16', color: 'PURPLE' },
+      { id: 'l25_p17', color: 'PURPLE' }, { id: 'l25_p18', color: 'PURPLE' }, { id: 'l25_p19', color: 'ORANGE' }, { id: 'l25_p20', color: 'ORANGE' },
+      { id: 'l25_p21', color: 'ORANGE' }, { id: 'l25_p22', color: 'ORANGE' }, { id: 'l25_p23', color: 'RED' }, { id: 'l25_p24', color: 'RED' },
+      { id: 'l25_p25', color: 'RED' }, { id: 'l25_p26', color: 'RED' }, { id: 'l25_p27', color: 'BLUE' }, { id: 'l25_p28', color: 'BLUE' },
+      { id: 'l25_p29', color: 'BLUE' }, { id: 'l25_p30', color: 'BLUE' }, { id: 'l25_p31', color: 'GREEN' }, { id: 'l25_p32', color: 'GREEN' },
+      { id: 'l25_p33', color: 'GREEN' }, { id: 'l25_p34', color: 'GREEN' }, { id: 'l25_p35', color: 'YELLOW' }, { id: 'l25_p36', color: 'YELLOW' },
+      { id: 'l25_p37', color: 'YELLOW' },
+    ],
+  },
+];

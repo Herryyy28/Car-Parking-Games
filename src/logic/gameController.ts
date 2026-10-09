@@ -473,7 +473,7 @@ export class GameController {
       }
 
       case 'extraSpace': {
-        if (this.state.unlockedDocksCount >= 6) return false;
+        if (this.state.unlockedDocksCount >= 7) return false;
         if (this.state.availableBoosters.extraSpace <= 0 && this.state.coins < 150) return false;
 
         if (this.state.availableBoosters.extraSpace > 0) {

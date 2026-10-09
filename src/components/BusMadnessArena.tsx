@@ -18,6 +18,8 @@ import { inCabRadio, RADIO_STATIONS, RadioStation } from '../utils/radioSynthesi
 import { LIVERIES, UNDERGLOWS, RIMS, HORNS } from '../logic/garageCustomization.ts';
 import { PlayerProgress, GraphicsQuality } from '../logic/playerProgress.ts';
 import { buildDioramaVehicleMesh } from '../logic/vehicleModelFactory.ts';
+import { ArenaLightManager } from '../logic/arenaLightManager.ts';
+import { PathFollowingGroundSystem } from '../logic/pathFollowingGroundSystem.ts';
 import {
   Camera,
   Compass,
@@ -59,7 +61,8 @@ interface BusMadnessArenaProps {
   graphicsQuality?: GraphicsQuality;
 }
 
-const DOCK_X_POSITIONS = [-7.5, -4.5, -1.5, 1.5, 4.5, 7.5];
+const DOCK_X_POSITIONS = [-7.5, -5.0, -2.5, 0, 2.5, 5.0, 7.5];
+const DOCK_SLANT_ANGLE = -0.42; // ~-24 deg diagonal angle matching reference screenshots
 const DOCK_Z = -6.8;
 const CELL_SIZE = 2.2;
 const GRID_OFFSET_Z = 4.5;
@@ -307,6 +310,74 @@ function createArticulatedHumanoid(colorHex: string, scale = 1.0, isVip = false)
   return { root, hips, torso, head, leftArm, rightArm, leftLeg, rightLeg, shadow, colorHex };
 }
 
+function createParkingBayTexture(): THREE.CanvasTexture {
+  const canvas = document.createElement('canvas');
+  canvas.width = 256;
+  canvas.height = 512;
+  const ctx = canvas.getContext('2d')!;
+
+  ctx.clearRect(0, 0, 256, 512);
+
+  // Dashed white border lines
+  ctx.strokeStyle = '#ffffff';
+  ctx.lineWidth = 14;
+  ctx.setLineDash([26, 18]);
+  ctx.lineCap = 'round';
+  ctx.strokeRect(16, 16, 224, 480);
+
+  // Bold clean white 'P' in center
+  ctx.setLineDash([]);
+  ctx.fillStyle = '#ffffff';
+  ctx.font = '900 140px Inter, system-ui, -apple-system, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('P', 128, 256);
+
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.generateMipmaps = true;
+  texture.minFilter = THREE.LinearMipmapLinearFilter;
+  return texture;
+}
+
+function updateBusStopSignTexture(count: number, canvas: HTMLCanvasElement, texture: THREE.CanvasTexture) {
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return;
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  // Outer glossy blue frame
+  ctx.fillStyle = '#0284c7';
+  ctx.beginPath();
+  ctx.roundRect(8, 8, canvas.width - 16, canvas.height - 16, 22);
+  ctx.fill();
+
+  // White inner display panel
+  ctx.fillStyle = '#ffffff';
+  ctx.beginPath();
+  ctx.roundRect(18, 18, canvas.width - 36, canvas.height - 36, 14);
+  ctx.fill();
+
+  // Blue person icon on left
+  ctx.fillStyle = '#0284c7';
+  // Head
+  ctx.beginPath();
+  ctx.arc(75, 68, 24, 0, Math.PI * 2);
+  ctx.fill();
+  // Body
+  ctx.beginPath();
+  ctx.ellipse(75, 144, 38, 30, 0, Math.PI, 0, false);
+  ctx.fill();
+
+  // Bold black count text on right
+  ctx.fillStyle = '#0f172a';
+  ctx.font = '900 96px Inter, system-ui, -apple-system, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(`${count}`, 215, 105);
+
+  texture.needsUpdate = true;
+}
+
 export const BusMadnessArena: React.FC<BusMadnessArenaProps> = ({
   gameState,
   onVehicleTapRequest,
@@ -351,6 +422,10 @@ export const BusMadnessArena: React.FC<BusMadnessArenaProps> = ({
   const ambientTrafficRef = useRef<AmbientTrafficSystem | null>(null);
   const weatherSystemRef = useRef<WeatherTimeSystem | null>(null);
   const reactivePropsRef = useRef<ReactivePropsSystem | null>(null);
+  const lightManagerRef = useRef<ArenaLightManager | null>(null);
+  const pathFollowingGroundRef = useRef<PathFollowingGroundSystem | null>(null);
+  const busStopSignCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const busStopSignTextureRef = useRef<THREE.CanvasTexture | null>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
   const [parkingToast, setParkingToast] = useState<{ grade: string; message: string } | null>(null);
   const [cameraMode, setCameraMode] = useState<CameraMode>('EXPLORATION');
@@ -480,23 +555,33 @@ export const BusMadnessArena: React.FC<BusMadnessArenaProps> = ({
     scene.add(rimLight);
     const skyFill = rimLight;
 
-    // Ground
-    const groundGeo = new THREE.PlaneGeometry(75, 75);
-    const groundMat = new THREE.MeshStandardMaterial({ color: 0x0b1329, roughness: 0.95 });
-    const ground = new THREE.Mesh(groundGeo, groundMat);
-    ground.rotation.x = -Math.PI / 2;
-    ground.position.y = -0.02;
-    ground.receiveShadow = true;
-    scene.add(ground);
+    // Ground: Path-Following Geometry System (distinct curved road segments per world theme)
+    const initialWorldId = gameStateRef.current.worldId || getWorldIdForLevel(gameStateRef.current.levelId);
+    const pathFollowingGround = new PathFollowingGroundSystem(initialWorldId);
+    pathFollowingGroundRef.current = pathFollowingGround;
+    scene.add(pathFollowingGround.group);
+    const ground = pathFollowingGround.terrainMesh!;
 
-    // Decorative Street Lamps with soft glow
-    const lampPositions = [
+    // Arena Light Manager (manages ambient & point lights dynamically across themes: warm sunset -> cool neon cyber)
+    const lampPositions: [number, number, number][] = [
+      [-12, 5.1, -4],
+      [12, 5.1, -4],
+      [-12, 5.1, 14],
+      [12, 5.1, 14],
+      [-6, 4.8, -8.5],
+      [6, 4.8, -8.5],
+    ];
+    const lightManager = new ArenaLightManager(scene, ambientLight, hemiLight, sunLight, lampPositions);
+    lightManagerRef.current = lightManager;
+
+    // Decorative Street Lamps with soft glow & bulb synchronization
+    const lampPoles = [
       [-12, 0, -4],
       [12, 0, -4],
       [-12, 0, 14],
       [12, 0, 14],
     ];
-    lampPositions.forEach(([lx, ly, lz]) => {
+    lampPoles.forEach(([lx, ly, lz]) => {
       const lampGroup = new THREE.Group();
       lampGroup.position.set(lx, ly, lz);
 
@@ -512,10 +597,14 @@ export const BusMadnessArena: React.FC<BusMadnessArenaProps> = ({
         new THREE.MeshStandardMaterial({ color: 0xffedd5, emissive: 0xfef08a, emissiveIntensity: 2.2 })
       );
       bulb.position.y = 5.1;
+      lightManager.registerBulbMesh(bulb);
 
       lampGroup.add(pole, bulb);
       scene.add(lampGroup);
     });
+
+    // Apply active theme lights
+    lightManager.updateTheme(initialWorldId);
 
     // Destructible & Reactive Props (Tumbling cones, auto-lifting barrier gates, spring bollards)
     const reactiveProps = new ReactivePropsSystem(scene);
@@ -804,34 +893,37 @@ export const BusMadnessArena: React.FC<BusMadnessArenaProps> = ({
     // Waiting Docks Road
     const roadStrip = mainArterialRoad;
 
-    // Docks Bay Markings with Raised Platforms & Crisp Illuminated Indicators
+    // Docks Bay Markings with Angled Slanted Parking Spaces & Crisp 'P' Markings (Matching Reference Screenshots)
     const bayMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.3 });
-    const bayPlatformMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.85, metalness: 0.1 });
-    const bayOutlineMat = new THREE.LineBasicMaterial({ color: 0x38bdf8, linewidth: 2 });
+    const bayTexture = createParkingBayTexture();
+    const bayPlaneGeo = new THREE.PlaneGeometry(2.1, 4.2);
+    const bayPlaneMat = new THREE.MeshStandardMaterial({
+      map: bayTexture,
+      transparent: true,
+      opacity: 0.95,
+      roughness: 0.35,
+      metalness: 0.05,
+      depthWrite: false,
+    });
 
     DOCK_X_POSITIONS.forEach((dx, idx) => {
       const bayGroup = new THREE.Group();
-      bayGroup.position.set(dx, 0.2, DOCK_Z);
+      bayGroup.position.set(dx, 0.19, DOCK_Z);
+      bayGroup.rotation.y = DOCK_SLANT_ANGLE; // Rotated at ~24 deg slant!
 
-      // Raised parking platform slab
-      const bayPlatform = new THREE.Mesh(new THREE.BoxGeometry(2.35, 0.04, 4.2), bayPlatformMat);
-      bayPlatform.position.y = 0.02;
-      bayPlatform.receiveShadow = true;
-      bayGroup.add(bayPlatform);
+      // Slanted bay ground marking plane (dashed lines + bold white 'P')
+      const bayPlane = new THREE.Mesh(bayPlaneGeo, bayPlaneMat);
+      bayPlane.rotation.x = -Math.PI / 2;
+      bayPlane.position.y = 0.01;
+      bayPlane.receiveShadow = true;
+      bayGroup.add(bayPlane);
 
-      // Glowing cyan border lines
-      const outline = new THREE.LineSegments(
-        new THREE.EdgesGeometry(new THREE.BoxGeometry(2.35, 0.06, 4.2)),
-        bayOutlineMat
-      );
-      bayGroup.add(outline);
-
-      // Tactile stop line at the front of each bay (-Z)
+      // Tactile yellow front stop line
       const stopLine = new THREE.Mesh(
-        new THREE.BoxGeometry(2.1, 0.02, 0.18),
+        new THREE.BoxGeometry(1.8, 0.015, 0.16),
         new THREE.MeshStandardMaterial({ color: 0xfacc15, roughness: 0.3 })
       );
-      stopLine.position.set(0, 0.05, -1.85);
+      stopLine.position.set(0, 0.02, -1.9);
       bayGroup.add(stopLine);
 
       // Locked Bay Indicator (Golden Padlock with + symbol)
@@ -841,23 +933,93 @@ export const BusMadnessArena: React.FC<BusMadnessArenaProps> = ({
       const circleMat = new THREE.MeshStandardMaterial({
         color: 0xf59e0b,
         emissive: 0xd97706,
-        emissiveIntensity: 0.6,
+        emissiveIntensity: 0.7,
         roughness: 0.25,
         metalness: 0.6,
       });
       const circle = new THREE.Mesh(circleGeo, circleMat);
-      circle.position.y = 0.06;
+      circle.position.y = 0.08;
       lockLabel.add(circle);
 
       const plusH = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.09, 0.14), bayMat);
-      plusH.position.y = 0.11;
+      plusH.position.y = 0.13;
       const plusV = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.09, 0.5), bayMat);
-      plusV.position.y = 0.11;
+      plusV.position.y = 0.13;
       lockLabel.add(plusH, plusV);
       bayGroup.add(lockLabel);
 
       scene.add(bayGroup);
     });
+
+    // 3D Blue Bus Stop Signboard on Left Sidewalk (Matching Reference Screenshots)
+    const signCanvas = document.createElement('canvas');
+    signCanvas.width = 320;
+    signCanvas.height = 180;
+    const signTexture = new THREE.CanvasTexture(signCanvas);
+    signTexture.colorSpace = THREE.SRGBColorSpace;
+    busStopSignCanvasRef.current = signCanvas;
+    busStopSignTextureRef.current = signTexture;
+    const initialWaitingCount = gameStateRef.current.passengers.filter((p) => p.state === 'WAITING').length;
+    updateBusStopSignTexture(initialWaitingCount, signCanvas, signTexture);
+
+    const busStopSignGroup = new THREE.Group();
+    busStopSignGroup.position.set(-10.5, 0, -9.8);
+
+    // Two Blue Signpost Legs
+    const signPostMat = new THREE.MeshStandardMaterial({ color: 0x0284c7, roughness: 0.35, metalness: 0.5 });
+    [-1.25, 1.25].forEach((px) => {
+      const postMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 2.5, 12), signPostMat);
+      postMesh.position.set(px, 1.25, 0);
+      postMesh.castShadow = true;
+      busStopSignGroup.add(postMesh);
+    });
+
+    // Horizontal Signboard Box Frame
+    const signBoxGeo = new THREE.BoxGeometry(2.7, 1.5, 0.16);
+    const signFaceMat = new THREE.MeshStandardMaterial({
+      map: signTexture,
+      roughness: 0.25,
+      metalness: 0.1,
+    });
+    const signBoxMat = [
+      signPostMat, // right
+      signPostMat, // left
+      signPostMat, // top
+      signPostMat, // bottom
+      signFaceMat, // front (+Z)
+      signPostMat, // back
+    ];
+    const signMesh = new THREE.Mesh(signBoxGeo, signBoxMat);
+    signMesh.position.y = 2.05;
+    signMesh.castShadow = true;
+    busStopSignGroup.add(signMesh);
+    scene.add(busStopSignGroup);
+
+    // Zebra Crosswalk Road Markings on the left lane (Matching Reference Screenshots)
+    const crosswalkGroup = new THREE.Group();
+    const stripeMat = new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.35 });
+    for (let i = 0; i < 6; i++) {
+      const stripe = new THREE.Mesh(new THREE.BoxGeometry(2.8, 0.015, 0.5), stripeMat);
+      stripe.position.set(-13.2, 0.185, -8.6 + i * 0.72);
+      stripe.receiveShadow = true;
+      crosswalkGroup.add(stripe);
+    }
+    scene.add(crosswalkGroup);
+
+    // Safety Railings / Stanchions along sidewalk behind parking bays
+    const railingGroup = new THREE.Group();
+    railingGroup.position.set(0, 0, -8.9);
+    const railingMat = new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.4, metalness: 0.7 });
+    for (let rx = -7.5; rx <= 3.5; rx += 1.8) {
+      const rPost = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.75, 8), railingMat);
+      rPost.position.set(rx, 0.55, 0);
+      rPost.castShadow = true;
+      railingGroup.add(rPost);
+    }
+    const rBar = new THREE.Mesh(new THREE.BoxGeometry(11.2, 0.05, 0.05), railingMat);
+    rBar.position.set(-2.0, 0.85, 0);
+    railingGroup.add(rBar);
+    scene.add(railingGroup);
 
     // Initialize Dynamic Background Environment Manager
     const bgManager = new BackgroundEnvironmentManager(scene);
@@ -876,7 +1038,6 @@ export const BusMadnessArena: React.FC<BusMadnessArenaProps> = ({
     });
 
     // Apply active World theme dynamically
-    const initialWorldId = gameStateRef.current.worldId || getWorldIdForLevel(gameStateRef.current.levelId);
     bgManager.applyWorldTheme(initialWorldId);
 
     // Initialize 3D-Projected Themed Road Markings (Zebra crosswalks, Bus Stop bays, Chevrons)
@@ -1394,7 +1555,7 @@ export const BusMadnessArena: React.FC<BusMadnessArenaProps> = ({
             if (reachedDestination) {
               const finalPos = anim.curve.getPointAt(1.0);
               group.position.set(finalPos.x, baseY, finalPos.z);
-              group.rotation.set(0, 0, 0); // Parked bus faces North
+              group.rotation.set(0, DOCK_SLANT_ANGLE, 0); // Parked vehicle slants into bay
 
               // Advanced Parking Evaluator: calculate alignment, clearance & orientation
               if (anim.dockIdx !== undefined) {
@@ -1404,7 +1565,8 @@ export const BusMadnessArena: React.FC<BusMadnessArenaProps> = ({
                   targetDockX,
                   DOCK_Z,
                   anim.physics.headingAngle,
-                  anim.physics.steeringAngle
+                  anim.physics.steeringAngle,
+                  DOCK_SLANT_ANGLE
                 );
 
                 setParkingToast({
@@ -1709,6 +1871,14 @@ export const BusMadnessArena: React.FC<BusMadnessArenaProps> = ({
         reactivePropsRef.current.dispose();
         reactivePropsRef.current = null;
       }
+      if (lightManagerRef.current) {
+        lightManagerRef.current.dispose();
+        lightManagerRef.current = null;
+      }
+      if (pathFollowingGroundRef.current) {
+        pathFollowingGroundRef.current.dispose();
+        pathFollowingGroundRef.current = null;
+      }
 
       if (container.contains(renderer.domElement)) {
         container.removeChild(renderer.domElement);
@@ -1720,6 +1890,12 @@ export const BusMadnessArena: React.FC<BusMadnessArenaProps> = ({
   // Dynamically update World environmental props, 3D road markings, weather & camera when worldId, levelId or grid dimensions change
   useEffect(() => {
     const targetWorldId = gameState.worldId || getWorldIdForLevel(gameState.levelId);
+    if (lightManagerRef.current) {
+      lightManagerRef.current.updateTheme(targetWorldId);
+    }
+    if (pathFollowingGroundRef.current) {
+      pathFollowingGroundRef.current.updateWorldGround(targetWorldId);
+    }
     if (bgManagerRef.current) {
       bgManagerRef.current.applyWorldTheme(targetWorldId);
     }
@@ -1835,7 +2011,7 @@ export const BusMadnessArena: React.FC<BusMadnessArenaProps> = ({
       if (v.state === VehicleStateType.DOCKED && v.dockIndex !== undefined) {
         const dockX = DOCK_X_POSITIONS[v.dockIndex];
         vGroup.position.set(dockX, rig.baseY, DOCK_Z);
-        vGroup.rotation.y = 0;
+        vGroup.rotation.y = DOCK_SLANT_ANGLE;
       } else {
         const worldPos = gridToWorld(
           v.gridPosition.row,
@@ -1915,11 +2091,24 @@ export const BusMadnessArena: React.FC<BusMadnessArenaProps> = ({
     }
     prevWaitingIdsRef.current = currentWaitingIds;
 
-    // Render fully articulated 3D chibi commuters in the waiting line
-    currentWaiting.slice(0, 10).forEach((p, idx) => {
+    // Update live 3D Bus Stop Signboard count
+    if (busStopSignCanvasRef.current && busStopSignTextureRef.current) {
+      updateBusStopSignTexture(currentWaiting.length, busStopSignCanvasRef.current, busStopSignTextureRef.current);
+    }
+
+    // Render fully articulated 3D chibi commuters in the waiting line (L-shaped queue matching screenshots)
+    currentWaiting.slice(0, 16).forEach((p, idx) => {
       const rig = createArticulatedHumanoid(COLOR_MAP[p.color].hex, 0.85, p.isVip);
-      rig.root.position.set(-6.5 + idx * 1.05, 0.35, -10.0);
-      rig.root.rotation.y = Math.PI / 2; // Facing towards terminal bays
+      let px = -5.0 + idx * 1.05;
+      let pz = -9.8;
+      let rotY = Math.PI / 2; // Facing towards terminal bays
+      if (idx >= 8) {
+        px = 2.8;
+        pz = -9.8 - (idx - 7) * 0.95;
+        rotY = 0; // Turn and face along pathway
+      }
+      rig.root.position.set(px, 0.35, pz);
+      rig.root.rotation.y = rotY;
       pGroup.add(rig.root);
     });
   }, [gameState.passengers, gameState.vehicles]);
@@ -2145,48 +2334,67 @@ export const BusMadnessArena: React.FC<BusMadnessArenaProps> = ({
     <div className="relative w-full h-full select-none overflow-hidden bg-slate-950">
       <div ref={mountRef} className="w-full h-full cursor-grab active:cursor-grabbing" />
 
-      {/* Dynamic 3D Parking Precision Feedback Badge */}
+      {/* Dynamic 3D Parking Precision Feedback Badge (Safely below top HUD) */}
       {parkingToast && (
-        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20 pointer-events-none animate-in fade-in slide-in-from-top-4 duration-200">
+        <div className="absolute top-20 left-1/2 -translate-x-1/2 z-40 pointer-events-none animate-in zoom-in-95 duration-200">
           <div
-            className={`px-4 py-2 rounded-2xl shadow-xl font-black text-xs sm:text-sm tracking-wide border flex items-center gap-2 backdrop-blur-md ${
+            className={`px-5 py-2.5 rounded-2xl shadow-2xl font-black text-xs sm:text-sm tracking-wide border-2 flex items-center gap-2 backdrop-blur-xl ${
               parkingToast.grade === 'PERFECT'
-                ? 'bg-amber-500/90 border-yellow-300 text-slate-950 ring-4 ring-amber-400/40 animate-pulse'
+                ? 'bg-gradient-to-r from-amber-400 to-yellow-300 border-white text-slate-950 ring-4 ring-amber-400/50 shadow-amber-500/40 animate-bounce'
                 : parkingToast.grade === 'GOOD'
-                ? 'bg-emerald-600/90 border-emerald-300 text-white ring-4 ring-emerald-500/30'
-                : 'bg-slate-800/90 border-slate-600 text-slate-200'
+                ? 'bg-gradient-to-r from-emerald-500 to-teal-400 border-white text-white ring-4 ring-emerald-500/40 shadow-emerald-500/30'
+                : 'bg-slate-900/90 border-slate-600 text-slate-200 shadow-xl'
             }`}
           >
+            <span className="text-base">{parkingToast.grade === 'PERFECT' ? '🌟' : '👍'}</span>
             <span>{parkingToast.message}</span>
           </div>
         </div>
       )}
 
-      {/* Floating Auxiliary Control Bar (Camera + Weather Controls) */}
-      <div className="absolute top-3 right-3 z-20 flex flex-col items-end gap-1.5 pointer-events-auto">
-        {/* Expanded Weather Selector Menu */}
+      {/* Floating In-Game Side Action Rail (Deluxe 3D Arcade Dock on Right Side) */}
+      <div className="absolute right-2.5 sm:right-4 top-1/2 -translate-y-1/2 z-30 flex flex-col items-end pointer-events-auto select-none">
+        {/* Flyout Weather Selector Menu (opens softly to the left of the dock) */}
         {showWeatherControls && (
-          <div className="bg-slate-900/95 backdrop-blur-md border border-slate-700/80 rounded-2xl p-2.5 shadow-2xl flex flex-col gap-1 text-xs w-52 animate-in fade-in slide-in-from-bottom-2 duration-150">
-            <div className="px-2 py-1 text-[10px] font-black uppercase tracking-wider text-sky-400 flex items-center justify-between border-b border-slate-800 pb-1 mb-1">
-              <span className="flex items-center gap-1.5">
-                <CloudRain className="w-3.5 h-3.5 text-sky-400" />
-                Weather Manager
-              </span>
-              <button
-                onClick={() => {
-                  const targetWorldId = gameState.worldId || getWorldIdForLevel(gameState.levelId);
-                  const def = getDefaultWeatherForWorld(targetWorldId);
-                  weatherSystemRef.current?.setWeather(def);
-                  setCurrentWeather(def);
-                }}
-                className="text-[9px] font-black px-1.5 py-0.5 rounded bg-slate-800 text-slate-300 hover:text-white"
-                title="Reset to world theme default"
-              >
-                THEME SYNC
-              </button>
+          <div className="absolute right-[62px] sm:right-[72px] top-1/2 -translate-y-1/2 bg-slate-900/95 backdrop-blur-2xl border-2 border-white/25 rounded-3xl p-3.5 shadow-[0_20px_50px_rgba(0,0,0,0.7),inset_0_1px_1px_rgba(255,255,255,0.2)] flex flex-col gap-2 w-64 sm:w-72 animate-in fade-in slide-in-from-right-3 zoom-in-95 duration-200 z-40">
+            <div className="flex items-center justify-between border-b border-white/10 pb-2 mb-0.5">
+              <div className="flex items-center gap-2">
+                <div className="w-7 h-7 rounded-xl bg-amber-500/20 border border-amber-400/40 flex items-center justify-center">
+                  <CloudRain className="w-4 h-4 text-amber-400" />
+                </div>
+                <div>
+                  <div className="text-xs font-black uppercase tracking-wider text-white">Sky Atmosphere</div>
+                  <div className="text-[10px] text-amber-300/80 font-medium">Weather & Mood</div>
+                </div>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <button
+                  onClick={() => {
+                    sounds.playClick();
+                    const targetWorldId = gameState.worldId || getWorldIdForLevel(gameState.levelId);
+                    const def = getDefaultWeatherForWorld(targetWorldId);
+                    weatherSystemRef.current?.setWeather(def);
+                    setCurrentWeather(def);
+                  }}
+                  className="text-[9px] font-black px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 hover:bg-amber-500/30 border border-amber-400/40 transition-colors"
+                  title="Reset to world theme default"
+                >
+                  SYNC
+                </button>
+                <button
+                  onClick={() => {
+                    sounds.playClick();
+                    setShowWeatherControls(false);
+                  }}
+                  className="w-6 h-6 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white flex items-center justify-center font-bold text-xs transition-colors"
+                  title="Close"
+                >
+                  ✕
+                </button>
+              </div>
             </div>
 
-            <div className="flex flex-col gap-1 max-h-48 overflow-y-auto pr-0.5 scrollbar-thin">
+            <div className="flex flex-col gap-1.5 max-h-64 overflow-y-auto pr-1 scrollbar-thin">
               {(Object.keys(WEATHER_CONDITIONS) as WeatherType[]).map((wKey) => {
                 const cond = WEATHER_CONDITIONS[wKey];
                 const isActive = currentWeather === wKey;
@@ -2194,22 +2402,28 @@ export const BusMadnessArena: React.FC<BusMadnessArenaProps> = ({
                   <button
                     key={wKey}
                     onClick={() => {
+                      sounds.playClick();
                       weatherSystemRef.current?.setWeather(wKey);
                       setCurrentWeather(wKey);
                     }}
-                    className={`flex items-center gap-2 px-2.5 py-1.5 rounded-xl text-left transition-all font-medium ${
+                    className={`flex items-center gap-2.5 px-3 py-2 rounded-2xl text-left transition-all ${
                       isActive
-                        ? 'bg-sky-500/20 text-sky-300 border border-sky-400/40 shadow-sm'
-                        : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+                        ? 'bg-gradient-to-r from-amber-500/25 to-yellow-500/15 border-2 border-amber-400/80 shadow-md ring-1 ring-amber-400/40 text-white'
+                        : 'bg-slate-800/50 hover:bg-slate-800 text-slate-300 hover:text-white border border-white/10'
                     }`}
                   >
-                    <span className="text-base">{cond.icon}</span>
+                    <span className="text-xl w-7 text-center">{cond.icon}</span>
                     <div className="flex-1 min-w-0">
-                      <div className="font-bold leading-none truncate text-[11px]">{cond.name}</div>
-                      <div className="text-[9px] text-slate-400 mt-0.5">
-                        {cond.particleType !== 'none' ? `${cond.particleType.replace('_', ' ')} particles` : 'clear skies'}
+                      <div className="font-bold text-xs">{cond.name}</div>
+                      <div className="text-[10px] text-slate-400 truncate">
+                        {cond.particleType !== 'none' ? `${cond.particleType.replace('_', ' ')}` : 'clear skies'}
                       </div>
                     </div>
+                    {isActive && (
+                      <span className="w-5 h-5 rounded-full bg-amber-400 text-slate-950 flex items-center justify-center text-xs font-black shadow-sm">
+                        ✓
+                      </span>
+                    )}
                   </button>
                 );
               })}
@@ -2217,134 +2431,273 @@ export const BusMadnessArena: React.FC<BusMadnessArenaProps> = ({
           </div>
         )}
 
-        {/* Expanded Camera Preset Angles Menu */}
+        {/* Flyout Camera Angles Menu (opens softly to the left of the dock) */}
         {showCamControls && (
-          <div className="bg-slate-900/90 backdrop-blur-md border border-slate-700/80 rounded-2xl p-2 shadow-2xl flex flex-col gap-1 text-xs w-44 animate-in fade-in slide-in-from-bottom-2 duration-150">
-            <div className="px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400 flex items-center justify-between border-b border-slate-800 pb-1 mb-0.5">
-              <span>Dynamic Camera</span>
-              <button
-                onClick={() => {
-                  const next = !isAutoDirector;
-                  setIsAutoDirector(next);
-                  dynamicCameraRef.current?.setAutoDirector(next);
-                }}
-                className={`px-1.5 py-0.5 rounded text-[9px] font-black transition-colors ${
-                  isAutoDirector
-                    ? 'bg-amber-500 text-slate-950'
-                    : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
-                }`}
-              >
-                {isAutoDirector ? 'DIRECTOR ON' : 'MANUAL'}
-              </button>
-            </div>
-
-            {(['EXPLORATION', 'VEHICLE_FOLLOW', 'TURN_CAM', 'PARKING_CAM', 'COMPLETION'] as CameraMode[]).map((m) => {
-              const meta = CAMERA_MODE_METADATA[m];
-              const isActive = cameraMode === m;
-              return (
+          <div className="absolute right-[62px] sm:right-[72px] top-1/2 -translate-y-1/2 bg-slate-900/95 backdrop-blur-2xl border-2 border-white/25 rounded-3xl p-3.5 shadow-[0_20px_50px_rgba(0,0,0,0.7),inset_0_1px_1px_rgba(255,255,255,0.2)] flex flex-col gap-2 w-64 sm:w-72 animate-in fade-in slide-in-from-right-3 zoom-in-95 duration-200 z-40">
+            <div className="flex items-center justify-between border-b border-white/10 pb-2 mb-0.5">
+              <div className="flex items-center gap-2">
+                <div className="w-7 h-7 rounded-xl bg-sky-500/20 border border-sky-400/40 flex items-center justify-center">
+                  <Camera className="w-4 h-4 text-sky-400" />
+                </div>
+                <div>
+                  <div className="text-xs font-black uppercase tracking-wider text-white">Camera View</div>
+                  <div className="text-[10px] text-sky-300/80 font-medium">Angles & Director</div>
+                </div>
+              </div>
+              <div className="flex items-center gap-1.5">
                 <button
-                  key={m}
                   onClick={() => {
-                    setIsAutoDirector(false);
-                    dynamicCameraRef.current?.setAutoDirector(false);
-                    dynamicCameraRef.current?.setMode(m);
+                    sounds.playClick();
+                    const next = !isAutoDirector;
+                    setIsAutoDirector(next);
+                    dynamicCameraRef.current?.setAutoDirector(next);
                   }}
-                  className={`flex items-center gap-2 px-2.5 py-1.5 rounded-xl text-left transition-all font-medium ${
-                    isActive
-                      ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40 shadow-sm'
-                      : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+                  className={`px-2.5 py-0.5 rounded-full text-[9px] font-black transition-all border ${
+                    isAutoDirector
+                      ? 'bg-amber-400 text-slate-950 border-amber-300 shadow-[0_0_10px_rgba(251,191,36,0.4)]'
+                      : 'bg-slate-800 text-slate-300 border-white/10 hover:bg-slate-700'
                   }`}
                 >
-                  <span className="text-sm">{meta.icon}</span>
-                  <div className="flex-1 min-w-0">
-                    <div className="font-bold leading-none">{meta.label}</div>
-                  </div>
+                  {isAutoDirector ? '⚡ AUTO' : '🎮 MANUAL'}
                 </button>
-              );
-            })}
+                <button
+                  onClick={() => {
+                    sounds.playClick();
+                    setShowCamControls(false);
+                  }}
+                  className="w-6 h-6 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white flex items-center justify-center font-bold text-xs transition-colors"
+                  title="Close"
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-1.5 max-h-64 overflow-y-auto pr-1 scrollbar-thin">
+              {(['EXPLORATION', 'VEHICLE_FOLLOW', 'TURN_CAM', 'PARKING_CAM', 'COMPLETION'] as CameraMode[]).map((m) => {
+                const meta = CAMERA_MODE_METADATA[m];
+                const isActive = cameraMode === m;
+                return (
+                  <button
+                    key={m}
+                    onClick={() => {
+                      sounds.playClick();
+                      setIsAutoDirector(false);
+                      dynamicCameraRef.current?.setAutoDirector(false);
+                      dynamicCameraRef.current?.setMode(m);
+                    }}
+                    className={`flex items-center gap-2.5 px-3 py-2 rounded-2xl text-left transition-all ${
+                      isActive
+                        ? 'bg-gradient-to-r from-sky-500/25 to-blue-500/15 border-2 border-sky-400/80 shadow-md ring-1 ring-sky-400/40 text-white'
+                        : 'bg-slate-800/50 hover:bg-slate-800 text-slate-300 hover:text-white border border-white/10'
+                    }`}
+                  >
+                    <span className="text-lg w-7 text-center">{meta.icon}</span>
+                    <div className="flex-1 min-w-0">
+                      <div className="font-bold text-xs">{meta.label}</div>
+                      <div className="text-[10px] text-slate-400 truncate">
+                        {m === 'EXPLORATION' && '360° Free orbit & inspect'}
+                        {m === 'VEHICLE_FOLLOW' && 'Dynamic bus chase view'}
+                        {m === 'TURN_CAM' && 'Cornering drift perspective'}
+                        {m === 'PARKING_CAM' && 'Top dock alignment view'}
+                        {m === 'COMPLETION' && 'Dramatic victory orbit'}
+                      </div>
+                    </div>
+                    {isActive && (
+                      <span className="w-5 h-5 rounded-full bg-sky-400 text-slate-950 flex items-center justify-center text-xs font-black shadow-sm">
+                        ✓
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
           </div>
         )}
 
-        {/* Compact Floating Camera & Weather Bar */}
-        <div className="flex items-center gap-1 bg-slate-900/85 backdrop-blur-md border border-slate-700/70 rounded-full px-2 py-1 shadow-lg text-slate-200">
-          {/* Weather Manager Toggle Pill */}
+        {/* Flyout In-Cab Transit Radio Menu */}
+        {showRadioControls && (
+          <div className="absolute right-[62px] sm:right-[72px] top-1/2 -translate-y-1/2 bg-slate-900/95 backdrop-blur-2xl border-2 border-white/25 rounded-3xl p-3.5 shadow-[0_20px_50px_rgba(0,0,0,0.7),inset_0_1px_1px_rgba(255,255,255,0.2)] flex flex-col gap-2 w-64 sm:w-72 animate-in fade-in slide-in-from-right-3 zoom-in-95 duration-200 z-40">
+            <div className="flex items-center justify-between border-b border-white/10 pb-2 mb-0.5">
+              <div className="flex items-center gap-2">
+                <div className="w-7 h-7 rounded-xl bg-fuchsia-500/20 border border-fuchsia-400/40 flex items-center justify-center">
+                  <Radio className="w-4 h-4 text-fuchsia-400" />
+                </div>
+                <div>
+                  <div className="text-xs font-black uppercase tracking-wider text-white">Transit Radio</div>
+                  <div className="text-[10px] text-fuchsia-300/80 font-medium">In-Cab Tunes</div>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1.5 bg-slate-800/80 px-2 py-0.5 rounded-full border border-white/10">
+                  <Volume2 className="w-3 h-3 text-fuchsia-300" />
+                  <input
+                    type="range"
+                    min="0"
+                    max="1"
+                    step="0.05"
+                    value={radioVolume}
+                    onChange={(e) => {
+                      const v = parseFloat(e.target.value);
+                      setRadioVolume(v);
+                      inCabRadio.setVolume(v);
+                    }}
+                    className="w-14 h-1 accent-fuchsia-400 bg-slate-700 rounded-lg cursor-pointer"
+                  />
+                </div>
+                <button
+                  onClick={() => {
+                    sounds.playClick();
+                    setShowRadioControls(false);
+                  }}
+                  className="w-6 h-6 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white flex items-center justify-center font-bold text-xs transition-colors"
+                  title="Close"
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-1.5 max-h-64 overflow-y-auto pr-1 scrollbar-thin">
+              {RADIO_STATIONS.map((st) => {
+                const isActive = radioStation === st.id;
+                return (
+                  <button
+                    key={st.id}
+                    onClick={() => {
+                      sounds.playClick();
+                      inCabRadio.setStation(st.id);
+                      setRadioStation(st.id);
+                    }}
+                    className={`flex items-center gap-2.5 px-3 py-2 rounded-2xl text-left transition-all ${
+                      isActive
+                        ? 'bg-gradient-to-r from-fuchsia-500/25 to-pink-500/15 border-2 border-fuchsia-400/80 shadow-md ring-1 ring-fuchsia-400/40 text-white'
+                        : 'bg-slate-800/50 hover:bg-slate-800 text-slate-300 hover:text-white border border-white/10'
+                    }`}
+                  >
+                    <span className="text-xl w-7 text-center">{st.icon}</span>
+                    <div className="flex-1 min-w-0">
+                      <div className="font-bold text-xs">{st.name}</div>
+                      <div className="text-[10px] text-slate-400 truncate">{st.tagline}</div>
+                    </div>
+                    {isActive && (
+                      <span className="w-5 h-5 rounded-full bg-fuchsia-400 text-slate-950 flex items-center justify-center text-xs font-black shadow-sm">
+                        ✓
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Deluxe 3D Arcade Floating Dock */}
+        <div className="flex flex-col items-center gap-2 bg-slate-900/90 backdrop-blur-2xl border-2 border-white/20 rounded-3xl p-1.5 sm:p-2 shadow-[0_20px_45px_rgba(0,0,0,0.6),inset_0_1px_1px_rgba(255,255,255,0.25)]">
+          {/* Camera Angles Button */}
           <button
             onClick={() => {
-              setShowWeatherControls(!showWeatherControls);
-              if (showCamControls) setShowCamControls(false);
-            }}
-            title="Weather Conditions: Rain, Snow, Fog, Sun"
-            className="flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-bold text-sky-300 hover:bg-slate-800/80 transition-colors"
-          >
-            <span>{WEATHER_CONDITIONS[currentWeather]?.icon || '⛅'}</span>
-            <span className="hidden sm:inline text-[11px] font-semibold text-sky-200">
-              {WEATHER_CONDITIONS[currentWeather]?.name.split(' ')[0] || currentWeather}
-            </span>
-          </button>
-
-          <div className="w-[1px] h-4 bg-slate-700/80 mx-0.5" />
-
-          {/* Active Camera Mode Pill Indicator */}
-          <button
-            onClick={() => {
+              sounds.playClick();
               setShowCamControls(!showCamControls);
-              if (showWeatherControls) setShowWeatherControls(false);
+              setShowWeatherControls(false);
+              setShowRadioControls(false);
             }}
-            title="Toggle dynamic camera angles menu"
-            className="flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-bold text-amber-300 hover:bg-slate-800/80 transition-colors"
-          >
-            <span>{CAMERA_MODE_METADATA[cameraMode]?.icon || '🎥'}</span>
-            <span className="hidden sm:inline text-[11px] font-semibold text-slate-200">
-              {CAMERA_MODE_METADATA[cameraMode]?.label || cameraMode}
-            </span>
-          </button>
-
-          <div className="w-[1px] h-4 bg-slate-700/80 mx-0.5" />
-
-          {/* Reset View Button */}
-          <button
-            onClick={() => dynamicCameraRef.current?.resetView()}
-            title="Reset isometric view"
-            aria-label="Reset isometric view"
-            className="p-1.5 rounded-full hover:bg-slate-800 text-slate-300 hover:text-white transition-colors"
-          >
-            <RotateCcw className="w-3.5 h-3.5" />
-          </button>
-
-          {/* Zoom In Button */}
-          <button
-            onClick={() => dynamicCameraRef.current?.onZoom(-3.5)}
-            title="Zoom in"
-            aria-label="Zoom in"
-            className="p-1.5 rounded-full hover:bg-slate-800 text-slate-300 hover:text-white transition-colors"
-          >
-            <ZoomIn className="w-3.5 h-3.5" />
-          </button>
-
-          {/* Zoom Out Button */}
-          <button
-            onClick={() => dynamicCameraRef.current?.onZoom(3.5)}
-            title="Zoom out"
-            aria-label="Zoom out"
-            className="p-1.5 rounded-full hover:bg-slate-800 text-slate-300 hover:text-white transition-colors"
-          >
-            <ZoomOut className="w-3.5 h-3.5" />
-          </button>
-
-          {/* Camera Menu Toggle */}
-          <button
-            onClick={() => {
-              setShowCamControls(!showCamControls);
-              if (showWeatherControls) setShowWeatherControls(false);
-            }}
-            title="Camera modes"
-            aria-label="Camera modes"
-            className={`p-1.5 rounded-full transition-colors ${
-              showCamControls ? 'bg-amber-500 text-slate-950 font-bold' : 'hover:bg-slate-800 text-slate-300 hover:text-white'
+            className={`group relative w-11 h-12 sm:w-12 sm:h-13 rounded-2xl flex flex-col items-center justify-center transition-all duration-150 active:translate-y-1 active:shadow-none ${
+              showCamControls
+                ? 'bg-gradient-to-b from-sky-400 via-sky-500 to-blue-600 border-t-2 border-white border-x border-sky-300/60 border-b-2 border-blue-900 shadow-[0_2px_0_#0284c7] ring-2 ring-white scale-105'
+                : 'bg-gradient-to-b from-sky-400 via-sky-500 to-blue-600 border-t-2 border-white/60 border-x border-white/20 border-b-2 border-blue-950/60 shadow-[0_4px_0_#0284c7,0_8px_16px_rgba(2,132,199,0.35)] hover:brightness-110'
             }`}
+            title="Camera Angles & Director"
           >
-            <Camera className="w-3.5 h-3.5" />
+            <Camera className="w-4 h-4 sm:w-4.5 sm:h-4.5 text-white drop-shadow" />
+            <span className="text-[8px] sm:text-[9px] font-black tracking-wider text-white uppercase leading-none mt-1 drop-shadow-sm">
+              VIEW
+            </span>
           </button>
+
+          {/* Atmosphere & Weather Button */}
+          <button
+            onClick={() => {
+              sounds.playClick();
+              setShowWeatherControls(!showWeatherControls);
+              setShowCamControls(false);
+              setShowRadioControls(false);
+            }}
+            className={`group relative w-11 h-12 sm:w-12 sm:h-13 rounded-2xl flex flex-col items-center justify-center transition-all duration-150 active:translate-y-1 active:shadow-none ${
+              showWeatherControls
+                ? 'bg-gradient-to-b from-amber-400 via-amber-500 to-orange-500 border-t-2 border-white border-x border-amber-300/60 border-b-2 border-amber-900 shadow-[0_2px_0_#b45309] ring-2 ring-white scale-105'
+                : 'bg-gradient-to-b from-amber-400 via-amber-500 to-orange-500 border-t-2 border-white/60 border-x border-white/20 border-b-2 border-amber-950/60 shadow-[0_4px_0_#b45309,0_8px_16px_rgba(217,119,6,0.35)] hover:brightness-110'
+            }`}
+            title="Atmosphere & Weather"
+          >
+            <span className="text-base sm:text-lg leading-none drop-shadow">
+              {WEATHER_CONDITIONS[currentWeather]?.icon || '⛅'}
+            </span>
+            <span className="text-[8px] sm:text-[9px] font-black tracking-wider text-white uppercase leading-none mt-0.5 drop-shadow-sm">
+              SKY
+            </span>
+          </button>
+
+          {/* In-Cab Transit Radio Button */}
+          <button
+            onClick={() => {
+              sounds.playClick();
+              setShowRadioControls(!showRadioControls);
+              setShowCamControls(false);
+              setShowWeatherControls(false);
+            }}
+            className={`group relative w-11 h-12 sm:w-12 sm:h-13 rounded-2xl flex flex-col items-center justify-center transition-all duration-150 active:translate-y-1 active:shadow-none ${
+              showRadioControls
+                ? 'bg-gradient-to-b from-fuchsia-500 via-pink-500 to-purple-600 border-t-2 border-white border-x border-pink-300/60 border-b-2 border-purple-950 shadow-[0_2px_0_#86198f] ring-2 ring-white scale-105'
+                : 'bg-gradient-to-b from-fuchsia-500 via-pink-500 to-purple-600 border-t-2 border-white/60 border-x border-white/20 border-b-2 border-purple-950/60 shadow-[0_4px_0_#86198f,0_8px_16px_rgba(217,70,239,0.35)] hover:brightness-110'
+            }`}
+            title="In-Cab Transit Radio"
+          >
+            <Radio className={`w-4 h-4 sm:w-4.5 sm:h-4.5 text-white drop-shadow ${radioStation !== 'OFF' ? 'animate-pulse' : ''}`} />
+            <span className="text-[8px] sm:text-[9px] font-black tracking-wider text-white uppercase leading-none mt-1 drop-shadow-sm">
+              {radioStation === 'OFF' ? 'RADIO' : 'LIVE'}
+            </span>
+          </button>
+
+          {/* Reset Isometric Angle Button */}
+          <button
+            onClick={() => {
+              sounds.playClick();
+              dynamicCameraRef.current?.resetView();
+            }}
+            className="group relative w-11 h-12 sm:w-12 sm:h-13 rounded-2xl flex flex-col items-center justify-center transition-all duration-150 active:translate-y-1 active:shadow-none bg-gradient-to-b from-emerald-400 via-emerald-500 to-teal-600 border-t-2 border-white/60 border-x border-white/20 border-b-2 border-teal-950/60 shadow-[0_4px_0_#047857,0_8px_14px_rgba(5,150,105,0.35)] hover:brightness-110"
+            title="Reset Camera Angle"
+          >
+            <RotateCcw className="w-4 h-4 sm:w-4.5 sm:h-4.5 text-white drop-shadow group-hover:rotate-[-45deg] transition-transform duration-300" />
+            <span className="text-[8px] sm:text-[9px] font-black tracking-wider text-white uppercase leading-none mt-1 drop-shadow-sm">
+              RESET
+            </span>
+          </button>
+
+          {/* Zoom Dual Stepper Pill */}
+          <div className="flex flex-col items-center bg-slate-950/80 border-2 border-white/15 rounded-2xl p-1 shadow-inner gap-1">
+            <button
+              onClick={() => {
+                sounds.playClick();
+                dynamicCameraRef.current?.onZoom(-3.5);
+              }}
+              className="w-9 h-8 sm:w-10 sm:h-8.5 rounded-xl bg-slate-800/90 hover:bg-slate-700 text-sky-300 hover:text-white flex items-center justify-center active:scale-90 transition-all font-black shadow-sm"
+              title="Zoom In"
+            >
+              <ZoomIn className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+            </button>
+            <div className="w-4 h-[1px] bg-white/20" />
+            <button
+              onClick={() => {
+                sounds.playClick();
+                dynamicCameraRef.current?.onZoom(3.5);
+              }}
+              className="w-9 h-8 sm:w-10 sm:h-8.5 rounded-xl bg-slate-800/90 hover:bg-slate-700 text-slate-300 hover:text-white flex items-center justify-center active:scale-90 transition-all font-black shadow-sm"
+              title="Zoom Out"
+            >
+              <ZoomOut className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+            </button>
+          </div>
         </div>
       </div>
     </div>

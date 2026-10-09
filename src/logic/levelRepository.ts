@@ -12,6 +12,7 @@ import {
   VehicleType,
 } from './types.ts';
 import { ProceduralLevelGenerator } from './proceduralLevelGenerator.ts';
+import { CHAPTER_ONE_EXTENDED_LEVELS } from './chapterOneLevels.ts';
 
 export interface LevelData {
   id: number;
@@ -252,6 +253,7 @@ export const LEVELS_DATA: LevelData[] = [
       { id: 'l6_p41', color: 'PINK' }, { id: 'l6_p42', color: 'PINK' }, { id: 'l6_p43', color: 'PINK' }, { id: 'l6_p44', color: 'PINK' },
     ],
   },
+  ...CHAPTER_ONE_EXTENDED_LEVELS,
 ];
 
 export class LevelRepository {
@@ -343,8 +345,9 @@ export class LevelRepository {
       { index: 1, isUnlocked: true, vehicleId: null },
       { index: 2, isUnlocked: true, vehicleId: null },
       { index: 3, isUnlocked: true, vehicleId: null },
-      { index: 4, isUnlocked: false, vehicleId: null },
+      { index: 4, isUnlocked: true, vehicleId: null },
       { index: 5, isUnlocked: false, vehicleId: null },
+      { index: 6, isUnlocked: false, vehicleId: null },
     ];
 
     const diffConfig = DIFFICULTY_CONFIGS[difficulty] || DIFFICULTY_CONFIGS[Difficulty.HARD];
@@ -395,7 +398,7 @@ export class LevelRepository {
       activeHintVehicleId: null,
       hintMessage: 'Tap an unblocked vehicle pointing to an open road!',
       comboCount: 0,
-      unlockedDocksCount: 4,
+      unlockedDocksCount: 5,
       objective,
     };
   }

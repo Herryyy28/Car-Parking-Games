@@ -659,65 +659,83 @@ export function buildDioramaVehicleMesh(options: VehicleFactoryOptions): Vehicle
     }
   }
 
-  // 4. White Directional Roof Arrow (Consistent on ALL Vehicles with High-Contrast Plaque)
+  // 4. BOLD ICONIC WHITE DIRECTIONAL ROOF ARROW (Matching Reference Gameplay Screenshots)
   const arrowGroup = new THREE.Group();
-  arrowGroup.position.set(0, height3D * 0.44, 0);
+  const roofY = isBus ? height3D * 0.38 : isVan ? height3D * 0.37 : height3D * 0.38;
+  arrowGroup.position.set(0, roofY, 0);
 
-  // Dark backing plate guarantees crisp contrast against any vehicle color
-  const arrowBasePlate = new THREE.Mesh(
-    new THREE.BoxGeometry(0.54, 0.025, length3D * 0.42),
-    darkTrimMat
-  );
-  arrowBasePlate.position.set(0, -0.01, -length3D * 0.06);
-  arrowGroup.add(arrowBasePlate);
+  const totalLen = length3D * 0.68;
+  const headLen = totalLen * 0.48;
+  const stemW = width3D * 0.34;
+  const headW = width3D * 0.72;
+  const stemHalfW = stemW / 2;
+  const headHalfW = headW / 2;
 
-  const aShaft = new THREE.Mesh(
-    new THREE.BoxGeometry(0.24, 0.04, length3D * 0.26),
-    arrowMat
-  );
-  aShaft.position.z = length3D * 0.04;
-  const aHead = new THREE.Mesh(
-    new THREE.ConeGeometry(0.38, 0.46, 4),
-    arrowMat
-  );
-  aHead.rotation.x = Math.PI / 2;
-  aHead.position.z = -length3D * 0.16;
-  arrowGroup.add(aShaft, aHead);
+  // 2D Arrow Shape pointing forward (-Z)
+  const arrowShape = new THREE.Shape();
+  arrowShape.moveTo(0, -totalLen / 2); // Head tip forward (-Z)
+  arrowShape.lineTo(headHalfW, -totalLen / 2 + headLen); // Right barb
+  arrowShape.lineTo(stemHalfW, -totalLen / 2 + headLen); // Right notch
+  arrowShape.lineTo(stemHalfW, totalLen / 2); // Right stem base (+Z)
+  arrowShape.lineTo(-stemHalfW, totalLen / 2); // Left stem base
+  arrowShape.lineTo(-stemHalfW, -totalLen / 2 + headLen); // Left notch
+  arrowShape.lineTo(-headHalfW, -totalLen / 2 + headLen); // Left barb
+  arrowShape.closePath();
+
+  // Dark Outline Backing Plate for 100% crisp contrast on yellow, green, and white cars
+  const outlineShape = new THREE.Shape();
+  const expand = 0.055;
+  outlineShape.moveTo(0, -totalLen / 2 - expand);
+  outlineShape.lineTo(headHalfW + expand, -totalLen / 2 + headLen);
+  outlineShape.lineTo(stemHalfW + expand, -totalLen / 2 + headLen);
+  outlineShape.lineTo(stemHalfW + expand, totalLen / 2 + expand);
+  outlineShape.lineTo(-stemHalfW - expand, totalLen / 2 + expand);
+  outlineShape.lineTo(-stemHalfW - expand, -totalLen / 2 + headLen);
+  outlineShape.lineTo(-headHalfW - expand, -totalLen / 2 + headLen);
+  outlineShape.closePath();
+
+  const outlineGeo = new THREE.ExtrudeGeometry(outlineShape, { depth: 0.025, bevelEnabled: false });
+  outlineGeo.rotateX(Math.PI / 2);
+  const outlineMesh = new THREE.Mesh(outlineGeo, darkTrimMat);
+  outlineMesh.position.y = 0.01;
+  arrowGroup.add(outlineMesh);
+
+  // Pure Brilliant White Arrow Surface
+  const arrowGeo = new THREE.ExtrudeGeometry(arrowShape, { depth: 0.045, bevelEnabled: false });
+  arrowGeo.rotateX(Math.PI / 2);
+  const thickArrowMat = new THREE.MeshStandardMaterial({
+    color: 0xffffff,
+    emissive: 0xffffff,
+    emissiveIntensity: 0.75,
+    roughness: 0.1,
+    metalness: 0.05,
+  });
+  const arrowMesh = new THREE.Mesh(arrowGeo, thickArrowMat);
+  arrowMesh.position.y = 0.028;
+  arrowMesh.castShadow = true;
+  arrowGroup.add(arrowMesh);
+
   vGroup.add(arrowGroup);
 
-  // 5. Passenger Capacity Slots & Loaded Indicators on Roof
-  const totalCapacity = capacity || (isBus ? 4 : 3);
-  const slotMat = new THREE.MeshStandardMaterial({
-    color: 0x0f172a,
-    roughness: 0.45,
-    metalness: 0.3,
-  });
-  const pSphereMat = new THREE.MeshStandardMaterial({
-    color: new THREE.Color(colorHex),
-    roughness: 0.15,
-    metalness: 0.25,
-    emissive: new THREE.Color(colorHex),
-    emissiveIntensity: 0.45,
-  });
+  // 5. Seated Passengers inside docked vehicle (Matching Screenshot 4: Level 82)
+  if (loadedPassengers > 0) {
+    const totalCapacity = capacity || (isBus ? 4 : 3);
+    const pMat = new THREE.MeshStandardMaterial({
+      color: new THREE.Color(colorHex),
+      roughness: 0.2,
+      metalness: 0.1,
+    });
+    const seatedGroup = new THREE.Group();
+    seatedGroup.position.set(0, height3D * 0.42, 0);
 
-  for (let sIdx = 0; sIdx < totalCapacity; sIdx++) {
-    const zOff = -length3D * 0.24 + (sIdx / (totalCapacity - 1 || 1)) * (length3D * 0.48);
-    const seatRing = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.22, 0.24, 0.05, 14),
-      slotMat
-    );
-    seatRing.position.set(0, height3D * 0.41, zOff);
-    vGroup.add(seatRing);
-
-    if (sIdx < loadedPassengers) {
-      const sphere = new THREE.Mesh(
-        new THREE.SphereGeometry(0.24, 14, 14),
-        pSphereMat
-      );
-      sphere.position.set(0, height3D * 0.54, zOff);
-      sphere.castShadow = true;
-      vGroup.add(sphere);
+    for (let sIdx = 0; sIdx < Math.min(loadedPassengers, totalCapacity); sIdx++) {
+      const zOff = -length3D * 0.22 + (sIdx / (totalCapacity - 1 || 1)) * (length3D * 0.44);
+      const passengerHead = new THREE.Mesh(new THREE.SphereGeometry(0.24, 14, 14), pMat);
+      passengerHead.position.set((sIdx % 2 === 0 ? -0.22 : 0.22) * (isBus ? 1.2 : 0.9), 0.18, zOff);
+      passengerHead.castShadow = true;
+      seatedGroup.add(passengerHead);
     }
+    vGroup.add(seatedGroup);
   }
 
   // 6. Side Wing Mirrors with Molded Curved Arms (Matching Image 5)

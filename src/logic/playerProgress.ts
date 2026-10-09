@@ -203,6 +203,12 @@ export class PlayerProgress {
     this.save();
   }
 
+  public static setRadio(station: RadioStation, volume: number): void {
+    this.data.radioStation = station;
+    this.data.radioVolume = volume;
+    this.save();
+  }
+
   public static getGraphicsQuality(): GraphicsQuality {
     return this.data.graphicsQuality || 'HIGH';
   }

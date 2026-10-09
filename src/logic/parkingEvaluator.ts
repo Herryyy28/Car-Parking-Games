@@ -19,15 +19,16 @@ export class AdvancedParkingEvaluator {
     targetDockX: number,
     targetDockZ: number,
     finalHeading: number,
-    finalSteerAngle: number
+    finalSteerAngle: number,
+    targetAngle: number = 0
   ): ParkingGrade {
     // Offset distance from center of dock bay
     const dx = Math.abs(finalPosition.x - targetDockX);
     const dz = Math.abs(finalPosition.z - targetDockZ);
     const offsetDist = Math.sqrt(dx * dx + dz * dz);
 
-    // Orientation difference relative to perfect North alignment (heading = 0)
-    const normalizedAngle = Math.abs(THREE.MathUtils.euclideanModulo(finalHeading + Math.PI, Math.PI * 2) - Math.PI);
+    // Orientation difference relative to target dock slant alignment
+    const normalizedAngle = Math.abs(THREE.MathUtils.euclideanModulo(finalHeading - targetAngle + Math.PI, Math.PI * 2) - Math.PI);
     const angleDeg = (normalizedAngle * 180) / Math.PI;
 
     // Steering straightness (wheels centered = 0)
