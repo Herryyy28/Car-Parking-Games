@@ -62,7 +62,8 @@ export class PlayerProgress {
         parsed.unlockedHorns = parsed.unlockedHorns || ['STANDARD'];
         parsed.radioStation = parsed.radioStation || 'OFF';
         parsed.radioVolume = parsed.radioVolume ?? 0.25;
-        parsed.graphicsQuality = parsed.graphicsQuality || 'HIGH';
+        parsed.currentLevel = Math.max(3, parsed.currentLevel || 3);
+        parsed.unlockedLevel = Math.max(3, parsed.unlockedLevel || 3);
         return parsed;
       }
     } catch {
@@ -70,8 +71,8 @@ export class PlayerProgress {
     }
 
     return {
-      currentLevel: 1,
-      unlockedLevel: 1,
+      currentLevel: 3,
+      unlockedLevel: 3,
       stars: {},
       coins: 1000,
       preferredDifficulty: Difficulty.HARD,
@@ -110,6 +111,11 @@ export class PlayerProgress {
 
   public static setCustomization(updates: Partial<PlayerProgressData>): void {
     this.data = { ...this.data, ...updates };
+    this.save();
+  }
+
+  public static setVibrationEnabled(enabled: boolean): void {
+    this.data.vibrationEnabled = enabled;
     this.save();
   }
 

@@ -357,11 +357,6 @@ export class BackgroundEnvironmentManager {
   // WORLD 5: AIRPORT PROPS (Runway Radar, Wind Tents, Luggage)
   // ========================================================
   private buildAirportProps(theme: WorldThemeConfig): void {
-    // Modern Aero Terminal Pavilions
-    this.createStorefrontBuilding(-6.2, 0, -17.5, 3.6, 5.5, 3.5, 0x94a3b8, 0xffffff, 0x3b82f6, 0xffffff);
-    this.createStorefrontBuilding(-2.1, 0, -17.0, 3.8, 6.2, 3.8, 0x64748b, 0xffffff, 0xf59e0b, 0xffffff);
-    this.createStorefrontBuilding(2.1, 0, -17.0, 3.8, 6.2, 3.8, 0x64748b, 0xffffff, 0xf59e0b, 0xffffff);
-    this.createStorefrontBuilding(6.2, 0, -17.5, 3.6, 5.5, 3.5, 0x94a3b8, 0xffffff, 0x3b82f6, 0xffffff);
 
     // Rotating Radar Dish & Wind Sock
     this.createRadarDish(-7.5, 0, -4.5);

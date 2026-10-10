@@ -661,13 +661,20 @@ export function buildDioramaVehicleMesh(options: VehicleFactoryOptions): Vehicle
 
   // 4. BOLD ICONIC WHITE DIRECTIONAL ROOF ARROW (Matching Reference Gameplay Screenshots)
   const arrowGroup = new THREE.Group();
-  const roofY = isBus ? height3D * 0.38 : isVan ? height3D * 0.37 : height3D * 0.38;
+  // Set roof elevation to sit proudly on top of each vehicle contour
+  const roofY = isBus
+    ? height3D * 0.63
+    : isVan
+    ? height3D * 0.53
+    : isTruck
+    ? height3D * 0.61
+    : height3D * 0.64;
   arrowGroup.position.set(0, roofY, 0);
 
-  const totalLen = length3D * 0.68;
-  const headLen = totalLen * 0.48;
-  const stemW = width3D * 0.34;
-  const headW = width3D * 0.72;
+  const totalLen = length3D * 0.65;
+  const headLen = totalLen * 0.46;
+  const stemW = width3D * 0.36;
+  const headW = width3D * 0.74;
   const stemHalfW = stemW / 2;
   const headHalfW = headW / 2;
 

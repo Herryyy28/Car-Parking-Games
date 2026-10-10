@@ -61,7 +61,23 @@ interface BusMadnessArenaProps {
   graphicsQuality?: GraphicsQuality;
 }
 
-const DOCK_X_POSITIONS = [-7.5, -5.0, -2.5, 0, 2.5, 5.0, 7.5];
+function getDockPositions(count: number = 1): number[] {
+  const safeCount = Math.max(1, Math.min(7, count || 1));
+  const spacing = 2.8;
+  const startX = -((safeCount - 1) * spacing) / 2;
+  const positions: number[] = [];
+  for (let i = 0; i < safeCount; i++) {
+    positions.push(startX + i * spacing);
+  }
+  return positions;
+}
+
+function getDockX(index: number, count: number = 1): number {
+  const positions = getDockPositions(count);
+  return positions[Math.min(Math.max(0, index), positions.length - 1)] ?? 0;
+}
+
+const DOCK_X_POSITIONS = [-5.6, -2.8, 0, 2.8, 5.6];
 const DOCK_SLANT_ANGLE = -0.42; // ~-24 deg diagonal angle matching reference screenshots
 const DOCK_Z = -6.8;
 const CELL_SIZE = 2.2;
@@ -318,20 +334,35 @@ function createParkingBayTexture(): THREE.CanvasTexture {
 
   ctx.clearRect(0, 0, 256, 512);
 
-  // Dashed white border lines
+  // Solid thick white parking stall outline matching reference screenshots (frame_05.jpg)
+  // Stall shape: rounded top corners, solid side walls, open bottom with small corner turn-ins
   ctx.strokeStyle = '#ffffff';
-  ctx.lineWidth = 14;
-  ctx.setLineDash([26, 18]);
+  ctx.lineWidth = 16;
   ctx.lineCap = 'round';
-  ctx.strokeRect(16, 16, 224, 480);
-
-  // Bold clean white 'P' in center
+  ctx.lineJoin = 'round';
   ctx.setLineDash([]);
-  ctx.fillStyle = '#ffffff';
-  ctx.font = '900 140px Inter, system-ui, -apple-system, sans-serif';
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.fillText('P', 128, 256);
+
+  const left = 22;
+  const right = 234;
+  const top = 22;
+  const bottom = 490;
+  const radius = 32;
+  const bottomInward = 44; // inward stroke length at bottom
+
+  ctx.beginPath();
+  // Start at bottom-left inward opening
+  ctx.moveTo(left + bottomInward, bottom);
+  // Turn left to bottom-left corner
+  ctx.arcTo(left, bottom, left, bottom - radius, radius);
+  // Go up along left edge to top-left corner
+  ctx.arcTo(left, top, left + radius, top, radius);
+  // Go right along top edge to top-right corner
+  ctx.arcTo(right, top, right, top + radius, radius);
+  // Go down along right edge to bottom-right corner
+  ctx.arcTo(right, bottom, right - bottomInward, bottom, radius);
+  // Turn left into bottom-right inward tab
+  ctx.lineTo(right - bottomInward, bottom);
+  ctx.stroke();
 
   const texture = new THREE.CanvasTexture(canvas);
   texture.colorSpace = THREE.SRGBColorSpace;
@@ -340,40 +371,85 @@ function createParkingBayTexture(): THREE.CanvasTexture {
   return texture;
 }
 
+function createAirportSignTexture(): THREE.CanvasTexture {
+  const canvas = document.createElement('canvas');
+  canvas.width = 1024;
+  canvas.height = 256;
+  const ctx = canvas.getContext('2d')!;
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  // Left golden stars (stacked vertically like frame_05.jpg)
+  ctx.fillStyle = '#facc15';
+  ctx.strokeStyle = '#ca8a04';
+  ctx.lineWidth = 4;
+  ctx.font = '900 62px system-ui, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('★', 140, 110);
+  ctx.fillText('★', 175, 160);
+
+  // White airplane silhouette flying through
+  ctx.font = '900 80px system-ui, sans-serif';
+  ctx.fillStyle = '#ffffff';
+  ctx.fillText('✈', 590, 85);
+
+  // "Airport" 3D script text in hot pink with thick white border
+  ctx.font = '900 124px "Fredoka", "Arial Rounded MT Bold", cursive, sans-serif';
+  ctx.lineWidth = 18;
+  ctx.strokeStyle = '#ffffff';
+  ctx.strokeText('Airport', 490, 150);
+
+  ctx.fillStyle = '#f43f5e';
+  ctx.fillText('Airport', 490, 150);
+
+  // Inner warm highlight
+  ctx.fillStyle = '#fb7185';
+  ctx.font = '900 116px "Fredoka", "Arial Rounded MT Bold", cursive, sans-serif';
+  ctx.fillText('Airport', 490, 147);
+
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  return texture;
+}
+
 function updateBusStopSignTexture(count: number, canvas: HTMLCanvasElement, texture: THREE.CanvasTexture) {
   const ctx = canvas.getContext('2d');
   if (!ctx) return;
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-  // Outer glossy blue frame
-  ctx.fillStyle = '#0284c7';
+  // Outer slate scoreboard frame with warm golden border (frame_05.jpg & frame_06.jpg)
+  ctx.fillStyle = '#1e293b';
+  ctx.strokeStyle = '#f59e0b'; // Warm golden border
+  ctx.lineWidth = 10;
   ctx.beginPath();
-  ctx.roundRect(8, 8, canvas.width - 16, canvas.height - 16, 22);
+  if (typeof ctx.roundRect === 'function') {
+    ctx.roundRect(10, 10, canvas.width - 20, canvas.height - 20, 24);
+  } else {
+    ctx.strokeRect(10, 10, canvas.width - 20, canvas.height - 20);
+  }
   ctx.fill();
+  ctx.stroke();
 
-  // White inner display panel
+  // Subtle inner gold highlight line
+  ctx.strokeStyle = '#d97706';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  if (typeof ctx.roundRect === 'function') {
+    ctx.roundRect(16, 16, canvas.width - 32, canvas.height - 32, 18);
+  }
+  ctx.stroke();
+
+  // Large bold white count on top
   ctx.fillStyle = '#ffffff';
-  ctx.beginPath();
-  ctx.roundRect(18, 18, canvas.width - 36, canvas.height - 36, 14);
-  ctx.fill();
-
-  // Blue person icon on left
-  ctx.fillStyle = '#0284c7';
-  // Head
-  ctx.beginPath();
-  ctx.arc(75, 68, 24, 0, Math.PI * 2);
-  ctx.fill();
-  // Body
-  ctx.beginPath();
-  ctx.ellipse(75, 144, 38, 30, 0, Math.PI, 0, false);
-  ctx.fill();
-
-  // Bold black count text on right
-  ctx.fillStyle = '#0f172a';
-  ctx.font = '900 96px Inter, system-ui, -apple-system, sans-serif';
+  ctx.font = '900 94px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.fillText(`${count}`, 215, 105);
+  ctx.fillText(`${count}`, canvas.width / 2, 72);
+
+  // Bottom "Left" label (Matching "60 Left" in frame_05.jpg & "34 Left" in frame_06.jpg)
+  ctx.fillStyle = '#ffffff';
+  ctx.font = '800 38px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+  ctx.fillText('Left', canvas.width / 2, 140);
 
   texture.needsUpdate = true;
 }
@@ -426,6 +502,8 @@ export const BusMadnessArena: React.FC<BusMadnessArenaProps> = ({
   const pathFollowingGroundRef = useRef<PathFollowingGroundSystem | null>(null);
   const busStopSignCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const busStopSignTextureRef = useRef<THREE.CanvasTexture | null>(null);
+  const docksGroupRef = useRef<THREE.Group | null>(null);
+  const bayTextureRef = useRef<THREE.CanvasTexture | null>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
   const [parkingToast, setParkingToast] = useState<{ grade: string; message: string } | null>(null);
   const [cameraMode, setCameraMode] = useState<CameraMode>('EXPLORATION');
@@ -433,6 +511,7 @@ export const BusMadnessArena: React.FC<BusMadnessArenaProps> = ({
   const [showCamControls, setShowCamControls] = useState(false);
   const [currentWeather, setCurrentWeather] = useState<WeatherType>('SUNNY');
   const [showWeatherControls, setShowWeatherControls] = useState(false);
+  const [showDevDock, setShowDevDock] = useState(false);
 
   // Live In-Cab Radio State
   const [radioStation, setRadioStation] = useState<RadioStation>(() => inCabRadio.getStation());
@@ -481,15 +560,16 @@ export const BusMadnessArena: React.FC<BusMadnessArenaProps> = ({
     const container = mountRef.current;
     if (!container) return;
 
-    const width = container.clientWidth;
-    const height = container.clientHeight;
+    let width = container.clientWidth || window.innerWidth || 360;
+    let height = container.clientHeight || window.innerHeight || 640;
+    if (width <= 0) width = 360;
+    if (height <= 0) height = 640;
 
     const scene = new THREE.Scene();
     sceneRef.current = scene;
-    scene.background = new THREE.Color(0x0a101d);
-    // Linear fog: only softens distant background horizons (75 to 160 units),
-    // keeping the entire puzzle arena, vehicles, and road 100% crystal-clear with zero fog washout
-    scene.fog = new THREE.Fog(0x0a101d, 75, 160);
+    scene.background = new THREE.Color(0xbfe0f7);
+    // Linear fog: only softens distant background horizons (85 to 200 units)
+    scene.fog = new THREE.Fog(0xbfe0f7, 85, 200);
 
     const camera = new THREE.PerspectiveCamera(50, width / height, 0.5, 180);
     camera.position.set(0, 34, 30);
@@ -610,52 +690,68 @@ export const BusMadnessArena: React.FC<BusMadnessArenaProps> = ({
     const reactiveProps = new ReactivePropsSystem(scene);
     reactivePropsRef.current = reactiveProps;
 
-    // High-End Modern Transit Terminal Hub Facade
+    // Cheerful Sunny Airport Terminal Concourse Hub Facade (Matching Reference Screenshots 1, 2, 3)
     const stationGroup = new THREE.Group();
     stationGroup.position.set(0, 0, -11.5);
 
-    // Main Architectural Concourse Building
+    // Main Concourse Building with Warm Sunny Walls
     const buildingGeo = new THREE.BoxGeometry(26, 5.2, 4.4);
-    const buildingMat = new THREE.MeshStandardMaterial({ color: 0x0284c7, roughness: 0.28, metalness: 0.2 });
+    const buildingMat = new THREE.MeshStandardMaterial({
+      color: 0xffedd5, // Warm sunny pastel peach/cream
+      roughness: 0.35,
+      metalness: 0.05,
+    });
     const building = new THREE.Mesh(buildingGeo, buildingMat);
     building.position.set(0, 2.6, -2.2);
     building.castShadow = true;
     stationGroup.add(building);
 
-    // Concourse Floor-to-Ceiling Tinted Glass Panels
+    // Warm Yellow & Orange Upper Facade Border Trim
+    const upperTrim = new THREE.Mesh(
+      new THREE.BoxGeometry(26.2, 0.6, 4.5),
+      new THREE.MeshStandardMaterial({ color: 0xfbbf24, roughness: 0.3 })
+    );
+    upperTrim.position.set(0, 4.9, -2.2);
+    stationGroup.add(upperTrim);
+
+    // Automatic Tinted Glass Sliding Doors & Windows
+    const doorFrameMat = new THREE.MeshStandardMaterial({ color: 0x38bdf8, roughness: 0.2 });
     const glassMat = new THREE.MeshStandardMaterial({
-      color: 0x38bdf8,
-      emissive: 0x0284c7,
+      color: 0x67e8f9,
+      emissive: 0x06b6d4,
       emissiveIntensity: 0.45,
       roughness: 0.08,
       metalness: 0.85,
     });
-    [-8, -4, 0, 4, 8].forEach((gx) => {
-      const glassPane = new THREE.Mesh(new THREE.BoxGeometry(3.2, 3.2, 0.1), glassMat);
+    // Center entrance doors
+    const centerDoor = new THREE.Mesh(new THREE.BoxGeometry(4.4, 3.4, 0.1), glassMat);
+    centerDoor.position.set(0, 1.8, -0.02);
+    const doorArch = new THREE.Mesh(new THREE.BoxGeometry(4.8, 0.3, 0.15), doorFrameMat);
+    doorArch.position.set(0, 3.6, -0.01);
+    stationGroup.add(centerDoor, doorArch);
+
+    // Tinted side windows
+    [-8, 8].forEach((gx) => {
+      const glassPane = new THREE.Mesh(new THREE.BoxGeometry(5.2, 2.8, 0.1), glassMat);
       glassPane.position.set(gx, 2.0, -0.02);
       stationGroup.add(glassPane);
     });
 
-    // Cantilevered Architectural Glass Canopy over Platform
-    const canopyGlassMat = new THREE.MeshStandardMaterial({
-      color: 0xbae6fd,
-      roughness: 0.1,
-      metalness: 0.5,
-      transparent: true,
-      opacity: 0.75,
+    // Rainbow-Striped Storefront Canopy Awning (Yellow, Orange, Pink, Cyan, Lime)
+    const awningStripeColors = [0xfacc15, 0xf97316, 0xf43f5e, 0x06b6d4, 0x22c55e, 0xfacc15, 0xf97316, 0xf43f5e];
+    const awningGroup = new THREE.Group();
+    awningGroup.position.set(0, 4.4, 0.6);
+    awningGroup.rotation.x = 0.12; // Slanted forward like an arcade storefront awning!
+    const stripeWidth = 26.4 / awningStripeColors.length;
+    awningStripeColors.forEach((sColor, sIdx) => {
+      const stripeGeo = new THREE.BoxGeometry(stripeWidth, 0.18, 3.8);
+      const stripeMat = new THREE.MeshStandardMaterial({ color: sColor, roughness: 0.25 });
+      const stripeMesh = new THREE.Mesh(stripeGeo, stripeMat);
+      stripeMesh.position.set(-13.2 + sIdx * stripeWidth + stripeWidth / 2, 0, 1.9);
+      stripeMesh.castShadow = true;
+      awningGroup.add(stripeMesh);
     });
-    const canopyRoof = new THREE.Mesh(new THREE.BoxGeometry(26.4, 0.2, 5.2), canopyGlassMat);
-    canopyRoof.position.set(0, 5.2, 0.4);
-    stationGroup.add(canopyRoof);
-
-    // Steel Space-Frame Canopy Support Trusses & Pillars
-    const trussMat = new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.35, metalness: 0.7 });
-    [-11, -5.5, 0, 5.5, 11].forEach((px) => {
-      const pillar = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.16, 5.2, 12), trussMat);
-      pillar.position.set(px, 2.6, 2.8);
-      pillar.castShadow = true;
-      stationGroup.add(pillar);
-    });
+    stationGroup.add(awningGroup);
 
     // Glowing LED Destination Marquee Banner
     const marqueeSignBg = new THREE.Mesh(
@@ -674,58 +770,82 @@ export const BusMadnessArena: React.FC<BusMadnessArenaProps> = ({
     marqueeLed.position.set(0, 4.4, 0.12);
     stationGroup.add(marqueeSignBg, marqueeLed);
 
-    // Platform Number Signs 1..6 over each bay
-    DOCK_X_POSITIONS.forEach((dx, idx) => {
-      const baySignGroup = new THREE.Group();
-      baySignGroup.position.set(dx, 4.8, 3.2);
-
-      const signDisc = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.38, 0.38, 0.08, 16),
-        new THREE.MeshStandardMaterial({
-          color: 0x10b981,
-          emissive: 0x10b981,
-          emissiveIntensity: 1.4,
-        })
-      );
-      signDisc.rotation.x = Math.PI / 2;
-      baySignGroup.add(signDisc);
-      stationGroup.add(baySignGroup);
+    // 3D Cartoon "Airport" Roof Sign with Airplane & Stars (Matching Reference Screenshots 1, 2, 3)
+    const airportSignGeo = new THREE.PlaneGeometry(9.5, 2.4);
+    const airportSignMat = new THREE.MeshBasicMaterial({
+      map: createAirportSignTexture(),
+      transparent: true,
+      depthWrite: false,
     });
+    const airportSignMesh = new THREE.Mesh(airportSignGeo, airportSignMat);
+    airportSignMesh.position.set(0, 6.4, 0.5);
+    stationGroup.add(airportSignMesh);
 
-    // Polished Passenger Platform Sidewalk with Tactile Paving Edge
+    // Polished Passenger Platform Sidewalk with Light Off-White Paving (Matching frame_05.jpg & frame_06.jpg)
     const sidewalkGeo = new THREE.BoxGeometry(26, 0.32, 4.2);
-    const sidewalkMat = new THREE.MeshStandardMaterial({ color: 0x475569, roughness: 0.55 });
+    const sidewalkMat = new THREE.MeshStandardMaterial({ color: 0xedf2f7, roughness: 0.45, metalness: 0.05 });
     const sidewalk = new THREE.Mesh(sidewalkGeo, sidewalkMat);
     sidewalk.position.set(0, 0.16, 2.1);
     sidewalk.receiveShadow = true;
     stationGroup.add(sidewalk);
 
-    // Tactile Safety Yellow Paving Strip along platform edge
-    const tactileStrip = new THREE.Mesh(
-      new THREE.BoxGeometry(25.8, 0.04, 0.35),
-      new THREE.MeshStandardMaterial({ color: 0xfacc15, emissive: 0xfacc15, emissiveIntensity: 0.4 })
+    // Beveled curb edge along platform
+    const platformCurb = new THREE.Mesh(
+      new THREE.BoxGeometry(26.2, 0.12, 0.3),
+      new THREE.MeshStandardMaterial({ color: 0xcfd8dc, roughness: 0.4 })
     );
-    tactileStrip.position.set(0, 0.33, 4.0);
-    stationGroup.add(tactileStrip);
+    platformCurb.position.set(0, 0.1, 4.25);
+    stationGroup.add(platformCurb);
 
-    // Illuminated Safety Bollards along platform edge
-    const bollardGeo = new THREE.CylinderGeometry(0.1, 0.12, 0.85, 12);
-    const bollardMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.5 });
-    const bollardCapMat = new THREE.MeshStandardMaterial({
-      color: 0x06b6d4,
-      emissive: 0x06b6d4,
-      emissiveIntensity: 1.6,
+    // 3D Vending Machine on sidewalk (Matching frame_05.jpg)
+    const vendingGroup = new THREE.Group();
+    vendingGroup.position.set(-0.6, 0.32, 1.8);
+    const vmBodyMat = new THREE.MeshStandardMaterial({ color: 0x06b6d4, roughness: 0.25 });
+    const vmBody = new THREE.Mesh(new THREE.BoxGeometry(1.5, 2.5, 0.9), vmBodyMat);
+    vmBody.position.y = 1.25;
+    vmBody.castShadow = true;
+    const vmGlassMat = new THREE.MeshStandardMaterial({
+      color: 0xbae6fd,
+      emissive: 0x0284c7,
+      emissiveIntensity: 0.4,
+      roughness: 0.1,
     });
-    [-12, -8, -4, 0, 4, 8, 12].forEach((bx) => {
-      const bollard = new THREE.Group();
-      bollard.position.set(bx, 0.42, 4.15);
-      const bPost = new THREE.Mesh(bollardGeo, bollardMat);
-      bPost.castShadow = true;
-      const bCap = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.11, 0.1, 12), bollardCapMat);
-      bCap.position.y = 0.42;
-      bollard.add(bPost, bCap);
-      stationGroup.add(bollard);
-    });
+    const vmGlass = new THREE.Mesh(new THREE.BoxGeometry(1.2, 1.3, 0.1), vmGlassMat);
+    vmGlass.position.set(0, 1.55, 0.46);
+    const vmTrayMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.5 });
+    const vmTray = new THREE.Mesh(new THREE.BoxGeometry(1.1, 0.4, 0.12), vmTrayMat);
+    vmTray.position.set(0, 0.42, 0.46);
+    vendingGroup.add(vmBody, vmGlass, vmTray);
+    stationGroup.add(vendingGroup);
+
+    // Orange vertical "P BUS" sign and green hedge on far left (Matching frame_05.jpg)
+    const pBusSign = new THREE.Mesh(
+      new THREE.BoxGeometry(0.7, 1.8, 0.18),
+      new THREE.MeshStandardMaterial({ color: 0xf97316, roughness: 0.35 })
+    );
+    pBusSign.position.set(-8.8, 1.2, 1.8);
+    pBusSign.castShadow = true;
+    const shrub = new THREE.Mesh(
+      new THREE.SphereGeometry(0.85, 12, 10),
+      new THREE.MeshStandardMaterial({ color: 0x22c55e, roughness: 0.7 })
+    );
+    shrub.position.set(-10.2, 0.85, 1.6);
+    stationGroup.add(pBusSign, shrub);
+
+    // Luggage suitcases on far right sidewalk (Matching frame_05.jpg & frame_06.jpg)
+    const pinkSuitcase = new THREE.Mesh(
+      new THREE.BoxGeometry(0.55, 0.8, 0.35),
+      new THREE.MeshStandardMaterial({ color: 0xf43f5e, roughness: 0.4 })
+    );
+    pinkSuitcase.position.set(8.4, 0.72, 1.8);
+    pinkSuitcase.castShadow = true;
+    const orangeSuitcase = new THREE.Mesh(
+      new THREE.BoxGeometry(0.6, 0.9, 0.38),
+      new THREE.MeshStandardMaterial({ color: 0xf97316, roughness: 0.4 })
+    );
+    orangeSuitcase.position.set(9.3, 0.77, 1.9);
+    orangeSuitcase.castShadow = true;
+    stationGroup.add(pinkSuitcase, orangeSuitcase);
 
     scene.add(stationGroup);
 
@@ -786,12 +906,12 @@ export const BusMadnessArena: React.FC<BusMadnessArenaProps> = ({
     const perimeterCurb = OrganicRoadSystem.createRaisedCurbMesh(parkingLotCurve, 0.2, 0.45, 0.22, 48, 0x475569);
     naturalRoadGroup.add(perimeterCurb);
 
-    // 1. Organic asphalt main parking ground with rich deep tone and crisp bevel
+    // 1. Organic light diorama puzzle ground matching frame_05.jpg & frame_06.jpg
     const asphaltPadGeo = new THREE.BoxGeometry(padWidth, 0.18, padDepth);
     const asphaltPadMat = new THREE.MeshStandardMaterial({
-      color: 0x1a2333, // rich dark slate asphalt
-      roughness: 0.82,
-      metalness: 0.12,
+      color: 0xd6dce5, // smooth light slate grey diorama floor matching frame_05.jpg
+      roughness: 0.65,
+      metalness: 0.04,
     });
     const puzzlePad = new THREE.Mesh(asphaltPadGeo, asphaltPadMat);
     puzzlePad.position.set(0, 0.08, GRID_OFFSET_Z);
@@ -801,155 +921,102 @@ export const BusMadnessArena: React.FC<BusMadnessArenaProps> = ({
     // Beveled Concrete Outer Curb Perimeter framing the game board like a miniature diorama
     const curbBorderGeo = new THREE.BoxGeometry(padWidth + 0.5, 0.22, padDepth + 0.5);
     const curbBorderMat = new THREE.MeshStandardMaterial({
-      color: 0x94a3b8, // crisp light concrete curb
-      roughness: 0.65,
-      metalness: 0.1,
+      color: 0xc2cdda, // crisp light concrete curb
+      roughness: 0.5,
+      metalness: 0.05,
     });
     const curbBorder = new THREE.Mesh(curbBorderGeo, curbBorderMat);
     curbBorder.position.set(0, 0.04, GRID_OFFSET_Z);
     curbBorder.receiveShadow = true;
     naturalRoadGroup.add(curbBorder);
 
-    // Subtle Natural Environmental Details: Metallic Manhole Covers & Drainage Storm Grates
-    const manholeGeo = new THREE.CylinderGeometry(0.55, 0.55, 0.04, 16);
-    const manholeMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.6, metalness: 0.65 });
-    const manhole1 = new THREE.Mesh(manholeGeo, manholeMat);
-    manhole1.position.set(-8.5, 0.17, 3.5);
-    const manhole2 = new THREE.Mesh(manholeGeo, manholeMat);
-    manhole2.position.set(8.5, 0.17, 8.5);
-    naturalRoadGroup.add(manhole1, manhole2);
-
-    const grateGeo = new THREE.BoxGeometry(0.7, 0.03, 1.2);
-    const grateMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.5, metalness: 0.7 });
-    const grate1 = new THREE.Mesh(grateGeo, grateMat);
-    grate1.position.set(-9.8, 0.17, -1.2);
-    const grate2 = new THREE.Mesh(grateGeo, grateMat);
-    grate2.position.set(9.8, 0.17, -1.2);
-    naturalRoadGroup.add(grate1, grate2);
-
-    // Crisp Painted Parking Stalls and Bay Lines
-    const lineMat = new THREE.MeshStandardMaterial({
-      color: 0xf8fafc,
-      roughness: 0.35,
-      metalness: 0.05,
+    // Dark asphalt roadway apron under the parking bays and horizontal travel lane (Matching frame_05.jpg)
+    const roadApronGeo = new THREE.BoxGeometry(padWidth + 8, 0.16, 9.2);
+    const roadApronMat = new THREE.MeshStandardMaterial({
+      color: 0x334155, // slate asphalt road
+      roughness: 0.75,
+      metalness: 0.1,
     });
-    const yellowLineMat = new THREE.MeshStandardMaterial({
-      color: 0xfacc15,
-      roughness: 0.35,
-    });
-    const stallPatchMat = new THREE.MeshStandardMaterial({
-      color: 0x141c2b, // subtle recessed dark stall asphalt
-      roughness: 0.88,
-    });
+    const roadApron = new THREE.Mesh(roadApronGeo, roadApronMat);
+    roadApron.position.set(0, 0.08, -5.2);
+    roadApron.receiveShadow = true;
+    naturalRoadGroup.add(roadApron);
 
-    const stallGroup = new THREE.Group();
-    stallGroup.position.set(0, 0.175, GRID_OFFSET_Z);
+    // White horizontal dashed centerlines on the roadway (- - - - -) (Matching frame_05.jpg)
+    const stripeGroup = new THREE.Group();
+    stripeGroup.position.set(0, 0.17, -2.8);
+    const whiteStripeMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.3 });
+    for (let sx = -14; sx <= 14; sx += 1.8) {
+      const dash = new THREE.Mesh(new THREE.BoxGeometry(1.0, 0.015, 0.18), whiteStripeMat);
+      dash.position.set(sx, 0, 0);
+      stripeGroup.add(dash);
+    }
+    naturalRoadGroup.add(stripeGroup);
 
-    const totalGridW = initialCols * CELL_SIZE;
-    const totalGridD = initialRows * CELL_SIZE;
-
-    // Draw individual parking slot bays with crisp white lane divider borders
-    for (let r = 0; r < initialRows; r++) {
-      for (let c = 0; c < initialCols; c++) {
-        const cellCenterX = (c - (initialCols - 1) / 2) * CELL_SIZE;
-        const cellCenterZ = (r - (initialRows - 1) / 2) * CELL_SIZE;
-
-        // Darker textured parking slot patch
-        const patch = new THREE.Mesh(
-          new THREE.BoxGeometry(CELL_SIZE - 0.22, 0.01, CELL_SIZE - 0.22),
-          stallPatchMat
-        );
-        patch.position.set(cellCenterX, 0, cellCenterZ);
-        patch.receiveShadow = true;
-        stallGroup.add(patch);
+    // Zebra crosswalk road markings on left & right road edges (Matching frame_05.jpg)
+    [-13.5, 13.5].forEach((zx) => {
+      for (let i = 0; i < 4; i++) {
+        const zStripe = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.015, 1.8), whiteStripeMat);
+        zStripe.position.set(zx + (i - 1.5) * 0.7, 0.17, -2.8);
+        naturalRoadGroup.add(zStripe);
       }
-    }
+    });
 
-    // Grid divider lines: Horizontal and Vertical crisp painted lines
-    for (let r = 0; r <= initialRows; r++) {
-      const zLine = (r - initialRows / 2) * CELL_SIZE;
-      const isBoundary = r === 0 || r === initialRows;
-      const hLine = new THREE.Mesh(
-        new THREE.BoxGeometry(totalGridW + 0.1, 0.015, isBoundary ? 0.14 : 0.07),
-        isBoundary ? yellowLineMat : lineMat
-      );
-      hLine.position.set(0, 0.005, zLine);
-      stallGroup.add(hLine);
-    }
-
-    for (let c = 0; c <= initialCols; c++) {
-      const xLine = (c - initialCols / 2) * CELL_SIZE;
-      const isBoundary = c === 0 || c === initialCols;
-      const vLine = new THREE.Mesh(
-        new THREE.BoxGeometry(isBoundary ? 0.14 : 0.07, 0.015, totalGridD + 0.1),
-        isBoundary ? yellowLineMat : lineMat
-      );
-      vLine.position.set(xLine, 0.005, 0);
-      stallGroup.add(vLine);
-    }
-    naturalRoadGroup.add(stallGroup);
     scene.add(naturalRoadGroup);
 
-    // Waiting Docks Road
-    const roadStrip = mainArterialRoad;
+    // Dynamic Docks Bay Group (Matching Reference Screenshots 1 & 3: 1 bay in Level 1, 2 bays in Level 2)
+    const docksGroup = new THREE.Group();
+    docksGroup.name = 'docksGroup';
+    docksGroupRef.current = docksGroup;
+    scene.add(docksGroup);
 
-    // Docks Bay Markings with Angled Slanted Parking Spaces & Crisp 'P' Markings (Matching Reference Screenshots)
-    const bayMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.3 });
     const bayTexture = createParkingBayTexture();
-    const bayPlaneGeo = new THREE.PlaneGeometry(2.1, 4.2);
-    const bayPlaneMat = new THREE.MeshStandardMaterial({
-      map: bayTexture,
-      transparent: true,
-      opacity: 0.95,
-      roughness: 0.35,
-      metalness: 0.05,
-      depthWrite: false,
-    });
+    bayTextureRef.current = bayTexture;
 
-    DOCK_X_POSITIONS.forEach((dx, idx) => {
-      const bayGroup = new THREE.Group();
-      bayGroup.position.set(dx, 0.19, DOCK_Z);
-      bayGroup.rotation.y = DOCK_SLANT_ANGLE; // Rotated at ~24 deg slant!
+    // Helper to populate active bays dynamically
+    const buildActiveBays = (count: number) => {
+      while (docksGroup.children.length > 0) {
+        const child = docksGroup.children[0];
+        docksGroup.remove(child);
+        disposeHierarchy(child);
+      }
 
-      // Slanted bay ground marking plane (dashed lines + bold white 'P')
-      const bayPlane = new THREE.Mesh(bayPlaneGeo, bayPlaneMat);
-      bayPlane.rotation.x = -Math.PI / 2;
-      bayPlane.position.y = 0.01;
-      bayPlane.receiveShadow = true;
-      bayGroup.add(bayPlane);
-
-      // Tactile yellow front stop line
-      const stopLine = new THREE.Mesh(
-        new THREE.BoxGeometry(1.8, 0.015, 0.16),
-        new THREE.MeshStandardMaterial({ color: 0xfacc15, roughness: 0.3 })
-      );
-      stopLine.position.set(0, 0.02, -1.9);
-      bayGroup.add(stopLine);
-
-      // Locked Bay Indicator (Golden Padlock with + symbol)
-      const lockLabel = new THREE.Group();
-      lockLabel.name = `dock_lock_${idx}`;
-      const circleGeo = new THREE.CylinderGeometry(0.55, 0.55, 0.08, 18);
-      const circleMat = new THREE.MeshStandardMaterial({
-        color: 0xf59e0b,
-        emissive: 0xd97706,
-        emissiveIntensity: 0.7,
-        roughness: 0.25,
-        metalness: 0.6,
+      const positions = getDockPositions(count);
+      const bayPlaneGeo = new THREE.PlaneGeometry(2.1, 4.2);
+      const bayPlaneMat = new THREE.MeshStandardMaterial({
+        map: bayTexture,
+        transparent: true,
+        opacity: 0.95,
+        roughness: 0.35,
+        metalness: 0.05,
+        depthWrite: false,
       });
-      const circle = new THREE.Mesh(circleGeo, circleMat);
-      circle.position.y = 0.08;
-      lockLabel.add(circle);
 
-      const plusH = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.09, 0.14), bayMat);
-      plusH.position.y = 0.13;
-      const plusV = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.09, 0.5), bayMat);
-      plusV.position.y = 0.13;
-      lockLabel.add(plusH, plusV);
-      bayGroup.add(lockLabel);
+      positions.forEach((dx) => {
+        const bayGroup = new THREE.Group();
+        bayGroup.position.set(dx, 0.19, DOCK_Z);
+        bayGroup.rotation.y = DOCK_SLANT_ANGLE; // Rotated at ~24 deg slant!
 
-      scene.add(bayGroup);
-    });
+        // Slanted bay ground marking plane (dashed lines + bold white 'P')
+        const bayPlane = new THREE.Mesh(bayPlaneGeo, bayPlaneMat);
+        bayPlane.rotation.x = -Math.PI / 2;
+        bayPlane.position.y = 0.01;
+        bayPlane.receiveShadow = true;
+        bayGroup.add(bayPlane);
+
+        // Tactile yellow front stop line
+        const stopLine = new THREE.Mesh(
+          new THREE.BoxGeometry(1.8, 0.015, 0.16),
+          new THREE.MeshStandardMaterial({ color: 0xfacc15, roughness: 0.3 })
+        );
+        stopLine.position.set(0, 0.02, -1.9);
+        bayGroup.add(stopLine);
+
+        docksGroup.add(bayGroup);
+      });
+    };
+
+    buildActiveBays(gameStateRef.current.unlockedDocksCount || 1);
 
     // 3D Blue Bus Stop Signboard on Left Sidewalk (Matching Reference Screenshots)
     const signCanvas = document.createElement('canvas');
@@ -1026,10 +1093,10 @@ export const BusMadnessArena: React.FC<BusMadnessArenaProps> = ({
     bgManagerRef.current = bgManager;
     bgManager.registerArenaElements({
       ground,
-      road: roadStrip,
+      road: mainArterialRoad,
       puzzlePad,
       terminalBuilding: building,
-      terminalRoof: canopyRoof,
+      terminalRoof: awningGroup,
       sidewalk,
       sunLight,
       ambientLight,
@@ -1054,7 +1121,7 @@ export const BusMadnessArena: React.FC<BusMadnessArenaProps> = ({
     const weatherSystem = new WeatherTimeSystem(scene);
     weatherSystemRef.current = weatherSystem;
     weatherSystem.registerElements({
-      roadMaterial: roadStrip.material as THREE.MeshStandardMaterial,
+      roadMaterial: feederRoadRight.material as THREE.MeshStandardMaterial,
       asphaltMaterial: puzzlePad.material as THREE.MeshStandardMaterial,
       sunLight,
       ambientLight,
@@ -1071,6 +1138,7 @@ export const BusMadnessArena: React.FC<BusMadnessArenaProps> = ({
 
     // Hint Spotlight Beam & Holographic Arrow & Ring
     const hintGroup = new THREE.Group();
+    hintGroup.visible = false;
     hintBeaconRef.current = hintGroup;
 
     // Glowing Holographic Beam
@@ -1559,7 +1627,8 @@ export const BusMadnessArena: React.FC<BusMadnessArenaProps> = ({
 
               // Advanced Parking Evaluator: calculate alignment, clearance & orientation
               if (anim.dockIdx !== undefined) {
-                const targetDockX = DOCK_X_POSITIONS[anim.dockIdx];
+                const currentDocksCount = gameStateRef.current.unlockedDocksCount || 1;
+                const targetDockX = getDockX(anim.dockIdx, currentDocksCount);
                 const grade = AdvancedParkingEvaluator.evaluateDocking(
                   finalPos,
                   targetDockX,
@@ -1917,6 +1986,52 @@ export const BusMadnessArena: React.FC<BusMadnessArenaProps> = ({
     }
   }, [gameState.worldId, gameState.levelId, gameState.gridRows, gameState.gridCols]);
 
+  // Dynamically rebuild parking bays when unlockedDocksCount changes
+  useEffect(() => {
+    if (docksGroupRef.current && bayTextureRef.current) {
+      const docksGroup = docksGroupRef.current;
+      const bayTexture = bayTextureRef.current;
+      while (docksGroup.children.length > 0) {
+        const child = docksGroup.children[0];
+        docksGroup.remove(child);
+        disposeHierarchy(child);
+      }
+
+      const count = gameState.unlockedDocksCount || 1;
+      const positions = getDockPositions(count);
+      const bayPlaneGeo = new THREE.PlaneGeometry(2.1, 4.2);
+      const bayPlaneMat = new THREE.MeshStandardMaterial({
+        map: bayTexture,
+        transparent: true,
+        opacity: 0.95,
+        roughness: 0.35,
+        metalness: 0.05,
+        depthWrite: false,
+      });
+
+      positions.forEach((dx) => {
+        const bayGroup = new THREE.Group();
+        bayGroup.position.set(dx, 0.19, DOCK_Z);
+        bayGroup.rotation.y = DOCK_SLANT_ANGLE;
+
+        const bayPlane = new THREE.Mesh(bayPlaneGeo, bayPlaneMat);
+        bayPlane.rotation.x = -Math.PI / 2;
+        bayPlane.position.y = 0.01;
+        bayPlane.receiveShadow = true;
+        bayGroup.add(bayPlane);
+
+        const stopLine = new THREE.Mesh(
+          new THREE.BoxGeometry(1.8, 0.015, 0.16),
+          new THREE.MeshStandardMaterial({ color: 0xfacc15, roughness: 0.3 })
+        );
+        stopLine.position.set(0, 0.02, -1.9);
+        bayGroup.add(stopLine);
+
+        docksGroup.add(bayGroup);
+      });
+    }
+  }, [gameState.unlockedDocksCount, gameState.levelId]);
+
   // Dynamically update graphics quality & shadows (High with shadows vs Performance no shadows)
   useEffect(() => {
     const isHigh = graphicsQuality === 'HIGH';
@@ -2009,7 +2124,8 @@ export const BusMadnessArena: React.FC<BusMadnessArenaProps> = ({
 
       // Position
       if (v.state === VehicleStateType.DOCKED && v.dockIndex !== undefined) {
-        const dockX = DOCK_X_POSITIONS[v.dockIndex];
+        const currentDocksCount = gameState.unlockedDocksCount || 1;
+        const dockX = getDockX(v.dockIndex, currentDocksCount);
         vGroup.position.set(dockX, rig.baseY, DOCK_Z);
         vGroup.rotation.y = DOCK_SLANT_ANGLE;
       } else {
@@ -2060,7 +2176,8 @@ export const BusMadnessArena: React.FC<BusMadnessArenaProps> = ({
         );
 
         if (targetBus && targetBus.dockIndex !== undefined) {
-          const dockX = DOCK_X_POSITIONS[targetBus.dockIndex];
+          const currentDocksCount = gameState.unlockedDocksCount || 1;
+          const dockX = getDockX(targetBus.dockIndex, currentDocksCount);
           const startX = -6.5;
           const startZ = -10.0;
           const targetPos = new THREE.Vector3(dockX, 0.35, DOCK_Z + 1.2);
@@ -2195,7 +2312,8 @@ export const BusMadnessArena: React.FC<BusMadnessArenaProps> = ({
     const v = gameStateRef.current.vehicles.find((item) => item.id === vid);
     if (!v) return;
 
-    const dockX = DOCK_X_POSITIONS[dockIdx];
+    const currentDocksCount = gameStateRef.current.unlockedDocksCount || 1;
+    const dockX = getDockX(dockIdx, currentDocksCount);
 
     // Generate smooth, continuous Catmull-Rom spline path connecting current location to dock
     const spline = SplinePathGenerator.generatePathToDock(
@@ -2331,7 +2449,7 @@ export const BusMadnessArena: React.FC<BusMadnessArenaProps> = ({
   }, []);
 
   return (
-    <div className="relative w-full h-full select-none overflow-hidden bg-slate-950">
+    <div className="relative w-full h-full select-none overflow-hidden bg-[#bfe0f7]">
       <div ref={mountRef} className="w-full h-full cursor-grab active:cursor-grabbing" />
 
       {/* Dynamic 3D Parking Precision Feedback Badge (Safely below top HUD) */}
@@ -2352,8 +2470,9 @@ export const BusMadnessArena: React.FC<BusMadnessArenaProps> = ({
         </div>
       )}
 
-      {/* Floating In-Game Side Action Rail (Deluxe 3D Arcade Dock on Right Side) */}
-      <div className="absolute right-2.5 sm:right-4 top-1/2 -translate-y-1/2 z-30 flex flex-col items-end pointer-events-auto select-none">
+      {/* Floating In-Game Side Action Rail (Hidden by default matching frame_05.jpg & frame_06.jpg) */}
+      {showDevDock && (
+        <div className="absolute right-2.5 sm:right-4 top-1/2 -translate-y-1/2 z-30 flex flex-col items-end pointer-events-auto select-none">
         {/* Flyout Weather Selector Menu (opens softly to the left of the dock) */}
         {showWeatherControls && (
           <div className="absolute right-[62px] sm:right-[72px] top-1/2 -translate-y-1/2 bg-slate-900/95 backdrop-blur-2xl border-2 border-white/25 rounded-3xl p-3.5 shadow-[0_20px_50px_rgba(0,0,0,0.7),inset_0_1px_1px_rgba(255,255,255,0.2)] flex flex-col gap-2 w-64 sm:w-72 animate-in fade-in slide-in-from-right-3 zoom-in-95 duration-200 z-40">
@@ -2700,6 +2819,7 @@ export const BusMadnessArena: React.FC<BusMadnessArenaProps> = ({
           </div>
         </div>
       </div>
-    </div>
-  );
+    )}
+  </div>
+);
 };

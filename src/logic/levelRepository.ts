@@ -21,6 +21,7 @@ export interface LevelData {
   parMoves: number;
   timeLimit: number; // in seconds
   objective?: string;
+  docksCount?: number;
   grid: {
     rows: number;
     cols: number;
@@ -49,26 +50,22 @@ export const LEVELS_DATA: LevelData[] = [
     id: 1,
     name: 'First Commute',
     world: 1,
-    parMoves: 15,
-    timeLimit: 60,
+    parMoves: 4,
+    timeLimit: 120,
+    docksCount: 1,
     grid: { rows: 7, cols: 7 },
     vehicles: [
-      { id: 'l1_v1', type: VehicleType.BUS, color: 'RED', row: 1, col: 3, direction: Direction.UP, length: 3, capacity: 4 },
-      { id: 'l1_v2', type: VehicleType.CAR, color: 'BLUE', row: 4, col: 4, direction: Direction.RIGHT, length: 2, capacity: 3 },
-      { id: 'l1_v3', type: VehicleType.CAR, color: 'GREEN', row: 4, col: 1, direction: Direction.LEFT, length: 2, capacity: 3 },
+      { id: 'l1_v1', type: VehicleType.VAN, color: 'GREEN', row: 3, col: 3, direction: Direction.DOWN, length: 2, capacity: 6 },
+      { id: 'l1_v2', type: VehicleType.VAN, color: 'YELLOW', row: 3, col: 4, direction: Direction.UP, length: 2, capacity: 6 },
+      { id: 'l1_v3', type: VehicleType.VAN, color: 'BLUE', row: 4, col: 3, direction: Direction.RIGHT, length: 2, capacity: 6 },
+      { id: 'l1_v4', type: VehicleType.VAN, color: 'RED', row: 4, col: 4, direction: Direction.LEFT, length: 2, capacity: 6 },
     ],
     passengers: [
-      { id: 'l1_p1', color: 'RED' },
-      { id: 'l1_p2', color: 'RED' },
-      { id: 'l1_p3', color: 'RED' },
-      { id: 'l1_p4', color: 'RED' },
-      { id: 'l1_p5', color: 'BLUE' },
-      { id: 'l1_p6', color: 'BLUE' },
-      { id: 'l1_p7', color: 'BLUE' },
-      { id: 'l1_p8', color: 'GREEN' },
-      { id: 'l1_p9', color: 'GREEN' },
-      { id: 'l1_p10', color: 'GREEN' },
-    ],
+      ...Array(6).fill('GREEN'),
+      ...Array(6).fill('YELLOW'),
+      ...Array(6).fill('RED'),
+      ...Array(6).fill('BLUE'),
+    ].map((color, i) => ({ id: `l1_p${i}`, color: color as VehicleColor })),
   },
 
   // ========================================================
@@ -76,106 +73,110 @@ export const LEVELS_DATA: LevelData[] = [
   // ========================================================
   {
     id: 2,
-    name: 'Lane Unlocking',
+    name: 'Bus Fleet',
     world: 1,
-    parMoves: 20,
-    timeLimit: 75,
+    parMoves: 4,
+    timeLimit: 120,
+    docksCount: 2,
     grid: { rows: 7, cols: 7 },
     vehicles: [
-      // Top car opens path
-      { id: 'l2_v1', type: VehicleType.CAR, color: 'YELLOW', row: 0, col: 3, direction: Direction.UP, length: 2, capacity: 3 },
-      // Trapped bus behind car
-      { id: 'l2_v2', type: VehicleType.BUS, color: 'BLUE', row: 2, col: 3, direction: Direction.UP, length: 3, capacity: 4 },
-      // Horizontal cross cars
-      { id: 'l2_v3', type: VehicleType.CAR, color: 'RED', row: 5, col: 0, direction: Direction.LEFT, length: 2, capacity: 3 },
-      { id: 'l2_v4', type: VehicleType.VAN, color: 'YELLOW', row: 5, col: 3, direction: Direction.DOWN, length: 2, capacity: 4 },
-      { id: 'l2_v5', type: VehicleType.CAR, color: 'RED', row: 5, col: 5, direction: Direction.RIGHT, length: 2, capacity: 3 },
+      { id: 'l2_v1', type: VehicleType.BUS, color: 'BLUE', row: 3, col: 2, direction: Direction.UP, length: 3, capacity: 10 },
+      { id: 'l2_v2', type: VehicleType.BUS, color: 'YELLOW', row: 3, col: 3, direction: Direction.UP, length: 3, capacity: 10 },
+      { id: 'l2_v3', type: VehicleType.BUS, color: 'RED', row: 3, col: 4, direction: Direction.UP, length: 3, capacity: 10 },
+      { id: 'l2_v4', type: VehicleType.BUS, color: 'GREEN', row: 3, col: 5, direction: Direction.UP, length: 3, capacity: 10 },
     ],
     passengers: [
-      { id: 'l2_p1', color: 'YELLOW' },
-      { id: 'l2_p2', color: 'YELLOW' },
-      { id: 'l2_p3', color: 'YELLOW' },
-      { id: 'l2_p4', color: 'BLUE' },
-      { id: 'l2_p5', color: 'BLUE' },
-      { id: 'l2_p6', color: 'BLUE' },
-      { id: 'l2_p7', color: 'BLUE' },
-      { id: 'l2_p8', color: 'RED' },
-      { id: 'l2_p9', color: 'RED' },
-      { id: 'l2_p10', color: 'RED' },
-      { id: 'l2_p11', color: 'YELLOW' },
-      { id: 'l2_p12', color: 'YELLOW' },
-      { id: 'l2_p13', color: 'YELLOW' },
-      { id: 'l2_p14', color: 'YELLOW' },
-      { id: 'l2_p15', color: 'RED' },
-      { id: 'l2_p16', color: 'RED' },
-      { id: 'l2_p17', color: 'RED' },
-    ],
+      ...Array(10).fill('BLUE'),
+      ...Array(10).fill('YELLOW'),
+      ...Array(10).fill('RED'),
+      ...Array(10).fill('GREEN'),
+    ].map((color, i) => ({ id: `l2_p${i}`, color: color as VehicleColor })),
   },
 
   // ========================================================
-  // LEVEL 3: Spiral Downtown (Complex dependency loop)
+  // LEVEL 3: Airport Loop (Matching Reference Screenshots frame_01 & frame_06)
   // ========================================================
   {
     id: 3,
-    name: 'Spiral Downtown',
+    name: 'Airport Loop',
     world: 1,
-    parMoves: 26,
-    timeLimit: 90,
+    parMoves: 18,
+    timeLimit: 120,
+    docksCount: 2,
     grid: { rows: 7, cols: 7 },
     vehicles: [
-      { id: 'l3_v1', type: VehicleType.BUS, color: 'PINK', row: 0, col: 1, direction: Direction.LEFT, length: 2, capacity: 4 },
-      { id: 'l3_v2', type: VehicleType.CAR, color: 'YELLOW', row: 0, col: 4, direction: Direction.RIGHT, length: 2, capacity: 3 },
-      { id: 'l3_v3', type: VehicleType.BUS, color: 'BLUE', row: 1, col: 5, direction: Direction.DOWN, length: 3, capacity: 4 },
-      { id: 'l3_v4', type: VehicleType.CAR, color: 'GREEN', row: 6, col: 4, direction: Direction.RIGHT, length: 2, capacity: 3 },
-      { id: 'l3_v5', type: VehicleType.BUS, color: 'RED', row: 6, col: 1, direction: Direction.LEFT, length: 2, capacity: 4 },
-      { id: 'l3_v6', type: VehicleType.CAR, color: 'PURPLE', row: 3, col: 0, direction: Direction.UP, length: 2, capacity: 3 },
-      { id: 'l3_v7', type: VehicleType.BUS, color: 'ORANGE', row: 2, col: 2, direction: Direction.UP, length: 2, capacity: 4 },
-      { id: 'l3_v8', type: VehicleType.BUS, color: 'YELLOW', row: 3, col: 3, direction: Direction.DOWN, length: 2, capacity: 4 },
+      { id: 'l3_v1', type: VehicleType.VAN, color: 'PINK', row: 1, col: 1, direction: Direction.RIGHT, length: 2, capacity: 6 },
+      { id: 'l3_v2', type: VehicleType.BUS, color: 'BLUE', row: 1, col: 3, direction: Direction.RIGHT, length: 3, capacity: 10 },
+      { id: 'l3_v3', type: VehicleType.CAR, color: 'BLUE', row: 2, col: 1, direction: Direction.UP, length: 2, capacity: 4 },
+      { id: 'l3_v4', type: VehicleType.BUS, color: 'PINK', row: 4, col: 1, direction: Direction.UP, length: 3, capacity: 10 },
+      { id: 'l3_v5', type: VehicleType.CAR, color: 'PINK', row: 3, col: 3, direction: Direction.RIGHT, length: 2, capacity: 5 },
+      { id: 'l3_v6', type: VehicleType.CAR, color: 'BLUE', row: 3, col: 5, direction: Direction.DOWN, length: 2, capacity: 5 },
+      { id: 'l3_v7', type: VehicleType.BUS, color: 'BLUE', row: 4, col: 2, direction: Direction.LEFT, length: 3, capacity: 10 },
+      { id: 'l3_v8', type: VehicleType.CAR, color: 'PINK', row: 5, col: 4, direction: Direction.RIGHT, length: 2, capacity: 10 },
     ],
     passengers: [
-      { id: 'l3_p1', color: 'PINK' }, { id: 'l3_p2', color: 'PINK' }, { id: 'l3_p3', color: 'PINK' }, { id: 'l3_p4', color: 'PINK' },
-      { id: 'l3_p5', color: 'YELLOW' }, { id: 'l3_p6', color: 'YELLOW' }, { id: 'l3_p7', color: 'YELLOW' },
-      { id: 'l3_p8', color: 'BLUE' }, { id: 'l3_p9', color: 'BLUE' }, { id: 'l3_p10', color: 'BLUE' }, { id: 'l3_p11', color: 'BLUE' },
-      { id: 'l3_p12', color: 'GREEN' }, { id: 'l3_p13', color: 'GREEN' }, { id: 'l3_p14', color: 'GREEN' },
-      { id: 'l3_p15', color: 'RED' }, { id: 'l3_p16', color: 'RED' }, { id: 'l3_p17', color: 'RED' }, { id: 'l3_p18', color: 'RED' },
-      { id: 'l3_p19', color: 'PURPLE' }, { id: 'l3_p20', color: 'PURPLE' }, { id: 'l3_p21', color: 'PURPLE' },
-      { id: 'l3_p22', color: 'ORANGE' }, { id: 'l3_p23', color: 'ORANGE' }, { id: 'l3_p24', color: 'ORANGE' }, { id: 'l3_p25', color: 'ORANGE' },
-      { id: 'l3_p26', color: 'YELLOW' }, { id: 'l3_p27', color: 'YELLOW' }, { id: 'l3_p28', color: 'YELLOW' }, { id: 'l3_p29', color: 'YELLOW' },
-    ],
+      // 1. Initial 6 Pink for l3_v1 / l3_v5
+      ...Array(6).fill('PINK'),
+      // 2. 10 Blue for l3_v2
+      ...Array(10).fill('BLUE'),
+      // 3. 5 Pink for l3_v5
+      ...Array(5).fill('PINK'),
+      // 4. 4 Blue for l3_v3
+      ...Array(4).fill('BLUE'),
+      // 5. 10 Pink for l3_v4
+      ...Array(10).fill('PINK'),
+      // 6. 10 Blue for l3_v7
+      ...Array(10).fill('BLUE'),
+      // 7. 10 Pink for l3_v8
+      ...Array(10).fill('PINK'),
+      // 8. 5 Blue for l3_v6
+      ...Array(5).fill('BLUE'),
+    ].map((color, i) => ({ id: `l3_p${i + 1}`, color: color as VehicleColor })),
   },
 
   // ========================================================
-  // LEVEL 4: Butterfly Wings (Symmetric interlocking)
+  // LEVEL 4: Pinwheel Cross (Matching Reference Screenshot frame_10)
   // ========================================================
   {
     id: 4,
-    name: 'Butterfly Logic',
+    name: 'Pinwheel Cross',
     world: 1,
-    parMoves: 30,
-    timeLimit: 105,
+    parMoves: 22,
+    timeLimit: 120,
+    docksCount: 2,
     grid: { rows: 7, cols: 7 },
     vehicles: [
-      { id: 'l4_v1', type: VehicleType.CAR, color: 'ORANGE', row: 0, col: 0, direction: Direction.LEFT, length: 2, capacity: 3 },
-      { id: 'l4_v2', type: VehicleType.CAR, color: 'ORANGE', row: 0, col: 5, direction: Direction.RIGHT, length: 2, capacity: 3 },
-      { id: 'l4_v3', type: VehicleType.BUS, color: 'BLUE', row: 0, col: 2, direction: Direction.UP, length: 3, capacity: 4 },
-      { id: 'l4_v4', type: VehicleType.BUS, color: 'BLUE', row: 0, col: 4, direction: Direction.UP, length: 3, capacity: 4 },
-      { id: 'l4_v5', type: VehicleType.BUS, color: 'RED', row: 1, col: 3, direction: Direction.UP, length: 3, capacity: 4 },
-      { id: 'l4_v6', type: VehicleType.CAR, color: 'GREEN', row: 5, col: 0, direction: Direction.LEFT, length: 2, capacity: 3 },
-      { id: 'l4_v7', type: VehicleType.CAR, color: 'GREEN', row: 5, col: 5, direction: Direction.RIGHT, length: 2, capacity: 3 },
-      { id: 'l4_v8', type: VehicleType.BUS, color: 'PURPLE', row: 4, col: 2, direction: Direction.DOWN, length: 3, capacity: 4 },
-      { id: 'l4_v9', type: VehicleType.BUS, color: 'PURPLE', row: 4, col: 4, direction: Direction.DOWN, length: 3, capacity: 4 },
+      // Top pair
+      { id: 'l4_v1', type: VehicleType.BUS, color: 'RED', row: 0, col: 2, direction: Direction.UP, length: 3, capacity: 10 },
+      { id: 'l4_v2', type: VehicleType.BUS, color: 'YELLOW', row: 0, col: 3, direction: Direction.UP, length: 3, capacity: 10 },
+      // Right pair
+      { id: 'l4_v3', type: VehicleType.BUS, color: 'RED', row: 2, col: 4, direction: Direction.RIGHT, length: 3, capacity: 10 },
+      { id: 'l4_v4', type: VehicleType.BUS, color: 'YELLOW', row: 3, col: 4, direction: Direction.RIGHT, length: 3, capacity: 10 },
+      // Bottom pair
+      { id: 'l4_v5', type: VehicleType.BUS, color: 'YELLOW', row: 4, col: 2, direction: Direction.DOWN, length: 3, capacity: 10 },
+      { id: 'l4_v6', type: VehicleType.BUS, color: 'RED', row: 4, col: 3, direction: Direction.DOWN, length: 3, capacity: 10 },
+      // Left pair
+      { id: 'l4_v7', type: VehicleType.BUS, color: 'RED', row: 2, col: 0, direction: Direction.LEFT, length: 3, capacity: 10 },
+      { id: 'l4_v8', type: VehicleType.BUS, color: 'YELLOW', row: 3, col: 0, direction: Direction.LEFT, length: 3, capacity: 10 },
+      // Center green cars
+      { id: 'l4_v9', type: VehicleType.CAR, color: 'GREEN', row: 2, col: 2, direction: Direction.RIGHT, length: 2, capacity: 4 },
+      { id: 'l4_v10', type: VehicleType.CAR, color: 'GREEN', row: 3, col: 2, direction: Direction.RIGHT, length: 2, capacity: 4 },
     ],
     passengers: [
-      { id: 'l4_p1', color: 'ORANGE' }, { id: 'l4_p2', color: 'ORANGE' }, { id: 'l4_p3', color: 'ORANGE' },
-      { id: 'l4_p4', color: 'BLUE' }, { id: 'l4_p5', color: 'BLUE' }, { id: 'l4_p6', color: 'BLUE' }, { id: 'l4_p7', color: 'BLUE' },
-      { id: 'l4_p8', color: 'ORANGE' }, { id: 'l4_p9', color: 'ORANGE' }, { id: 'l4_p10', color: 'ORANGE' },
-      { id: 'l4_p11', color: 'BLUE' }, { id: 'l4_p12', color: 'BLUE' }, { id: 'l4_p13', color: 'BLUE' }, { id: 'l4_p14', color: 'BLUE' },
-      { id: 'l4_p15', color: 'RED' }, { id: 'l4_p16', color: 'RED' }, { id: 'l4_p17', color: 'RED' }, { id: 'l4_p18', color: 'RED' },
-      { id: 'l4_p19', color: 'GREEN' }, { id: 'l4_p20', color: 'GREEN' }, { id: 'l4_p21', color: 'GREEN' },
-      { id: 'l4_p22', color: 'GREEN' }, { id: 'l4_p23', color: 'GREEN' }, { id: 'l4_p24', color: 'GREEN' },
-      { id: 'l4_p25', color: 'PURPLE' }, { id: 'l4_p26', color: 'PURPLE' }, { id: 'l4_p27', color: 'PURPLE' }, { id: 'l4_p28', color: 'PURPLE' },
-      { id: 'l4_p29', color: 'PURPLE' }, { id: 'l4_p30', color: 'PURPLE' }, { id: 'l4_p31', color: 'PURPLE' }, { id: 'l4_p32', color: 'PURPLE' },
-    ],
+      // Outer unblocked: Yellow & Red
+      ...Array(10).fill('YELLOW'),
+      ...Array(10).fill('YELLOW'),
+      ...Array(10).fill('RED'),
+      ...Array(10).fill('RED'),
+      // Inner: Red & Yellow
+      ...Array(10).fill('RED'),
+      ...Array(10).fill('RED'),
+      ...Array(10).fill('YELLOW'),
+      ...Array(10).fill('YELLOW'),
+      // Center: Green
+      ...Array(4).fill('GREEN'),
+      ...Array(4).fill('GREEN'),
+    ].map((color, i) => ({ id: `l4_p${i + 1}`, color: color as VehicleColor })),
   },
 
   // ========================================================
@@ -398,7 +399,7 @@ export class LevelRepository {
       activeHintVehicleId: null,
       hintMessage: 'Tap an unblocked vehicle pointing to an open road!',
       comboCount: 0,
-      unlockedDocksCount: 5,
+      unlockedDocksCount: data.docksCount || 5,
       objective,
     };
   }

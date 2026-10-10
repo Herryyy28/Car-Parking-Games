@@ -170,6 +170,7 @@ export class GameController {
 
     this.state.moves = Math.max(0, this.state.moves - 1);
     this.state.status = GameStatus.VEHICLE_MOVING;
+    this.state.activeHintVehicleId = null;
 
     // Update vehicle state
     this.state.vehicles = this.state.vehicles.map((v) =>
@@ -347,10 +348,12 @@ export class GameController {
   /**
    * Computes authoritative hint via PuzzleSolver.
    */
-  public updateHint(): void {
+  public updateHint(setActiveVehicle = false): void {
     const bestMove = PuzzleSolver.findBestMove(this.state);
     if (bestMove) {
-      this.state.activeHintVehicleId = bestMove.vehicleId;
+      if (setActiveVehicle) {
+        this.state.activeHintVehicleId = bestMove.vehicleId;
+      }
       this.state.hintMessage = `💡 ${bestMove.reason}`;
     } else {
       this.state.activeHintVehicleId = null;
@@ -392,7 +395,7 @@ export class GameController {
       }
 
       case 'hint': {
-        this.updateHint();
+        this.updateHint(true);
         this.notify();
         return true;
       }

@@ -39,9 +39,9 @@ export const WORLD_THEMES: Record<number, WorldThemeConfig> = {
   // WORLD 1 — Sunny City Parking (Levels 1 - 125)
   1: {
     id: 1,
-    name: 'City Parking',
-    subtitle: 'Sunny downtown streets & colorful parking bays',
-    icon: '🌱',
+    name: 'Airport',
+    subtitle: 'Sunny airport terminals & colorful parking bays',
+    icon: '✈️',
     badge: 'World 1',
     levelStart: 1,
     levelEnd: 125,
@@ -75,7 +75,7 @@ export const WORLD_THEMES: Record<number, WorldThemeConfig> = {
     accentGlowColor: 0xfef08a,
     treeFoliageColor: 0x22c55e, // vibrant green trees
     treeTrunkColor: 0xb45309,
-    propType: 'city',
+    propType: 'airport',
   },
 
   // WORLD 2 — Central Transit Terminal (Levels 126 - 250)

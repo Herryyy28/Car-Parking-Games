@@ -89,21 +89,21 @@ export class DynamicCameraController {
   private targetRoll = 0;
 
   // Exploration Spherical Orbit
-  private orbitRadius = 32.0;
-  private targetOrbitRadius = 32.0;
+  private orbitRadius = 34.0;
+  private targetOrbitRadius = 34.0;
   private orbitTheta = 0; // horizontal angle in radians
   private targetOrbitTheta = 0;
-  private orbitPhi = Math.PI / 4.2; // elevation angle in radians (~43 deg for perfect 3D diorama)
-  private targetOrbitPhi = Math.PI / 4.2;
+  private orbitPhi = Math.PI / 3.4; // elevation angle in radians (~53 deg matching reference screenshots)
+  private targetOrbitPhi = Math.PI / 3.4;
 
-  private orbitPanTarget: THREE.Vector3 = new THREE.Vector3(0, 0, 1.2);
-  private targetOrbitPanTarget: THREE.Vector3 = new THREE.Vector3(0, 0, 1.2);
+  private orbitPanTarget: THREE.Vector3 = new THREE.Vector3(0, 0, 0.6);
+  private targetOrbitPanTarget: THREE.Vector3 = new THREE.Vector3(0, 0, 0.6);
 
   // Cinematic Intro animation
   private introProgress = 0;
   private introDuration = 0.8; // quick, non-disruptive ease
   private introStartPos = new THREE.Vector3(0, 32, 28);
-  private introStartLookAt = new THREE.Vector3(0, 0, 1.2);
+  private introStartLookAt = new THREE.Vector3(0, 0, 0.6);
 
   // Completion Orbit animation
   private completionTime = 0;
@@ -119,10 +119,10 @@ export class DynamicCameraController {
     this.currentFOV = this.defaultFOV;
     this.targetFOV = this.defaultFOV;
 
-    this.currentPosition = new THREE.Vector3(0, 24, 21);
-    this.targetPosition = new THREE.Vector3(0, 24, 21);
-    this.currentLookAt = new THREE.Vector3(0, 0, 1.2);
-    this.targetLookAt = new THREE.Vector3(0, 0, 1.2);
+    this.currentPosition = new THREE.Vector3(0, 26, 22);
+    this.targetPosition = new THREE.Vector3(0, 26, 22);
+    this.currentLookAt = new THREE.Vector3(0, 0, 0.6);
+    this.targetLookAt = new THREE.Vector3(0, 0, 0.6);
 
     this.computeExplorationTarget();
     this.currentPosition.copy(this.targetPosition);
@@ -280,9 +280,12 @@ export class DynamicCameraController {
     this.defaultFOV = aspect < 0.65 ? 50 : 48;
 
     // Sweet spot target centered between terminal bays (z: -6.8) and main puzzle grid (z: 4.5)
-    const centerZ = 0.8;
+    const centerZ = -1.0;
     this.orbitPanTarget.set(0, 0, centerZ);
     this.targetOrbitPanTarget.set(0, 0, centerZ);
+    this.targetOrbitPhi = Math.PI / 3.1; // ~58 deg high diorama angle matching frame_05.jpg
+    this.orbitPhi = Math.PI / 3.1;
+    this.defaultFOV = aspect < 0.65 ? 54 : 48;
 
     if (this.mode === 'EXPLORATION') {
       this.computeExplorationTarget();

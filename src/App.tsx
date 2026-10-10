@@ -40,11 +40,16 @@ import {
   Wrench,
   Crown,
 } from 'lucide-react';
+import { LoadingScreen } from './components/LoadingScreen.tsx';
+import { EditProfileModal, AVATAR_OPTIONS } from './components/EditProfileModal.tsx';
+import { JourneyView } from './components/JourneyView.tsx';
 import { BusMadnessArena } from './components/BusMadnessArena.tsx';
+import { ArenaErrorBoundary } from './components/ArenaErrorBoundary.tsx';
 import { Hero3DShowcase } from './components/Hero3DShowcase.tsx';
 import { Home3DDepotScene } from './components/Home3DDepotScene.tsx';
 import { World3DAdventureMap } from './components/World3DAdventureMap.tsx';
 import { SettingsModal } from './components/SettingsModal.tsx';
+import { VictoryModal } from './components/VictoryModal.tsx';
 import { BusGarageModal } from './components/BusGarageModal.tsx';
 import { DailyRewardModal, DailyRewardDay } from './components/DailyRewardModal.tsx';
 import { GameGuideModal } from './components/GameGuideModal.tsx';
@@ -64,10 +69,11 @@ import { PuzzleSolver } from './logic/puzzleSolver.ts';
 import { sounds } from './utils/soundEffects.ts';
 import { WORLD_THEMES, getWorldConfig, getWorldIdForLevel } from './logic/worldThemes.ts';
 
-type ScreenMode = 'HOME' | 'LEVEL_SELECT' | 'GAME';
+type ScreenMode = 'LOADING' | 'HOME' | 'LEVEL_SELECT' | 'GAME';
 
 export default function App() {
-  const [screen, setScreen] = useState<ScreenMode>('HOME');
+  const [screen, setScreen] = useState<ScreenMode>('LOADING');
+  const [activeTab, setActiveTab] = useState<'SHOP' | 'LEADERBOARD' | 'HOME' | 'JOURNEY' | 'SETTINGS'>('HOME');
   const [progress, setProgress] = useState(() => PlayerProgress.get());
   const [selectedGameMode, setSelectedGameMode] = useState<GameMode>(
     () => progress.preferredGameMode || GameMode.CLASSIC
@@ -75,7 +81,7 @@ export default function App() {
   const [controller] = useState<GameController>(
     () =>
       new GameController(
-        1,
+        progress.currentLevel || 3,
         progress.preferredDifficulty || Difficulty.HARD,
         progress.preferredGameMode || GameMode.CLASSIC
       )
@@ -90,6 +96,25 @@ export default function App() {
   const arenaContainerRef = useRef<HTMLDivElement>(null);
 
   const [soundOn, setSoundOn] = useState(() => progress.soundEnabled);
+  const [musicOn, setMusicOn] = useState(false);
+  const [colorBlindOn, setColorBlindOn] = useState(false);
+  const [playerName, setPlayerName] = useState(() => {
+    return localStorage.getItem('bus_game_player_name') || 'Player_ARLEQ';
+  });
+  const [playerAvatarId, setPlayerAvatarId] = useState(() => {
+    return localStorage.getItem('bus_game_player_avatar') || 'duck';
+  });
+  const [showProfileModal, setShowProfileModal] = useState(false);
+
+  const handleSaveProfile = (name: string, avatarId: string) => {
+    setPlayerName(name);
+    setPlayerAvatarId(avatarId);
+    localStorage.setItem('bus_game_player_name', name);
+    localStorage.setItem('bus_game_player_avatar', avatarId);
+    sounds.playClick();
+  };
+
+  const currentAvatarOption = AVATAR_OPTIONS.find((a) => a.id === playerAvatarId) || AVATAR_OPTIONS[0];
   const [graphicsQuality, setGraphicsQuality] = useState<GraphicsQuality>(() => PlayerProgress.getGraphicsQuality());
 
   // Modals
@@ -407,6 +432,12 @@ export default function App() {
       {/* Screen Router */}
       <main className="flex-1 w-full h-full flex flex-col overflow-hidden relative">
         {/* ========================================================
+            SCREEN 0: SPLASH / LOADING SCREEN (MATCHING SCREENSHOT 1)
+           ======================================================== */}
+        {screen === 'LOADING' && (
+          <LoadingScreen onComplete={() => setScreen('HOME')} />
+        )}
+        {/* ========================================================
             SCREEN 1: IMMERSIVE 3D GAME HOME SCREEN
            ======================================================== */}
         {screen === 'HOME' && (
@@ -416,186 +447,524 @@ export default function App() {
               <Home3DDepotScene />
             </div>
 
-            {/* Subtle Gradient Overlays for High-Contrast Game UI Text */}
-            <div className="absolute inset-x-0 top-0 h-36 bg-gradient-to-b from-slate-950/85 via-slate-950/40 to-transparent pointer-events-none z-10" />
-            <div className="absolute inset-x-0 bottom-0 h-44 bg-gradient-to-t from-slate-950/95 via-slate-950/60 to-transparent pointer-events-none z-10" />
-
             {/* 2. Floating Game HUD Overlays */}
-            <div className="relative z-20 w-full h-full flex flex-col justify-between p-3 sm:p-5 pointer-events-none">
-              {/* Top Navigation & Economy Bar */}
-              <div className="w-full flex items-center justify-between gap-2 max-w-4xl mx-auto">
-                {/* World & Level Progression Pill */}
-                <button
-                  onClick={() => {
-                    sounds.playClick();
-                    setScreen('LEVEL_SELECT');
-                  }}
-                  className="pointer-events-auto flex items-center gap-2 bg-slate-900/90 hover:bg-slate-800/90 border border-slate-700/80 px-3 py-1.5 rounded-2xl shadow-lg active:scale-95 transition-transform"
-                  title="Explore World Map"
-                >
-                  <span className="text-base">
-                    {getWorldConfig(gameState.worldId || getWorldIdForLevel(gameState.levelId)).icon}
-                  </span>
-                  <div className="text-left">
-                    <span className="text-[10px] uppercase font-black tracking-wider text-sky-400 block leading-tight">
-                      {getWorldConfig(gameState.worldId || getWorldIdForLevel(gameState.levelId)).name}
-                    </span>
-                    <span className="text-xs font-black text-white leading-tight">
-                      Level {progress.unlockedLevel} / {allLevels.length}
-                    </span>
+            <div className="relative z-20 w-full h-full flex flex-col pointer-events-none">
+              
+              {/* Main Content Area based on Tab */}
+              {activeTab === 'HOME' && (
+                <>
+                  {/* Top Header: Avatar & Coin Pill (Matching frame_04.jpg) */}
+                  <div className="absolute top-4 left-4 z-20 flex items-start pointer-events-none select-none">
+                    {/* Left: Avatar with connected Coin Pill */}
+                    <div className="pointer-events-auto flex items-center">
+                      {/* Avatar Square (Click to Edit Profile - frame_04.jpg) */}
+                      <div 
+                        onClick={() => {
+                          sounds.playClick();
+                          setShowProfileModal(true);
+                        }}
+                        className="w-14 h-14 rounded-2xl border-[3.5px] border-[#93C5FD] bg-gradient-to-b from-[#D946EF] to-[#9333EA] shadow-[0_4px_12px_rgba(0,0,0,0.3)] flex items-center justify-center p-1 relative cursor-pointer active:scale-95 transition-transform z-10"
+                        title="Edit Profile"
+                      >
+                        <div className="absolute inset-0.5 rounded-[12px] border border-white/35 pointer-events-none" />
+                        <span className="text-3xl filter drop-shadow select-none">
+                          {currentAvatarOption.emoji || '🦆'}
+                        </span>
+                      </div>
+
+                      {/* Connected Coin Pill (frame_04.jpg) */}
+                      <div className="flex items-center bg-[#FFFDF0] border-[3px] border-[#B45309] rounded-full h-10 shadow-[0_4px_10px_rgba(0,0,0,0.25)] -ml-2.5 z-0 pl-1 pr-3.5">
+                        {/* 3D Gold Coin with embossed 'G' and green '+' badge */}
+                        <div className="w-9 h-9 rounded-full bg-gradient-to-b from-[#FDE047] via-[#F59E0B] to-[#D97706] border-2 border-[#FEF08A] flex items-center justify-center shadow-sm relative -ml-1.5 z-10">
+                          <span className="text-[#78350F] font-black text-sm tracking-tighter">G</span>
+                          {/* Connected Green Plus Button */}
+                          <button 
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              sounds.playClick();
+                              setActiveTab('SHOP');
+                            }}
+                            className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-[#22C55E] border-2 border-white flex items-center justify-center shadow-md active:scale-90 transition-transform"
+                            title="Buy Coins"
+                          >
+                            <span className="text-white text-xs font-black leading-none pb-0.5">+</span>
+                          </button>
+                        </div>
+                        {/* Coin Amount */}
+                        <span className="text-[#451A03] font-black ml-2.5 text-lg tracking-wide font-sans">
+                          {gameState.coins}
+                        </span>
+                      </div>
+                    </div>
                   </div>
-                </button>
 
-                {/* Stars Counter */}
-                <div className="hidden xs:flex items-center gap-1.5 bg-slate-900/90 border border-slate-700/80 px-3 py-1.5 rounded-2xl shadow-lg">
-                  <Star className="w-4 h-4 fill-amber-400 text-amber-400 animate-pulse" />
-                  <span className="text-xs font-black text-amber-300">
-                    {Object.values(progress.stars).reduce((a, b) => a + b, 0)}
-                  </span>
+                  {/* Bottom Play Button (Matching frame_04.jpg: "Level 3") */}
+                  <div className="absolute bottom-[98px] left-0 right-0 z-20 flex justify-center pointer-events-none select-none">
+                    <button
+                      onClick={() => {
+                        sounds.playClick();
+                        handleLevelSelect(gameState.levelId, selectedDifficulty, selectedGameMode);
+                      }}
+                      className="pointer-events-auto cursor-pointer relative overflow-hidden bg-gradient-to-b from-[#84CC16] via-[#65A30D] to-[#4D7C0F] border-[4.5px] border-[#FFFDF0] rounded-[26px] px-14 py-3 shadow-[0_6px_0_#14532D,0_12px_22px_rgba(0,0,0,0.4)] active:translate-y-1.5 active:shadow-[0_1px_0_#14532D] transition-all flex items-center justify-center min-w-[240px]"
+                    >
+                      {/* Top gloss highlight reflection */}
+                      <div className="absolute top-0.5 inset-x-2 h-[45%] bg-gradient-to-b from-white/35 to-transparent rounded-t-[20px] pointer-events-none" />
+                      <span 
+                        className="text-[32px] sm:text-[35px] font-black text-white relative z-10 tracking-wide drop-shadow-[0_2px_3px_rgba(20,83,45,0.95)]" 
+                      >
+                        Level {gameState.levelId}
+                      </span>
+                    </button>
+                  </div>
+                </>
+              )}
+
+              {activeTab === 'SHOP' && (
+                <div className="absolute inset-0 bg-[#1E3A8A] z-40 pointer-events-auto flex flex-col pt-4 px-4 pb-[105px] overflow-y-auto select-none">
+                  {/* Top Header: Coin Counter & Golden 3D "Shop" Title */}
+                  <div className="flex items-center justify-between mb-4 border-b-2 border-yellow-400 pb-2">
+                    <div className="flex items-center bg-[#FFF1D0] border-[3px] border-[#B07B46] rounded-full px-2.5 py-1 h-8 shadow-md">
+                      <div className="w-7 h-7 rounded-full bg-amber-400 border-2 border-yellow-200 flex items-center justify-center -ml-2.5 z-10 shadow-sm relative">
+                        <span className="text-[#D97706] font-black text-[12px] absolute">C</span>
+                      </div>
+                      <span className="text-[#8B4513] font-black ml-1.5 pr-2 text-sm">{gameState.coins}</span>
+                      <button className="w-5 h-5 rounded-full bg-[#84cc16] border-2 border-white flex items-center justify-center shadow-sm -mr-1.5">
+                        <span className="text-white text-base font-black leading-none mb-0.5">+</span>
+                      </button>
+                    </div>
+
+                    <h1 
+                      className="text-3xl font-black text-[#FBBF24] drop-shadow-[0_2px_0_#B07B46] mr-4" 
+                      style={{WebkitTextStroke: '1px #B07B46'}}
+                    >
+                      Shop
+                    </h1>
+                    <div className="w-16"></div>
+                  </div>
+                  
+                  {/* 1. Remove Ads Banner Card */}
+                  <div className="bg-[#3b82f6]/95 border-2 border-[#60a5fa] rounded-2xl p-4 mb-3.5 relative overflow-hidden shadow-lg flex items-center justify-between">
+                    <div className="absolute top-2 right-2 w-5 h-5 bg-blue-400 rounded-full flex items-center justify-center text-white text-xs font-bold shadow-sm">
+                      i
+                    </div>
+                    <div>
+                      <div className="text-white font-black text-sm">Remove Banner</div>
+                      <div className="text-white font-black text-sm mb-3">and Pop-up Ads</div>
+                      <button 
+                        onClick={() => sounds.playCoinCollect()}
+                        className="bg-gradient-to-b from-[#84cc16] to-[#4d7c0f] border-2 border-[#bef264] text-white font-black text-sm px-5 py-1.5 rounded-xl shadow-md active:translate-y-0.5"
+                      >
+                        ₹1,100.00
+                      </button>
+                    </div>
+                    {/* Glowing Golden ADS Medallion */}
+                    <div className="relative mr-2 flex items-center justify-center">
+                      <div className="absolute w-24 h-24 bg-amber-400/20 rounded-full blur-lg animate-pulse" />
+                      <div className="w-20 h-20 rounded-full bg-gradient-to-br from-amber-300 via-amber-400 to-amber-600 border-4 border-yellow-200 flex items-center justify-center shadow-xl rotate-12 relative">
+                        <span className="text-amber-950 font-black text-2xl tracking-tighter">ADS</span>
+                        <div className="absolute w-full h-1 bg-red-600 rotate-45 transform origin-center shadow" />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 2. Swift Bundle Card */}
+                  <div className="bg-[#FFF1D0] border-4 border-[#B07B46] rounded-2xl mb-3.5 overflow-hidden shadow-md">
+                    <div className="p-3.5 flex justify-between items-center border-b-2 border-amber-200">
+                      <div className="flex flex-col items-center">
+                        <div className="text-3xl mb-0.5">🪙</div>
+                        <div className="text-[#8B4513] font-black text-lg" style={{WebkitTextStroke: '0.5px white'}}>4 000</div>
+                      </div>
+                      <div className="bg-white/80 rounded-xl p-2 border-2 border-amber-200 flex gap-4">
+                        <div className="flex flex-col items-center"><span className="text-2xl">🚙</span><span className="text-[#8B4513] font-black text-xs">x1</span></div>
+                        <div className="flex flex-col items-center"><span className="text-2xl">🚁</span><span className="text-[#8B4513] font-black text-xs">x1</span></div>
+                        <div className="flex flex-col items-center"><span className="text-2xl">🟢</span><span className="text-[#8B4513] font-black text-xs">x1</span></div>
+                      </div>
+                    </div>
+                    <div className="bg-[#1D4ED8] px-4 py-2.5 flex justify-between items-center">
+                      <div className="text-white font-black text-base">Swift Bundle</div>
+                      <button 
+                        onClick={() => sounds.playCoinCollect()}
+                        className="bg-gradient-to-b from-[#84cc16] to-[#4d7c0f] border-2 border-[#bef264] text-white font-black text-sm px-4 py-1.5 rounded-lg shadow-md active:translate-y-0.5"
+                      >
+                        ₹550.00
+                      </button>
+                    </div>
+                  </div>
+                  
+                  {/* 3. Professional Bundle Card */}
+                  <div className="bg-[#FFF1D0] border-4 border-[#B07B46] rounded-2xl mb-3.5 overflow-hidden shadow-md">
+                    <div className="p-3.5 flex justify-between items-center border-b-2 border-amber-200">
+                      <div className="flex flex-col items-center">
+                        <div className="text-3xl mb-0.5">🪙</div>
+                        <div className="text-[#8B4513] font-black text-lg" style={{WebkitTextStroke: '0.5px white'}}>8 000</div>
+                      </div>
+                      <div className="bg-white/80 rounded-xl p-2 border-2 border-amber-200 flex gap-4">
+                        <div className="flex flex-col items-center"><span className="text-2xl">🚙</span><span className="text-[#8B4513] font-black text-xs">x2</span></div>
+                        <div className="flex flex-col items-center"><span className="text-2xl">🚁</span><span className="text-[#8B4513] font-black text-xs">x2</span></div>
+                        <div className="flex flex-col items-center"><span className="text-2xl">🟢</span><span className="text-[#8B4513] font-black text-xs">x2</span></div>
+                      </div>
+                    </div>
+                    <div className="bg-[#1D4ED8] px-4 py-2.5 flex justify-between items-center">
+                      <div className="text-white font-black text-base">Professional Bundle</div>
+                      <button 
+                        onClick={() => sounds.playCoinCollect()}
+                        className="bg-gradient-to-b from-[#84cc16] to-[#4d7c0f] border-2 border-[#bef264] text-white font-black text-sm px-4 py-1.5 rounded-lg shadow-md active:translate-y-0.5"
+                      >
+                        ₹950.00
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* 4. Popular Master Bundle Card (with red ribbon) */}
+                  <div className="bg-[#FFF1D0] border-4 border-[#B07B46] rounded-2xl mb-3.5 overflow-hidden shadow-md relative">
+                    {/* Red Corner Ribbon */}
+                    <div className="absolute top-0 left-0 bg-red-600 text-white font-black text-[10px] px-3 py-0.5 rounded-br-lg shadow-sm z-10 uppercase tracking-wider">
+                      Popular
+                    </div>
+                    <div className="p-3.5 pt-5 flex justify-between items-center border-b-2 border-amber-200">
+                      <div className="flex flex-col items-center">
+                        <div className="text-3xl mb-0.5">🪙</div>
+                        <div className="text-[#8B4513] font-black text-lg" style={{WebkitTextStroke: '0.5px white'}}>16 000</div>
+                      </div>
+                      <div className="bg-white/80 rounded-xl p-2 border-2 border-amber-200 flex gap-4">
+                        <div className="flex flex-col items-center"><span className="text-2xl">🚙</span><span className="text-[#8B4513] font-black text-xs">x4</span></div>
+                        <div className="flex flex-col items-center"><span className="text-2xl">🚁</span><span className="text-[#8B4513] font-black text-xs">x4</span></div>
+                        <div className="flex flex-col items-center"><span className="text-2xl">🟢</span><span className="text-[#8B4513] font-black text-xs">x4</span></div>
+                      </div>
+                    </div>
+                    <div className="bg-[#1D4ED8] px-4 py-2.5 flex justify-between items-center">
+                      <div className="text-white font-black text-base">Master Bundle</div>
+                      <button 
+                        onClick={() => sounds.playCoinCollect()}
+                        className="bg-gradient-to-b from-[#84cc16] to-[#4d7c0f] border-2 border-[#bef264] text-white font-black text-sm px-4 py-1.5 rounded-lg shadow-md active:translate-y-0.5"
+                      >
+                        ₹1,800.00
+                      </button>
+                    </div>
+                  </div>
                 </div>
+              )}
 
-                {/* Right Actions: Daily Gift + Coin Stash + Settings */}
-                <div className="flex items-center gap-1.5 sm:gap-2">
-                  {/* Daily Gift Button */}
-                  <button
-                    onClick={() => {
-                      sounds.playClick();
-                      setShowDailyModal(true);
-                    }}
-                    className={`pointer-events-auto relative flex items-center gap-1.5 px-3 py-1.5 rounded-2xl text-xs font-black transition-all game-btn shadow-lg ${
-                      isDailyReady
-                        ? 'game-btn-amber animate-pulse'
-                        : 'game-btn-dark text-amber-300'
-                    }`}
-                    title="Daily Mystery Reward"
-                  >
-                    <Gift className={`w-4 h-4 ${isDailyReady ? 'text-slate-950 animate-bounce' : 'text-amber-400'}`} />
-                    <span className="hidden sm:inline">Daily</span>
-                    {isDailyReady && (
-                      <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full border-2 border-slate-900 animate-ping" />
-                    )}
-                  </button>
+              {activeTab === 'LEADERBOARD' && (
+                <div className="absolute inset-0 bg-[#1E3A8A] z-40 pointer-events-auto flex flex-col pt-4 px-4 pb-[105px] select-none">
+                  {/* Top Header: Golden 3D "Leaderboard" Title */}
+                  <div className="flex items-center justify-center mb-16 border-b-2 border-yellow-400 pb-3">
+                    <h1 
+                      className="text-3xl font-black text-[#FBBF24] drop-shadow-[0_2px_0_#B07B46]" 
+                      style={{WebkitTextStroke: '1px #B07B46'}}
+                    >
+                      Leaderboard
+                    </h1>
+                  </div>
 
-                  {/* Coin Counter Pill */}
-                  <button
-                    onClick={() => {
-                      sounds.playClick();
-                      setShowShopModal(true);
-                    }}
-                    className="pointer-events-auto flex items-center gap-1.5 bg-amber-500/20 hover:bg-amber-500/30 border border-amber-400/50 px-3 py-1.5 rounded-2xl text-xs font-black text-amber-300 active:scale-95 transition-all shadow-lg group"
-                    title="Coin Vault"
-                  >
-                    <span>🪙</span>
-                    <span className="font-mono font-black">{gameState.coins.toLocaleString()}</span>
-                    <span className="text-amber-400 text-[10px] bg-amber-400/30 px-1.5 py-0.5 rounded-md font-black">+</span>
-                  </button>
-
-                  {/* Settings Modal Button */}
-                  <button
-                    onClick={() => {
-                      sounds.playClick();
-                      setShowSettingsModal(true);
-                    }}
-                    className="pointer-events-auto w-9 h-9 rounded-2xl game-btn game-btn-dark flex items-center justify-center text-slate-300 hover:text-white shadow-lg active:scale-95"
-                    title="Settings"
-                  >
-                    <Settings className="w-4 h-4 text-slate-300" />
-                  </button>
+                  {/* Centered Locked State (Padlock & "Unlock after level 30") */}
+                  <div className="flex-1 flex flex-col items-center justify-center -mt-20">
+                    <div className="w-16 h-20 bg-[#94A3B8] rounded-2xl mb-4 flex items-center justify-center shadow-xl relative border-2 border-slate-300">
+                      {/* Arched Shackle */}
+                      <div className="w-8 h-10 border-[5px] border-[#64748B] rounded-t-full absolute -top-5"></div>
+                      {/* Keyhole */}
+                      <div className="w-3 h-5 bg-[#334155] rounded-full"></div>
+                    </div>
+                    <div className="text-white font-bold text-lg tracking-wide drop-shadow">
+                      Unlock after level 30
+                    </div>
+                  </div>
                 </div>
-              </div>
+              )}
 
-              {/* Center Game Title Banner */}
-              <div className="w-full flex flex-col items-center text-center my-auto pointer-events-none">
-                <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-slate-950/70 border border-slate-700/80 shadow-md backdrop-blur-sm mb-1.5">
-                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
-                  <span className="text-[10px] font-black tracking-widest text-emerald-300 uppercase">
-                    3D TRAFFIC & COLOR PUZZLE
-                  </span>
-                </div>
-                <h1 className="text-3xl sm:text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-amber-300 via-yellow-200 to-amber-400 tracking-wide drop-shadow-[0_4px_12px_rgba(0,0,0,0.8)] filter">
-                  BUS GAME 3D
-                </h1>
-                <p className="text-xs font-black text-sky-300 tracking-wider mt-1 drop-shadow-md">
-                  COLOR JAM & PASSENGER SORT
-                </p>
-              </div>
-
-              {/* Bottom Casual Action Deck */}
-              <div className="w-full max-w-md mx-auto space-y-2.5 pb-2">
-                {/* PRIMARY PLAY / CONTINUE BUTTON */}
-                <button
-                  onClick={() => {
-                    const currentLvl = LevelRepository.getLevel(gameState.levelId);
+              {activeTab === 'JOURNEY' && (
+                <JourneyView
+                  currentLevel={gameState.levelId}
+                  unlockedLevel={progress.unlockedLevel}
+                  onSelectLevel={(levelId) => {
+                    const currentLvl = LevelRepository.getLevel(levelId);
                     handleOpenLevelIntro(currentLvl);
                   }}
-                  className="pointer-events-auto w-full py-4 rounded-2xl game-btn game-btn-emerald shine-sweep text-white font-black text-lg flex flex-col items-center justify-center shadow-2xl active:scale-95 transition-transform border-2 border-emerald-300/40"
-                >
-                  <div className="flex items-center gap-2">
-                    <Play className="w-6 h-6 fill-white" />
-                    <span>PLAY LEVEL {gameState.levelId}</span>
+                />
+              )}
+
+              {activeTab === 'SETTINGS' && (
+                <div className="absolute inset-0 bg-[#172554] z-40 pointer-events-auto flex flex-col pt-4 pb-[105px] overflow-y-auto select-none">
+                  {/* Top Header: Golden 3D "Settings" Title */}
+                  <div className="flex items-center justify-center border-b-2 border-yellow-400 pb-3 bg-[#1E3A8A] w-full z-10 shadow-md">
+                    <h1 
+                      className="text-3xl font-black text-[#FBBF24] drop-shadow-[0_2px_0_#B07B46]" 
+                      style={{ WebkitTextStroke: '1px #B07B46' }}
+                    >
+                      Settings
+                    </h1>
                   </div>
-                  <span className="text-[11px] font-bold text-emerald-100 opacity-90 mt-0.5">
-                    {LevelRepository.getLevel(gameState.levelId).name} • Par {LevelRepository.getLevel(gameState.levelId).parMoves} Moves
-                  </span>
-                </button>
 
-                {/* Secondary Feature Navigation Row */}
-                <div className="grid grid-cols-4 gap-2">
-                  {/* World Map */}
-                  <button
-                    onClick={() => {
-                      sounds.playClick();
-                      setScreen('LEVEL_SELECT');
-                    }}
-                    className="pointer-events-auto py-2.5 px-1.5 rounded-2xl game-btn game-btn-blue text-white font-black text-[11px] flex flex-col items-center justify-center gap-1 shadow-md"
-                    title="World Map"
-                  >
-                    <Grid className="w-4 h-4" />
-                    <span className="truncate">World Map</span>
-                  </button>
+                  {/* Main Settings Body */}
+                  <div className="flex-1 flex flex-col">
+                    {/* 1. Toggle Controls Group */}
+                    <div className="bg-[#1e293b]/90 border-b border-slate-700">
+                      {/* Row 1: Music */}
+                      <div className="flex items-center justify-between px-5 py-3.5 border-b border-slate-700/60">
+                        <div className="flex items-center gap-3">
+                          <span className="text-xl">🎵</span>
+                          <span className="text-white font-bold text-base">Music</span>
+                        </div>
+                        {/* iOS Toggle Switch */}
+                        <button
+                          onClick={() => {
+                            setMusicOn(!musicOn);
+                            sounds.playClick();
+                          }}
+                          className={`w-13 h-7 rounded-full p-0.5 transition-colors duration-200 flex items-center ${
+                            musicOn ? 'bg-[#22c55e]' : 'bg-[#334155]'
+                          }`}
+                        >
+                          <div
+                            className={`w-6 h-6 rounded-full bg-white shadow-md transform transition-transform duration-200 ${
+                              musicOn ? 'translate-x-6' : 'translate-x-0'
+                            }`}
+                          />
+                        </button>
+                      </div>
 
-                  {/* 3D Bus Garage */}
-                  <button
-                    onClick={() => {
-                      sounds.playClick();
-                      setShowGarageModal(true);
-                    }}
-                    className="pointer-events-auto py-2.5 px-1.5 rounded-2xl bg-gradient-to-r from-amber-500 to-orange-500 text-slate-950 font-black text-[11px] flex flex-col items-center justify-center gap-1 shadow-md active:scale-95 border border-yellow-200/50 group"
-                    title="Garage & Mod Shop"
-                  >
-                    <Palette className="w-4 h-4 text-slate-950 group-hover:rotate-12 transition-transform" />
-                    <span className="truncate">Garage</span>
-                  </button>
+                      {/* Row 2: Sounds */}
+                      <div className="flex items-center justify-between px-5 py-3.5 border-b border-slate-700/60">
+                        <div className="flex items-center gap-3">
+                          <span className="text-xl">🔊</span>
+                          <span className="text-white font-bold text-base">Sounds</span>
+                        </div>
+                        <button
+                          onClick={() => {
+                            setSoundOn(!soundOn);
+                            sounds.playClick();
+                          }}
+                          className={`w-13 h-7 rounded-full p-0.5 transition-colors duration-200 flex items-center ${
+                            soundOn ? 'bg-[#22c55e]' : 'bg-[#334155]'
+                          }`}
+                        >
+                          <div
+                            className={`w-6 h-6 rounded-full bg-white shadow-md transform transition-transform duration-200 ${
+                              soundOn ? 'translate-x-6' : 'translate-x-0'
+                            }`}
+                          />
+                        </button>
+                      </div>
 
-                  {/* Game Mode */}
-                  <button
-                    onClick={() => {
-                      sounds.playClick();
-                      const modes = Object.values(GameMode);
-                      const nextMode = modes[(modes.indexOf(selectedGameMode) + 1) % modes.length];
-                      handleGameModeChange(nextMode);
-                    }}
-                    className="pointer-events-auto py-2.5 px-1.5 rounded-2xl game-btn game-btn-dark text-amber-300 font-black text-[11px] flex flex-col items-center justify-center gap-1 shadow-md"
-                    title={`Current Mode: ${GAME_MODE_CONFIGS[selectedGameMode].name} (Tap to Switch)`}
-                  >
-                    <Zap className="w-4 h-4 text-amber-400" />
-                    <span className="truncate">{GAME_MODE_CONFIGS[selectedGameMode].name}</span>
-                  </button>
+                      {/* Row 3: Vibration */}
+                      <div className="flex items-center justify-between px-5 py-3.5 border-b border-slate-700/60">
+                        <div className="flex items-center gap-3">
+                          <span className="text-xl">📳</span>
+                          <span className="text-white font-bold text-base">Vibration</span>
+                        </div>
+                        <button
+                          onClick={() => {
+                            const next = !progress.vibrationEnabled;
+                            PlayerProgress.setVibrationEnabled(next);
+                            setProgress({ ...progress, vibrationEnabled: next });
+                            if (next && navigator.vibrate) navigator.vibrate(50);
+                            sounds.playClick();
+                          }}
+                          className={`w-13 h-7 rounded-full p-0.5 transition-colors duration-200 flex items-center ${
+                            progress.vibrationEnabled ? 'bg-[#22c55e]' : 'bg-[#334155]'
+                          }`}
+                        >
+                          <div
+                            className={`w-6 h-6 rounded-full bg-white shadow-md transform transition-transform duration-200 ${
+                              progress.vibrationEnabled ? 'translate-x-6' : 'translate-x-0'
+                            }`}
+                          />
+                        </button>
+                      </div>
 
-                  {/* How to Play Guide */}
-                  <button
-                    onClick={() => {
-                      sounds.playClick();
-                      setShowHelpModal(true);
-                    }}
-                    className="pointer-events-auto py-2.5 px-1.5 rounded-2xl game-btn game-btn-dark text-slate-200 font-black text-[11px] flex flex-col items-center justify-center gap-1 shadow-md"
-                    title="How to Play"
-                  >
-                    <HelpCircle className="w-4 h-4 text-sky-400" />
-                    <span className="truncate">Guide</span>
-                  </button>
+                      {/* Row 4: Color Blind */}
+                      <div className="flex items-center justify-between px-5 py-3.5">
+                        <div className="flex items-center gap-3">
+                          <span className="text-xl">👁️</span>
+                          <span className="text-white font-bold text-base">Color Blind</span>
+                        </div>
+                        <button
+                          onClick={() => {
+                            setColorBlindOn(!colorBlindOn);
+                            sounds.playClick();
+                          }}
+                          className={`w-13 h-7 rounded-full p-0.5 transition-colors duration-200 flex items-center ${
+                            colorBlindOn ? 'bg-[#22c55e]' : 'bg-[#334155]'
+                          }`}
+                        >
+                          <div
+                            className={`w-6 h-6 rounded-full bg-white shadow-md transform transition-transform duration-200 ${
+                              colorBlindOn ? 'translate-x-6' : 'translate-x-0'
+                            }`}
+                          />
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* 2. INFORMATION Section */}
+                    <div className="pt-4">
+                      <div className="px-5 pb-1.5 text-slate-400 font-black text-xs uppercase tracking-wider">
+                        Information
+                      </div>
+                      <div 
+                        onClick={() => setShowHelpModal(true)}
+                        className="bg-[#1e293b]/90 border-y border-slate-700 px-5 py-3.5 flex items-center justify-between cursor-pointer active:bg-slate-800"
+                      >
+                        <div className="flex items-center gap-3">
+                          <span className="text-xl">✉️</span>
+                          <span className="text-white font-bold text-base">Contact Us</span>
+                        </div>
+                        <span className="text-slate-400 font-bold text-lg">&gt;</span>
+                      </div>
+                    </div>
+
+                    {/* 3. SIGN IN Section */}
+                    <div className="pt-4">
+                      <div className="px-5 pb-1.5 text-slate-400 font-black text-xs uppercase tracking-wider">
+                        Sign In
+                      </div>
+                      <div 
+                        onClick={() => sounds.playClick()}
+                        className="bg-[#1e293b]/90 border-y border-slate-700 px-5 py-3.5 flex items-center justify-between cursor-pointer active:bg-slate-800"
+                      >
+                        <div className="flex items-center gap-3">
+                          <span className="text-xl">🎮</span>
+                          <span className="text-white font-bold text-base">Sign in with Play Games</span>
+                        </div>
+                        <span className="text-slate-400 font-bold text-lg">&gt;</span>
+                      </div>
+                    </div>
+
+                    {/* 4. App Version & Policy Links */}
+                    <div className="mt-auto pt-8 pb-4 flex flex-col items-center justify-center text-slate-400 text-xs gap-1">
+                      <span className="font-semibold tracking-wider">3.10.0-26092472</span>
+                      <div className="flex gap-2 text-slate-500 font-medium">
+                        <span className="cursor-pointer hover:underline">Privacy Policy</span>
+                        <span>·</span>
+                        <span className="cursor-pointer hover:underline">Terms of Service</span>
+                      </div>
+                    </div>
+                  </div>
                 </div>
-              </div>
+              )}
+
+            </div>
+
+            {/* Bottom Navigation Bar (Matching frame_04.jpg) */}
+            <div className="absolute bottom-0 left-0 right-0 h-[82px] bg-[#1E40AF] border-t-[3.5px] border-[#F59E0B] z-50 flex items-end justify-between px-2 pb-1 pointer-events-auto select-none shadow-[0_-4px_12px_rgba(0,0,0,0.3)]">
+              {/* Tab 1: SHOP */}
+              <button 
+                onClick={() => { sounds.playClick(); setActiveTab('SHOP'); }} 
+                className={`flex flex-col items-center justify-end w-1/5 relative transition-all ${
+                  activeTab === 'SHOP' 
+                    ? '-mt-4.5 pt-1 pb-1 px-1 bg-[#1E40AF] rounded-t-2xl border-t-[3.5px] border-x-[3.5px] border-[#F59E0B] shadow-md' 
+                    : 'pb-2 opacity-95 hover:opacity-100 active:scale-95'
+                }`}
+              >
+                {activeTab === 'SHOP' ? (
+                  <div className="w-12 h-10 bg-[#FFFDF0] rounded-xl border-[2.5px] border-[#B45309] flex items-center justify-center shadow-sm">
+                    <span className="text-2xl filter drop-shadow-sm">🏪</span>
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-center h-10">
+                    <span className="text-3xl filter drop-shadow-sm">🏪</span>
+                  </div>
+                )}
+                {activeTab === 'SHOP' && (
+                  <span className="text-white font-black text-[11px] tracking-wide mt-0.5 drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]">
+                    Shop
+                  </span>
+                )}
+              </button>
+              
+              {/* Tab 2: LEADERBOARD */}
+              <button 
+                onClick={() => { sounds.playClick(); setActiveTab('LEADERBOARD'); }} 
+                className={`flex flex-col items-center justify-end w-1/5 relative transition-all ${
+                  activeTab === 'LEADERBOARD' 
+                    ? '-mt-4.5 pt-1 pb-1 px-1 bg-[#1E40AF] rounded-t-2xl border-t-[3.5px] border-x-[3.5px] border-[#F59E0B] shadow-md' 
+                    : 'pb-2 opacity-95 hover:opacity-100 active:scale-95'
+                }`}
+              >
+                {activeTab === 'LEADERBOARD' ? (
+                  <div className="w-12 h-10 bg-[#FFFDF0] rounded-xl border-[2.5px] border-[#B45309] flex items-center justify-center shadow-sm">
+                    <span className="text-2xl filter drop-shadow-sm">🏆</span>
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-center h-10">
+                    <span className="text-3xl filter drop-shadow-sm">🏆</span>
+                  </div>
+                )}
+                {activeTab === 'LEADERBOARD' && (
+                  <span className="text-white font-black text-[11px] tracking-wide mt-0.5 drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]">
+                    Ranking
+                  </span>
+                )}
+              </button>
+              
+              {/* Tab 3: HOME (Elevated Arched Tab in frame_04.jpg) */}
+              <button 
+                onClick={() => { sounds.playClick(); setActiveTab('HOME'); }} 
+                className={`flex flex-col items-center justify-end w-1/5 relative transition-all ${
+                  activeTab === 'HOME' 
+                    ? '-mt-4.5 pt-1 pb-1 px-1 bg-[#1E40AF] rounded-t-2xl border-t-[3.5px] border-x-[3.5px] border-[#F59E0B] shadow-md' 
+                    : 'pb-2 opacity-95 hover:opacity-100 active:scale-95'
+                }`}
+              >
+                <div className="w-12 h-10 bg-[#FFFDF0] rounded-xl border-[2.5px] border-[#B45309] flex items-center justify-center shadow-sm">
+                  <span className="text-2xl text-red-500 filter drop-shadow-sm">🏠</span>
+                </div>
+                {activeTab === 'HOME' && (
+                  <span className="text-white font-black text-[11px] tracking-wide mt-0.5 drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]">
+                    Home
+                  </span>
+                )}
+              </button>
+              
+              {/* Tab 4: JOURNEY */}
+              <button 
+                onClick={() => { sounds.playClick(); setActiveTab('JOURNEY'); }} 
+                className={`flex flex-col items-center justify-end w-1/5 relative transition-all ${
+                  activeTab === 'JOURNEY' 
+                    ? '-mt-4.5 pt-1 pb-1 px-1 bg-[#1E40AF] rounded-t-2xl border-t-[3.5px] border-x-[3.5px] border-[#F59E0B] shadow-md' 
+                    : 'pb-2 opacity-95 hover:opacity-100 active:scale-95'
+                }`}
+              >
+                {activeTab === 'JOURNEY' ? (
+                  <div className="w-12 h-10 bg-[#FFFDF0] rounded-xl border-[2.5px] border-[#B45309] flex items-center justify-center shadow-sm">
+                    <span className="text-2xl filter drop-shadow-sm">📷</span>
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-center h-10">
+                    <span className="text-3xl filter drop-shadow-sm">📷</span>
+                  </div>
+                )}
+                {activeTab === 'JOURNEY' && (
+                  <span className="text-white font-black text-[11px] tracking-wide mt-0.5 drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]">
+                    Journey
+                  </span>
+                )}
+              </button>
+              
+              {/* Tab 5: SETTINGS */}
+              <button 
+                onClick={() => { sounds.playClick(); setActiveTab('SETTINGS'); }} 
+                className={`flex flex-col items-center justify-end w-1/5 relative transition-all ${
+                  activeTab === 'SETTINGS' 
+                    ? '-mt-4.5 pt-1 pb-1 px-1 bg-[#1E40AF] rounded-t-2xl border-t-[3.5px] border-x-[3.5px] border-[#F59E0B] shadow-md' 
+                    : 'pb-2 opacity-95 hover:opacity-100 active:scale-95'
+                }`}
+              >
+                {activeTab === 'SETTINGS' ? (
+                  <div className="w-12 h-10 bg-[#FFFDF0] rounded-xl border-[2.5px] border-[#B45309] flex items-center justify-center shadow-sm">
+                    <span className="text-2xl filter drop-shadow-sm">⚙️</span>
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-center h-10">
+                    <span className="text-3xl text-amber-400 filter drop-shadow-sm">⚙️</span>
+                  </div>
+                )}
+                {activeTab === 'SETTINGS' && (
+                  <span className="text-white font-black text-[11px] tracking-wide mt-0.5 drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]">
+                    Settings
+                  </span>
+                )}
+              </button>
             </div>
           </div>
         )}
@@ -626,152 +995,216 @@ export default function App() {
             SCREEN 3: MAIN 3D BOARD GAME SCREEN
            ======================================================== */}
         {screen === 'GAME' && (
-          <div className="w-full h-full flex-1 flex flex-col bg-slate-950 overflow-hidden relative select-none">
-            {/* FLOATING TOP ARCADE HUD (MATCHING REFERENCE SCREENSHOTS & YOUTUBE SHORT) */}
-            <div className="absolute top-0 left-0 right-0 z-30 pointer-events-none pt-[max(env(safe-area-inset-top),10px)] px-3 sm:px-4 flex items-center justify-between select-none">
-              {/* Left: Square Blue Squircle Pause Button */}
+          <div className="w-full h-full flex-1 flex flex-col bg-[#bfe0f7] overflow-hidden relative select-none">
+            {/* FLOATING TOP ARCADE HUD (MATCHING REFERENCE SCREENSHOTS frame_05.jpg & frame_06.jpg) */}
+            <div className="absolute top-3 left-4 right-4 z-30 pointer-events-none flex items-center justify-between select-none">
+              {/* Left: Back to Home button (invisible touch target matching frame_05.jpg & frame_06.jpg) */}
+              <button
+                onClick={() => {
+                  sounds.playClick();
+                  setScreen('HOME');
+                }}
+                className="pointer-events-auto w-10 h-10 sm:w-11 sm:h-11 rounded-full flex items-center justify-center cursor-pointer opacity-0 active:opacity-20"
+                title="Back to Home"
+              >
+                <ChevronLeft className="w-6 h-6 text-white" />
+              </button>
+
+              {/* Center: Level Pill Badge (Matching Reference Screenshots 1, 2, 3) */}
+              <div className="pointer-events-none flex items-center justify-center">
+                <div className="bg-[#1d4ed8] border-[3.5px] border-[#fbbf24] shadow-[0_4px_12px_rgba(0,0,0,0.35)] rounded-full px-8 py-1.5 flex items-center justify-center">
+                  <span
+                    className="text-lg sm:text-xl font-black text-white tracking-wide"
+                    style={{ WebkitTextStroke: '0.5px #1e3a8a', textShadow: '0 1px 3px rgba(0,0,0,0.7)' }}
+                  >
+                    Level {gameState.levelId}
+                  </span>
+                </div>
+              </div>
+
+              {/* Right: Settings Gear Icon (Matching Reference Screenshots 1, 2, 3) */}
               <button
                 onClick={() => {
                   sounds.playClick();
                   setShowPauseModal(true);
                 }}
-                className="pointer-events-auto w-11 h-11 sm:w-12 sm:h-12 rounded-2xl bg-gradient-to-b from-sky-400 via-sky-500 to-blue-600 border-2 border-white/80 shadow-2xl flex items-center justify-center text-white active:scale-95 transition-transform hover:brightness-110 drop-shadow-md"
-                title="Pause Game"
+                className="pointer-events-auto w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-[#1d4ed8] border-[3px] border-[#fbbf24] shadow-[0_4px_10px_rgba(0,0,0,0.35)] flex items-center justify-center text-white active:scale-95 transition-transform cursor-pointer"
+                title="Settings"
               >
-                <div className="flex items-center gap-1">
-                  <div className="w-1.5 h-4.5 bg-white rounded-full shadow-xs" />
-                  <div className="w-1.5 h-4.5 bg-white rounded-full shadow-xs" />
-                </div>
+                <span className="text-xl">⚙️</span>
               </button>
-
-              {/* Center: Bold Clean White LEVEL Title + Subtle Status */}
-              <div className="flex flex-col items-center pointer-events-none drop-shadow-[0_2px_4px_rgba(0,0,0,0.85)]">
-                <span className="text-2xl sm:text-3xl font-black text-white tracking-wider font-sans leading-none">
-                  LEVEL {gameState.levelId}
-                </span>
-                <div className="flex items-center gap-1.5 mt-1">
-                  <span
-                    className={`px-2 py-0.5 rounded-full text-[10px] font-black border shadow-xs transition-colors ${
-                      gameState.timeLeft <= 10
-                        ? 'bg-rose-600/90 text-white border-rose-300 animate-pulse'
-                        : 'bg-black/55 text-slate-200 border-white/10'
-                    }`}
-                  >
-                    ⏱️ {formatCountdown(gameState.timeLeft)}
-                  </span>
-                  <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-black/55 text-slate-200 border border-white/10 shadow-xs">
-                    🎯 {gameState.moves} Moves
-                  </span>
-                </div>
-              </div>
-
-              {/* Right: Blue Rounded Pill with Percentage and Protruding 3D Star */}
-              {(() => {
-                const totalP = gameState.passengers.length;
-                const loadedP = gameState.passengers.filter((p) => p.state === 'LOADED').length;
-                const progressPct = totalP > 0 ? Math.round((loadedP / totalP) * 100) : 0;
-                return (
-                  <div className="pointer-events-auto relative flex items-center pr-3">
-                    <div className="h-9 sm:h-10 pl-3.5 pr-5.5 rounded-full bg-gradient-to-b from-sky-400 via-sky-500 to-blue-600 border-2 border-white/80 shadow-2xl flex items-center justify-center drop-shadow-md">
-                      <span className="text-xs sm:text-sm font-black text-white tracking-wide font-sans drop-shadow-xs">
-                        {progressPct}%
-                      </span>
-                    </div>
-                    {/* 3D Gold Star Badge Protruding on Right */}
-                    <div className="absolute right-0 w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-gradient-to-tr from-amber-400 via-yellow-300 to-yellow-100 border-2 border-white flex items-center justify-center shadow-lg text-base sm:text-lg animate-pulse select-none">
-                      ⭐
-                    </div>
-                  </div>
-                );
-              })()}
             </div>
+
 
             {/* 3D FULL-SCREEN GAME ARENA */}
             <div ref={arenaContainerRef} className="absolute inset-0 w-full h-full overflow-hidden">
-              <BusMadnessArena
-                gameState={gameState}
-                onVehicleTapRequest={handleVehicleTap}
-                onVehicleArrivedAtDock={handleVehicleArrived}
-                onDockUnlockClicked={() => controller.useBooster('extraSpace')}
-                activeHintId={gameState.activeHintVehicleId}
-                isCompleted={!!victoryData || gameState.status === GameStatus.COMPLETED}
-                onParkingEvaluated={handleParkingEvaluated}
-                graphicsQuality={graphicsQuality}
-              />
+              <ArenaErrorBoundary onReset={() => controller.loadLevel(gameState.levelId, selectedDifficulty, selectedGameMode)}>
+                <BusMadnessArena
+                  gameState={gameState}
+                  onVehicleTapRequest={handleVehicleTap}
+                  onVehicleArrivedAtDock={handleVehicleArrived}
+                  onDockUnlockClicked={() => controller.useBooster('extraSpace')}
+                  activeHintId={gameState.activeHintVehicleId}
+                  isCompleted={!!victoryData || gameState.status === GameStatus.COMPLETED}
+                  onParkingEvaluated={handleParkingEvaluated}
+                  graphicsQuality={graphicsQuality}
+                />
+              </ArenaErrorBoundary>
             </div>
 
-            {/* FLOATING BOTTOM TACTILE BOOSTERS DECK */}
-            <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-30 pointer-events-auto flex items-center gap-2 bg-slate-950/80 backdrop-blur-md px-3 py-2 rounded-2xl border border-white/15 shadow-2xl">
-              {/* Hint Booster */}
-              <button
-                onClick={() => handleUseBooster('hint')}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-400 text-slate-950 font-black text-xs active:scale-95 transition-transform shadow-md"
-                title="Hint: highlights best vehicle move"
-              >
-                <Lightbulb className="w-3.5 h-3.5 fill-slate-950" />
-                <span className="hidden xs:inline">HINT</span>
-                <span className="text-[10px] bg-slate-950/30 px-1 rounded font-bold">
-                  {gameState.availableBoosters.hint > 0 ? gameState.availableBoosters.hint : 'FREE'}
-                </span>
-              </button>
-
-              {/* Shuffle Booster */}
+            {/* FLOATING BOTTOM TACTILE BOOSTERS DECK (MATCHING SCREENSHOTS frame_05.jpg & frame_06.jpg) */}
+            <div className="absolute bottom-5 left-0 right-0 z-30 pointer-events-auto flex items-end justify-center gap-4 px-4 select-none">
+              
+              {/* 1. Shuffle Booster */}
               <button
                 onClick={() => handleUseBooster('shuffle')}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-500 text-white font-black text-xs active:scale-95 transition-transform shadow-md"
-                title="Shuffle: reverses blocked vehicles to open opposite escape routes"
+                className="relative flex flex-col items-center justify-center w-24 h-16 sm:w-26 sm:h-17 bg-gradient-to-b from-[#38bdf8] via-[#2563eb] to-[#1e40af] rounded-2xl border-2 border-white shadow-[0_6px_16px_rgba(30,58,138,0.45)] active:scale-95 active:translate-y-0.5 transition-all group"
+                title="Shuffle puzzle vehicles"
               >
-                <Shuffle className="w-3.5 h-3.5" />
-                <span className="hidden xs:inline">SHUFFLE</span>
-                <span className="text-[10px] bg-black/30 px-1 rounded font-bold">
-                  {gameState.availableBoosters.shuffle > 0 ? gameState.availableBoosters.shuffle : '80🪙'}
+                {/* Green '+' Circular Badge */}
+                <div className="absolute -top-2 -right-2 w-6 h-6 bg-[#22c55e] rounded-full border-2 border-white flex items-center justify-center shadow-md">
+                  <span className="text-white text-sm font-black leading-none mb-0.5">+</span>
+                </div>
+                {/* Green Van with Swirl Arrows */}
+                <div className="flex items-center justify-center h-8 mb-0.5 relative">
+                  <svg className="w-10 h-7" viewBox="0 0 40 28" fill="none">
+                    {/* Orbiting yellow curved arrows */}
+                    <path d="M6 14 C6 7 14 3 20 3 C25 3 31 6 33 10" stroke="#facc15" strokeWidth="2.5" strokeLinecap="round" />
+                    <polygon points="34,7 35,12 30,11" fill="#facc15" />
+                    <path d="M34 14 C34 21 26 25 20 25 C15 25 9 22 7 18" stroke="#facc15" strokeWidth="2.5" strokeLinecap="round" />
+                    <polygon points="6,21 5,16 10,17" fill="#facc15" />
+                    {/* Cute green car */}
+                    <rect x="10" y="8" width="20" height="12" rx="3.5" fill="#22c55e" stroke="#15803d" strokeWidth="1" />
+                    <rect x="13" y="10" width="6" height="4" rx="1" fill="#e0f2fe" />
+                    <rect x="21" y="10" width="6" height="4" rx="1" fill="#e0f2fe" />
+                    <circle cx="14" cy="20" r="2.2" fill="#1e293b" />
+                    <circle cx="26" cy="20" r="2.2" fill="#1e293b" />
+                  </svg>
+                </div>
+                <span className="text-white font-black text-xs tracking-wide" style={{WebkitTextStroke: '0.5px #1e3a8a', textShadow: '0 1px 2px rgba(0,0,0,0.8)'}}>
+                  Shuffle
                 </span>
               </button>
 
-              {/* Passenger Swap / Magnet Booster */}
+              {/* 2. Clear (Helicopter) Booster */}
+              <button
+                onClick={() => handleUseBooster('extraSpace')}
+                className="relative flex flex-col items-center justify-center w-24 h-16 sm:w-26 sm:h-17 bg-gradient-to-b from-[#38bdf8] via-[#2563eb] to-[#1e40af] rounded-2xl border-2 border-white shadow-[0_6px_16px_rgba(30,58,138,0.45)] active:scale-95 active:translate-y-0.5 transition-all group"
+                title="Clear vehicle with helicopter"
+              >
+                {/* Green '+' Circular Badge */}
+                <div className="absolute -top-2 -right-2 w-6 h-6 bg-[#22c55e] rounded-full border-2 border-white flex items-center justify-center shadow-md">
+                  <span className="text-white text-sm font-black leading-none mb-0.5">+</span>
+                </div>
+                {/* Yellow Helicopter Icon */}
+                <div className="flex items-center justify-center h-8 mb-0.5">
+                  <svg className="w-10 h-7" viewBox="0 0 40 28" fill="none">
+                    {/* Propeller rotor */}
+                    <rect x="8" y="3" width="24" height="2" rx="1" fill="#f97316" />
+                    <rect x="19" y="4" width="2" height="3" fill="#64748b" />
+                    {/* Helicopter body */}
+                    <ellipse cx="20" cy="13" rx="10" ry="7" fill="#facc15" stroke="#d97706" strokeWidth="1" />
+                    {/* Window */}
+                    <path d="M14 11 Q17 8 22 9 L21 14 Q16 14 14 11 Z" fill="#e0f2fe" />
+                    {/* Tail beam & tail rotor */}
+                    <path d="M28 13 L36 10" stroke="#facc15" strokeWidth="2.5" strokeLinecap="round" />
+                    <circle cx="36" cy="10" r="1.5" fill="#f97316" />
+                    {/* Landing skids */}
+                    <line x1="13" y1="23" x2="27" y2="23" stroke="#64748b" strokeWidth="1.8" strokeLinecap="round" />
+                    <line x1="16" y1="19" x2="15" y2="23" stroke="#64748b" strokeWidth="1.4" />
+                    <line x1="24" y1="19" x2="25" y2="23" stroke="#64748b" strokeWidth="1.4" />
+                  </svg>
+                </div>
+                <span className="text-white font-black text-xs tracking-wide" style={{WebkitTextStroke: '0.5px #1e3a8a', textShadow: '0 1px 2px rgba(0,0,0,0.8)'}}>
+                  Clear
+                </span>
+              </button>
+
+              {/* 3. Sort (Magnet / Jelly Crowd) Booster */}
               <button
                 onClick={() => handleUseBooster('passengerSwap')}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-purple-600 to-pink-500 text-white font-black text-xs active:scale-95 transition-transform shadow-md"
-                title="Magnet: sorts passengers to match docked buses"
+                className="relative flex flex-col items-center justify-center w-24 h-16 sm:w-26 sm:h-17 bg-gradient-to-b from-[#38bdf8] via-[#2563eb] to-[#1e40af] rounded-2xl border-2 border-white shadow-[0_6px_16px_rgba(30,58,138,0.45)] active:scale-95 active:translate-y-0.5 transition-all group"
+                title="Sort commuter queue"
               >
-                <Magnet className="w-3.5 h-3.5" />
-                <span className="hidden xs:inline">MAGNET</span>
-                <span className="text-[10px] bg-black/30 px-1 rounded font-bold">
-                  {gameState.availableBoosters.passengerSwap > 0 ? gameState.availableBoosters.passengerSwap : '90🪙'}
+                {/* Green '+' Circular Badge */}
+                <div className="absolute -top-2 -right-2 w-6 h-6 bg-[#22c55e] rounded-full border-2 border-white flex items-center justify-center shadow-md">
+                  <span className="text-white text-sm font-black leading-none mb-0.5">+</span>
+                </div>
+                {/* Green & Purple Chibi Commuters with Orbiting Arrows */}
+                <div className="flex items-center justify-center h-8 mb-0.5">
+                  <svg className="w-10 h-7" viewBox="0 0 40 28" fill="none">
+                    {/* Orbiting yellow arrows */}
+                    <path d="M8 14 C8 7 15 3 20 3 C25 3 32 7 32 14" stroke="#facc15" strokeWidth="2.2" strokeLinecap="round" />
+                    <polygon points="33,11 34,16 29,15" fill="#facc15" />
+                    <path d="M32 14 C32 21 25 25 20 25 C15 25 8 21 8 14" stroke="#facc15" strokeWidth="2.2" strokeLinecap="round" />
+                    <polygon points="7,17 6,12 11,13" fill="#facc15" />
+                    {/* Green chibi */}
+                    <circle cx="15" cy="11" r="3.2" fill="#22c55e" />
+                    <rect x="12" y="14" width="6" height="7" rx="2" fill="#22c55e" />
+                    {/* Purple/Magenta chibi */}
+                    <circle cx="25" cy="11" r="3.2" fill="#d946ef" />
+                    <rect x="22" y="14" width="6" height="7" rx="2" fill="#d946ef" />
+                  </svg>
+                </div>
+                <span className="text-white font-black text-xs tracking-wide" style={{WebkitTextStroke: '0.5px #1e3a8a', textShadow: '0 1px 2px rgba(0,0,0,0.8)'}}>
+                  Sort
                 </span>
               </button>
-
-              {/* Undo Booster */}
-              <button
-                onClick={() => handleUseBooster('undo')}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-slate-700 to-slate-600 text-white font-black text-xs active:scale-95 transition-transform shadow-md"
-                title="Undo last vehicle move"
-              >
-                <Undo2 className="w-3.5 h-3.5" />
-                <span className="hidden xs:inline">UNDO</span>
-                <span className="text-[10px] bg-black/30 px-1 rounded font-bold">
-                  {gameState.availableBoosters.undo > 0 ? gameState.availableBoosters.undo : '50🪙'}
-                </span>
-              </button>
-
-              {/* +Bay Extra Space Booster (if unlocked < 7) */}
-              {gameState.unlockedDocksCount < 7 && (
-                <button
-                  onClick={() => handleUseBooster('extraSpace')}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-500 text-white font-black text-xs active:scale-95 transition-transform shadow-md"
-                  title="Unlock Parking Bay"
-                >
-                  <PlusCircle className="w-3.5 h-3.5" />
-                  <span>+BAY ({gameState.unlockedDocksCount}/7)</span>
-                </button>
-              )}
             </div>
+
+            {/* LEVEL 1 TUTORIAL OVERLAYS (MATCHING SCREENSHOTS 1 & 2) */}
+            {gameState.levelId === 1 && gameState.moves === 0 && (
+              <div className="absolute top-[28%] left-1/2 -translate-x-1/2 z-40 w-11/12 max-w-xs pointer-events-none">
+                <div className="bg-[#FFFDF0] border-[3px] border-[#B07B46] rounded-2xl px-5 py-3.5 shadow-2xl relative text-center">
+                  <p className="text-[#1E3A8A] font-bold text-sm sm:text-base leading-snug">
+                    Vehicles can only move in the direction of the arrows.
+                  </p>
+                </div>
+                {/* Bouncing Hand Pointer Tapping on Vehicle (Matching Screenshot 1) */}
+                <div className="flex justify-center mt-10 animate-bounce">
+                  <span className="text-5xl filter drop-shadow-[0_4px_8px_rgba(0,0,0,0.6)] transform -rotate-12">👆</span>
+                </div>
+              </div>
+            )}
+
+            {gameState.levelId === 1 && gameState.moves === 1 && (
+              <div className="absolute top-[28%] left-1/2 -translate-x-1/2 z-40 w-11/12 max-w-xs pointer-events-none">
+                <div className="bg-[#FFFDF0] border-[3px] border-[#B07B46] rounded-2xl px-5 py-3.5 shadow-2xl relative text-center">
+                  {/* Top equation: [Van] = 6 [Passenger] (Matching Screenshot 2) */}
+                  <div className="flex justify-center items-center gap-3 mb-2">
+                    {/* Stylized Green Van Icon */}
+                    <div className="w-12 h-6 bg-[#22c55e] rounded-md border-2 border-[#15803d] shadow-sm flex items-center justify-between px-1 relative">
+                      <div className="w-3 h-2 bg-sky-200 rounded-sm" />
+                      <div className="w-1.5 h-1.5 bg-yellow-300 rounded-full" />
+                    </div>
+                    <span className="text-[#1E3A8A] font-black text-2xl leading-none">= 6</span>
+                    {/* Stylized Green Passenger Pin */}
+                    <div className="flex flex-col items-center">
+                      <div className="w-3.5 h-3.5 bg-[#22c55e] rounded-full border border-white shadow-sm" />
+                      <div className="w-4 h-3 bg-[#22c55e] rounded-t-sm -mt-0.5 border-x border-t border-white" />
+                    </div>
+                  </div>
+                  <p className="text-[#1E3A8A] font-bold text-sm sm:text-base leading-snug">
+                    Van can carry 6 people of the same color.
+                  </p>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
         {/* ========================================================
             MODALS: LEVEL INTRO, PAUSE, VICTORY, GRIDLOCK, OUT OF MOVES, SHOP, DAILY
            ======================================================== */}
+
+        {/* EDIT PROFILE MODAL (EXACT SAME AS REFERENCE SCREENSHOT 1) */}
+        <EditProfileModal
+          isOpen={showProfileModal}
+          onClose={() => setShowProfileModal(false)}
+          currentName={playerName}
+          currentAvatarId={playerAvatarId}
+          onSave={handleSaveProfile}
+        />
 
         {/* 00. LEVEL INTRO PRE-FLIGHT MODAL */}
         {levelIntro && (
@@ -847,273 +1280,43 @@ export default function App() {
           </div>
         )}
 
-        {/* 0. PAUSE MODAL */}
-        {showPauseModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-4 animate-in fade-in duration-200">
-            <div className="w-full max-w-sm game-modal-3d border-2 border-sky-400/80 rounded-[36px] p-6 text-center shadow-2xl">
-              <div className="w-16 h-16 rounded-3xl bg-sky-500/20 border-2 border-sky-400/40 flex items-center justify-center mx-auto mb-3 shadow-lg shadow-sky-500/20">
-                <Pause className="w-8 h-8 text-sky-400 fill-sky-400" />
-              </div>
-              <h2 className="text-2xl font-black text-white mb-0.5">GAME PAUSED</h2>
-              <p className="text-xs text-sky-200 font-bold mb-4">
-                Level {gameState.levelId}: {gameState.levelName}
-              </p>
+        {/* 0. IN-GAME SETTINGS MODAL (EXACT SAME AS REFERENCE IMAGE 1 - frame_07.jpg) */}
+        <SettingsModal
+          isOpen={showPauseModal}
+          onClose={() => setShowPauseModal(false)}
+          soundOn={soundOn}
+          onToggleSound={() => setSoundOn(!soundOn)}
+          onGoHome={() => {
+            setShowPauseModal(false);
+            setScreen('HOME');
+          }}
+          onRetry={() => {
+            setShowPauseModal(false);
+            controller.loadLevel(gameState.levelId);
+          }}
+          graphicsQuality={graphicsQuality}
+          onChangeGraphicsQuality={setGraphicsQuality}
+          selectedDifficulty={selectedDifficulty}
+          onChangeDifficulty={setSelectedDifficulty}
+          onOpenHowToPlay={() => setShowHelpModal(true)}
+        />
 
-              {/* Level Quick Stats */}
-              <div className="bg-slate-950/70 border border-slate-800 rounded-2xl p-3 mb-5 flex items-center justify-around shadow-inner">
-                <div>
-                  <span className="text-[10px] uppercase font-bold text-slate-400 block">Waiting</span>
-                  <span className="text-sm font-black text-rose-400">
-                    {gameState.passengers.filter((p) => p.state === 'WAITING').length} Left
-                  </span>
-                </div>
-                <div className="h-8 w-px bg-slate-800" />
-                <div>
-                  <span className="text-[10px] uppercase font-bold text-slate-400 block">Moves</span>
-                  <span className="text-sm font-black text-yellow-400">{gameState.moves}</span>
-                </div>
-                <div className="h-8 w-px bg-slate-800" />
-                <div>
-                  <span className="text-[10px] uppercase font-bold text-slate-400 block">Time</span>
-                  <span className="text-sm font-black text-sky-400 font-mono">{formatCountdown(gameState.timeLeft)}</span>
-                </div>
-              </div>
-
-              <div className="flex flex-col gap-2.5">
-                {/* Resume Button */}
-                <button
-                  onClick={() => {
-                    sounds.playClick();
-                    setShowPauseModal(false);
-                  }}
-                  className="w-full py-3.5 rounded-2xl game-btn game-btn-emerald shine-sweep text-white font-black text-sm flex items-center justify-center gap-2 shadow-lg"
-                >
-                  <Play className="w-4 h-4 fill-white" />
-                  <span>RESUME GAME</span>
-                </button>
-
-                {/* Restart Level */}
-                <button
-                  onClick={() => {
-                    sounds.playClick();
-                    controller.loadLevel(gameState.levelId);
-                    setShowPauseModal(false);
-                  }}
-                  className="w-full py-3 rounded-2xl game-btn game-btn-blue text-white font-black text-xs flex items-center justify-center gap-2"
-                >
-                  <RotateCcw className="w-4 h-4" />
-                  <span>RESTART LEVEL</span>
-                </button>
-
-                {/* Sound Toggle */}
-                <button
-                  onClick={() => {
-                    setSoundOn(!soundOn);
-                    sounds.playClick();
-                  }}
-                  className="w-full py-3 rounded-2xl game-btn game-btn-amber text-slate-950 font-black text-xs flex items-center justify-center gap-2"
-                >
-                  {soundOn ? <Volume2 className="w-4 h-4 text-slate-950" /> : <VolumeX className="w-4 h-4 text-slate-950" />}
-                  <span>SOUND: {soundOn ? 'ON' : 'OFF'}</span>
-                </button>
-
-                {/* Global Graphics Quality Setting */}
-                <div className="bg-slate-950/80 border border-slate-800 rounded-2xl p-2.5 flex flex-col gap-1.5 shadow-inner text-left">
-                  <div className="flex items-center justify-between px-1">
-                    <span className="text-[11px] font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
-                      <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-                      Graphics Quality
-                    </span>
-                    <span className="text-[10px] font-semibold text-sky-400">
-                      {graphicsQuality === 'HIGH' ? 'High Fidelity' : '60 FPS Mode'}
-                    </span>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-1.5">
-                    <button
-                      onClick={() => {
-                        sounds.playClick();
-                        setGraphicsQuality('HIGH');
-                        PlayerProgress.setGraphicsQuality('HIGH');
-                      }}
-                      className={`py-2 px-2 rounded-xl text-xs font-black transition-all flex flex-col items-center justify-center gap-0.5 border ${
-                        graphicsQuality === 'HIGH'
-                          ? 'bg-amber-500/20 border-amber-400 text-amber-300 shadow-md ring-1 ring-amber-400/40'
-                          : 'bg-slate-900/60 border-slate-800 text-slate-400 hover:text-slate-200 hover:border-slate-700'
-                      }`}
-                    >
-                      <span>High (with shadows)</span>
-                      <span className="text-[9px] font-normal text-slate-400">Crisp 3D Shadows</span>
-                    </button>
-
-                    <button
-                      onClick={() => {
-                        sounds.playClick();
-                        setGraphicsQuality('PERFORMANCE');
-                        PlayerProgress.setGraphicsQuality('PERFORMANCE');
-                      }}
-                      className={`py-2 px-2 rounded-xl text-xs font-black transition-all flex flex-col items-center justify-center gap-0.5 border ${
-                        graphicsQuality === 'PERFORMANCE'
-                          ? 'bg-emerald-500/20 border-emerald-400 text-emerald-300 shadow-md ring-1 ring-emerald-400/40'
-                          : 'bg-slate-900/60 border-slate-800 text-slate-400 hover:text-slate-200 hover:border-slate-700'
-                      }`}
-                    >
-                      <span>Performance (no shadows)</span>
-                      <span className="text-[9px] font-normal text-slate-400">Optimized Performance</span>
-                    </button>
-                  </div>
-                </div>
-
-                {/* Select Level */}
-                <button
-                  onClick={() => {
-                    sounds.playClick();
-                    setShowPauseModal(false);
-                    setScreen('LEVEL_SELECT');
-                  }}
-                  className="w-full py-2.5 rounded-2xl game-btn game-btn-dark text-slate-200 font-bold text-xs flex items-center justify-center gap-2"
-                >
-                  <Grid className="w-4 h-4 text-sky-400" />
-                  <span>SELECT LEVEL</span>
-                </button>
-
-                {/* Bus Garage & Mod Shop */}
-                <button
-                  onClick={() => {
-                    sounds.playClick();
-                    setShowGarageModal(true);
-                  }}
-                  className="w-full py-2.5 rounded-2xl game-btn game-btn-dark text-amber-300 font-bold text-xs flex items-center justify-center gap-2 border border-amber-400/30"
-                >
-                  <Palette className="w-4 h-4 text-amber-400" />
-                  <span>BUS GARAGE & MOD SHOP</span>
-                </button>
-
-                {/* How to Play & FAQ */}
-                <button
-                  onClick={() => {
-                    sounds.playClick();
-                    setShowHelpModal(true);
-                  }}
-                  className="w-full py-2.5 rounded-2xl game-btn game-btn-dark text-amber-300 font-bold text-xs flex items-center justify-center gap-2 border border-amber-400/30"
-                >
-                  <HelpCircle className="w-4 h-4 text-amber-400" />
-                  <span>HOW TO PLAY & FAQ</span>
-                </button>
-
-                {/* Main Menu */}
-                <button
-                  onClick={() => {
-                    sounds.playClick();
-                    setShowPauseModal(false);
-                    setScreen('HOME');
-                  }}
-                  className="w-full py-2 rounded-2xl bg-transparent hover:bg-slate-800 text-slate-400 font-medium text-xs transition-colors flex items-center justify-center gap-1.5"
-                >
-                  <Home className="w-3.5 h-3.5" />
-                  <span>Main Menu</span>
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* 1. VICTORY CELEBRATION MODAL */}
+        {/* 1. VICTORY CELEBRATION MODAL (MATCHING frame_08.jpg & frame_09.jpg) */}
         {victoryData && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-4">
-            <div className="w-full max-w-sm game-modal-3d border-2 border-amber-400/80 rounded-[36px] p-6 text-center shadow-2xl">
-              <div className="relative w-20 h-20 rounded-3xl bg-gradient-to-tr from-amber-400 via-yellow-300 to-amber-500 flex items-center justify-center mx-auto mb-3 shadow-xl shadow-amber-400/30 border-2 border-yellow-200 animate-float-3d">
-                <Trophy className="w-10 h-10 text-slate-950 animate-bounce" />
-              </div>
-              <h2 className="text-2xl sm:text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-amber-300 via-yellow-200 to-amber-400 mb-1">
-                VICTORY!
-              </h2>
-              <p className="text-xs font-semibold text-sky-200 mb-4">
-                All vehicles escaped & passengers reached their seats!
-              </p>
-
-              {/* 3D Animated Stars */}
-              <div className="flex items-center justify-center gap-3 mb-4">
-                {[1, 2, 3].map((s) => (
-                  <div
-                    key={s}
-                    className={`transform transition-transform duration-300 ${
-                      s <= victoryData.stars ? 'scale-110 animate-bounce' : 'scale-90 opacity-40'
-                    }`}
-                    style={{ animationDelay: `${s * 150}ms` }}
-                  >
-                    <Star
-                      className={`w-9 h-9 drop-shadow-md ${
-                        s <= victoryData.stars
-                          ? 'text-amber-400 fill-amber-400'
-                          : 'text-slate-600'
-                      }`}
-                    />
-                  </div>
-                ))}
-              </div>
-
-              {/* Reward stats */}
-              <div className="bg-slate-950/70 border border-slate-800 rounded-2xl p-3 mb-5 flex items-center justify-around shadow-inner">
-                <div>
-                  <span className="text-[10px] uppercase font-bold text-amber-400 block">Reward</span>
-                  <span className="text-base font-black text-amber-300 flex items-center justify-center gap-1">
-                    <span className="animate-spin-3d">🪙</span> +{victoryData.rewardCoins}
-                  </span>
-                </div>
-                <div className="h-8 w-px bg-slate-800"></div>
-                <div>
-                  <span className="text-[10px] uppercase font-bold text-slate-400 block">Difficulty</span>
-                  <span
-                    className={`text-xs font-black uppercase px-2 py-0.5 rounded-md inline-block ${
-                      gameState.difficulty === Difficulty.CASUAL
-                        ? 'bg-emerald-500/20 text-emerald-400'
-                        : gameState.difficulty === Difficulty.EXPERT
-                        ? 'bg-amber-500/20 text-amber-400'
-                        : 'bg-blue-500/20 text-blue-400'
-                    }`}
-                  >
-                    {gameState.difficulty}
-                  </span>
-                </div>
-                <div className="h-8 w-px bg-slate-800"></div>
-                <div>
-                  <span className="text-[10px] uppercase font-bold text-slate-400 block">Moves Left</span>
-                  <span className="text-base font-black text-emerald-400">{gameState.moves}</span>
-                </div>
-                <div className="h-8 w-px bg-slate-800"></div>
-                <div>
-                  <span className="text-[10px] uppercase font-bold text-slate-400 block">Mode</span>
-                  <span className="text-xs font-black text-amber-300 flex items-center justify-center gap-1">
-                    <span>{GAME_MODE_CONFIGS[gameState.gameMode || selectedGameMode].icon}</span>
-                    <span className="truncate max-w-[80px]">{GAME_MODE_CONFIGS[gameState.gameMode || selectedGameMode].name}</span>
-                  </span>
-                </div>
-              </div>
-
-              <div className="flex flex-col gap-2.5">
-                <button
-                  onClick={() => {
-                    const nextId = gameState.levelId + 1;
-                    handleLevelSelect(nextId, selectedDifficulty, selectedGameMode);
-                  }}
-                  className="w-full py-4 rounded-2xl game-btn game-btn-emerald shine-sweep text-white font-black text-sm flex items-center justify-center gap-2 shadow-lg"
-                >
-                  <span>NEXT PUZZLE (LEVEL {gameState.levelId + 1})</span>
-                  <ArrowRight className="w-4 h-4" />
-                </button>
-                <button
-                  onClick={() => {
-                    setVictoryData(null);
-                    setScreen('LEVEL_SELECT');
-                  }}
-                  className="w-full py-3 rounded-2xl game-btn game-btn-dark text-slate-300 font-bold text-xs"
-                >
-                  Choose Level
-                </button>
-              </div>
-            </div>
-          </div>
+          <VictoryModal
+            levelId={gameState.levelId}
+            rewardCoins={victoryData.rewardCoins || 20}
+            totalCoins={gameState.coins}
+            onContinue={() => {
+              const nextId = gameState.levelId + 1;
+              setVictoryData(null);
+              handleLevelSelect(nextId, selectedDifficulty, selectedGameMode);
+            }}
+            onClose={() => {
+              setVictoryData(null);
+              setScreen('HOME');
+            }}
+          />
         )}
 
         {/* 2. GRIDLOCK MODAL */}

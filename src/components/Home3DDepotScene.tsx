@@ -1,10 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { sounds } from '../utils/soundEffects.ts';
-import { buildDioramaVehicleMesh } from '../logic/vehicleModelFactory.ts';
-import { PlayerProgress } from '../logic/playerProgress.ts';
-import { LIVERIES, UNDERGLOWS, RIMS } from '../logic/garageCustomization.ts';
-import { OrganicRoadSystem } from '../logic/organicRoadSystem.ts';
 
 function disposeHierarchy(obj: THREE.Object3D) {
   obj.traverse((child) => {
@@ -36,553 +32,741 @@ export const Home3DDepotScene: React.FC = () => {
 
     const scene = new THREE.Scene();
     scene.name = 'Home3DDepotScene';
+    scene.background = new THREE.Color(0x7dd3fc); // Sunny cartoon blue sky matching frame_04.jpg
 
-    const camera = new THREE.PerspectiveCamera(38, width / height, 0.1, 150);
-    camera.position.set(0, 14, 25);
-    camera.lookAt(0, 0.6, -1.0);
+    // Camera framed matching frame_04.jpg (Vertical mobile composition)
+    let aspect = width / height;
+    const camera = new THREE.PerspectiveCamera(44, aspect, 0.1, 100);
+
+    const updateCamera = () => {
+      const curWidth = container.clientWidth || window.innerWidth;
+      const curHeight = container.clientHeight || window.innerHeight;
+      aspect = curWidth / curHeight;
+      camera.aspect = aspect;
+      if (aspect < 0.6) {
+        camera.fov = 44;
+        camera.position.set(0.1, 4.4, 18.0);
+        camera.lookAt(0, 2.1, 0);
+      } else {
+        camera.fov = 38;
+        camera.position.set(0.1, 3.6, 11.5);
+        camera.lookAt(0, 1.85, 0);
+      }
+      camera.updateProjectionMatrix();
+    };
+    updateCamera();
 
     const renderer = new THREE.WebGLRenderer({
       antialias: true,
-      alpha: true,
       powerPreference: 'high-performance',
     });
     renderer.setSize(width, height, true);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2.0));
     renderer.shadowMap.enabled = true;
-    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.shadowMap.type = THREE.PCFShadowMap;
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.22;
+    renderer.toneMappingExposure = 1.25;
     renderer.domElement.style.touchAction = 'none';
-    renderer.domElement.style.imageRendering = '-webkit-optimize-contrast';
     container.appendChild(renderer.domElement);
 
-    // Warm Studio / Sunset Golden Hour Ambient Lighting
-    const ambientLight = new THREE.AmbientLight(0xffedd5, 0.55);
+    // -------------------------------------------------------------
+    // SUNNY OUTDOOR LIGHTING
+    // -------------------------------------------------------------
+    const ambientLight = new THREE.AmbientLight(0xfffbeb, 0.95);
     scene.add(ambientLight);
 
-    const hemiLight = new THREE.HemisphereLight(0x7dd3fc, 0x1e293b, 0.65);
+    const hemiLight = new THREE.HemisphereLight(0xbae6fd, 0xd97706, 0.65);
     scene.add(hemiLight);
 
-    // Sun Key Light with PCFSoft shadows
-    const sunLight = new THREE.DirectionalLight(0xfffbeb, 2.5);
-    sunLight.position.set(16, 28, 18);
+    const sunLight = new THREE.DirectionalLight(0xffffff, 2.2);
+    sunLight.position.set(8, 22, 14);
     sunLight.castShadow = true;
     sunLight.shadow.mapSize.width = 1024;
     sunLight.shadow.mapSize.height = 1024;
-    sunLight.shadow.camera.near = 1;
-    sunLight.shadow.camera.far = 70;
-    sunLight.shadow.camera.left = -20;
-    sunLight.shadow.camera.right = 20;
-    sunLight.shadow.camera.top = 22;
-    sunLight.shadow.camera.bottom = -20;
-    sunLight.shadow.bias = -0.0004;
-    sunLight.shadow.radius = 1.5;
+    sunLight.shadow.bias = -0.0003;
     scene.add(sunLight);
 
-    // Rim silhouette light
-    const rimLight = new THREE.DirectionalLight(0x38bdf8, 1.0);
-    rimLight.position.set(-16, 18, -16);
-    scene.add(rimLight);
+    const fillLight = new THREE.DirectionalLight(0x67e8f9, 0.6);
+    fillLight.position.set(-10, 12, 8);
+    scene.add(fillLight);
 
-    // Point lights around depot terminal & street lamps
-    const pointLights: THREE.PointLight[] = [];
-    [
-      [-10, 4.5, -4],
-      [10, 4.5, -4],
-      [-10, 4.5, 10],
-      [10, 4.5, 10],
-      [0, 5.0, -8],
-    ].forEach(([px, py, pz], i) => {
-      const pl = new THREE.PointLight(i === 4 ? 0x38bdf8 : 0xfbbf24, 1.8, 18, 1.8);
-      pl.position.set(px, py, pz);
-      scene.add(pl);
-      pointLights.push(pl);
+    // -------------------------------------------------------------
+    // CARTOON FLUFFY 3D CLOUDS IN BLUE SKY
+    // -------------------------------------------------------------
+    const cloudMat = new THREE.MeshStandardMaterial({
+      color: 0xffffff,
+      roughness: 0.9,
+      emissive: 0xffffff,
+      emissiveIntensity: 0.25,
     });
+    const cloudsGroup = new THREE.Group();
+    [
+      [-3.2, 7.2, -10, 1.3],
+      [2.5, 7.8, -11, 1.5],
+      [-1.0, 8.4, -14, 2.0],
+      [4.2, 6.6, -9, 1.1],
+    ].forEach(([cx, cy, cz, scale]) => {
+      const c = new THREE.Group();
+      c.position.set(cx, cy, cz);
+      [
+        [0, 0, 0, 1.0],
+        [-0.8, -0.2, 0, 0.75],
+        [0.8, -0.2, 0, 0.75],
+        [-0.4, 0.4, 0, 0.65],
+        [0.4, 0.35, 0, 0.7],
+      ].forEach(([px, py, pz, r]) => {
+        const puff = new THREE.Mesh(new THREE.SphereGeometry(r * scale, 12, 12), cloudMat);
+        puff.position.set(px * scale, py * scale, pz * scale);
+        c.add(puff);
+      });
+      cloudsGroup.add(c);
+    });
+    scene.add(cloudsGroup);
 
     // -------------------------------------------------------------
-    // DEPOT ENVIRONMENT & GEOMETRY
+    // AIRPORT TERMINAL BACKGROUND (Matching frame_04.jpg)
     // -------------------------------------------------------------
-    const dioramaRoot = new THREE.Group();
-    scene.add(dioramaRoot);
+    const airportRoot = new THREE.Group();
+    airportRoot.position.set(0, 0, -4.2);
+    scene.add(airportRoot);
 
-    // 1. Plinth / Showcase Skirt
-    const plinthGeo = new THREE.BoxGeometry(44, 2.8, 38);
-    const plinthMat = new THREE.MeshStandardMaterial({ color: 0x070b14, roughness: 0.8, metalness: 0.1 });
-    const plinth = new THREE.Mesh(plinthGeo, plinthMat);
-    plinth.position.y = -1.42;
-    plinth.receiveShadow = true;
-    dioramaRoot.add(plinth);
+    // 1. Terminal Wall & Modern Windows
+    const wallMat = new THREE.MeshStandardMaterial({ color: 0xfef08a, roughness: 0.4 });
+    const wall = new THREE.Mesh(new THREE.BoxGeometry(26, 6.5, 2.0), wallMat);
+    wall.position.set(0, 3.25, -1.0);
+    wall.castShadow = true;
+    wall.receiveShadow = true;
+    airportRoot.add(wall);
 
-    // Beveled plinth rim
-    const rimGeo = new THREE.BoxGeometry(44.6, 0.22, 38.6);
-    const rimMat = new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.5, metalness: 0.3 });
-    const plinthRim = new THREE.Mesh(rimGeo, rimMat);
-    plinthRim.position.y = -0.11;
-    plinthRim.receiveShadow = true;
-    dioramaRoot.add(plinthRim);
-
-    // 2. Main Ground Asphalt Plate
-    const groundGeo = new THREE.BoxGeometry(43.6, 0.18, 37.6);
-    const groundMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.86, metalness: 0.1 });
-    const ground = new THREE.Mesh(groundGeo, groundMat);
-    ground.position.y = 0.08;
-    ground.receiveShadow = true;
-    dioramaRoot.add(ground);
-
-    // 3. Modern Transit Terminal Concourse Building
-    const terminalGroup = new THREE.Group();
-    terminalGroup.position.set(0, 0, -10.5);
-
-    const stationBuildingGeo = new THREE.BoxGeometry(28, 4.6, 4.2);
-    const stationBuildingMat = new THREE.MeshStandardMaterial({ color: 0x0284c7, roughness: 0.3, metalness: 0.25 });
-    const stationBuilding = new THREE.Mesh(stationBuildingGeo, stationBuildingMat);
-    stationBuilding.position.set(0, 2.3, -2.1);
-    stationBuilding.castShadow = true;
-    terminalGroup.add(stationBuilding);
-
-    // Tinted Glass Panes
+    // Cyan Glass Windows with Turquoise Trim
     const glassMat = new THREE.MeshStandardMaterial({
       color: 0x38bdf8,
       emissive: 0x0284c7,
-      emissiveIntensity: 0.5,
-      roughness: 0.08,
+      emissiveIntensity: 0.4,
+      roughness: 0.1,
       metalness: 0.8,
     });
-    [-10, -5, 0, 5, 10].forEach((gx) => {
-      const pane = new THREE.Mesh(new THREE.BoxGeometry(3.6, 2.8, 0.1), glassMat);
-      pane.position.set(gx, 1.8, 0.02);
-      terminalGroup.add(pane);
+    [-4, -2.5, 2.5, 4.5].forEach((wx) => {
+      const win = new THREE.Mesh(new THREE.BoxGeometry(1.6, 2.6, 0.1), glassMat);
+      win.position.set(wx, 2.8, 0.05);
+      airportRoot.add(win);
     });
 
-    // Cantilevered Platform Canopy
-    const canopyMat = new THREE.MeshStandardMaterial({
-      color: 0xbae6fd,
-      roughness: 0.1,
-      metalness: 0.6,
-      transparent: true,
-      opacity: 0.78,
-    });
-    const canopy = new THREE.Mesh(new THREE.BoxGeometry(28.4, 0.22, 5.5), canopyMat);
-    canopy.position.set(0, 4.6, 0.8);
-    terminalGroup.add(canopy);
+    // 2. Yellow & Pink Arched Main Portal
+    const archPortal = new THREE.Group();
+    archPortal.position.set(-0.65, 0, 0.1);
 
-    // Canopy Pillars
-    const trussMat = new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.35, metalness: 0.6 });
-    [-12, -6, 0, 6, 12].forEach((px) => {
-      const pillar = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.15, 4.6, 12), trussMat);
-      pillar.position.set(px, 2.3, 3.2);
-      pillar.castShadow = true;
-      terminalGroup.add(pillar);
-    });
-
-    // Glowing LED Marquee Sign
-    const signMat = new THREE.MeshStandardMaterial({
-      color: 0x38bdf8,
-      emissive: 0x38bdf8,
-      emissiveIntensity: 2.2,
-    });
-    const sign = new THREE.Mesh(new THREE.BoxGeometry(16, 0.6, 0.15), signMat);
-    sign.position.set(0, 4.0, 0.1);
-    terminalGroup.add(sign);
-
-    // Passenger Sidewalk Platform
-    const platformGeo = new THREE.BoxGeometry(28, 0.32, 4.6);
-    const platformMat = new THREE.MeshStandardMaterial({ color: 0x475569, roughness: 0.6 });
-    const platform = new THREE.Mesh(platformGeo, platformMat);
-    platform.position.set(0, 0.16, 2.3);
-    platform.receiveShadow = true;
-    terminalGroup.add(platform);
-
-    // Yellow safety tactile edge
-    const tactileEdge = new THREE.Mesh(
-      new THREE.BoxGeometry(27.8, 0.05, 0.35),
-      new THREE.MeshStandardMaterial({ color: 0xfacc15, emissive: 0xfacc15, emissiveIntensity: 0.4 })
+    // Giant Yellow Arch
+    const archTorus = new THREE.Mesh(
+      new THREE.TorusGeometry(2.7, 0.38, 14, 28, Math.PI),
+      new THREE.MeshStandardMaterial({ color: 0xfacc15, roughness: 0.3 })
     );
-    tactileEdge.position.set(0, 0.34, 4.4);
-    terminalGroup.add(tactileEdge);
+    archTorus.position.set(0, 2.8, 0);
+    archTorus.castShadow = true;
+    archPortal.add(archTorus);
 
-    dioramaRoot.add(terminalGroup);
+    // Pink and Turquoise Rainbow Striped Awning
+    const pinkStripe = new THREE.Mesh(
+      new THREE.TorusGeometry(3.05, 0.18, 12, 28, Math.PI),
+      new THREE.MeshStandardMaterial({ color: 0xf43f5e, roughness: 0.3 })
+    );
+    pinkStripe.position.set(0, 2.8, 0.05);
+    archPortal.add(pinkStripe);
 
-    // 4. Curved Sweeping Feeder Road System
-    const mainCurve = new THREE.CatmullRomCurve3([
-      new THREE.Vector3(-18, 0.09, 12),
-      new THREE.Vector3(-16, 0.09, 2),
-      new THREE.Vector3(-10, 0.09, -4.5),
-      new THREE.Vector3(0, 0.09, -5.2),
-      new THREE.Vector3(10, 0.09, -4.5),
-      new THREE.Vector3(16, 0.09, 2),
-      new THREE.Vector3(18, 0.09, 12),
-    ]);
-    const mainRoadMesh = OrganicRoadSystem.createCurvedRoadMesh(mainCurve, 4.8, 48, 0x1a2333);
-    const mainStripes = OrganicRoadSystem.createCurvedStripes(mainCurve, 0.22, 48, 0xfacc15);
-    const mainOuterCurb = OrganicRoadSystem.createRaisedCurbMesh(mainCurve, 2.4, 0.35, 0.18, 48, 0x64748b);
-    const mainInnerCurb = OrganicRoadSystem.createRaisedCurbMesh(mainCurve, -2.4, 0.35, 0.18, 48, 0x64748b);
-    dioramaRoot.add(mainRoadMesh, mainStripes, mainOuterCurb, mainInnerCurb);
+    // Automatic Sliding Glass Doors
+    const doorFrame = new THREE.Mesh(
+      new THREE.BoxGeometry(2.3, 2.7, 0.2),
+      new THREE.MeshStandardMaterial({ color: 0x7e22ce, roughness: 0.3 })
+    );
+    doorFrame.position.set(0, 1.35, 0.05);
+    archPortal.add(doorFrame);
 
-    // 5. Marked Bus Depot Parking Stalls
-    const bayXs = [-7.5, -2.5, 2.5, 7.5];
-    const bayLinesGroup = new THREE.Group();
-    bayXs.forEach((bx) => {
-      // White stall lines
-      const lineGeo = new THREE.BoxGeometry(0.12, 0.02, 5.4);
-      const lineMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.3 });
-      const leftLine = new THREE.Mesh(lineGeo, lineMat);
-      leftLine.position.set(bx - 1.25, 0.18, 2.4);
-      const rightLine = new THREE.Mesh(lineGeo, lineMat);
-      rightLine.position.set(bx + 1.25, 0.18, 2.4);
+    const doorGlass = new THREE.Mesh(
+      new THREE.BoxGeometry(2.0, 2.4, 0.1),
+      glassMat
+    );
+    doorGlass.position.set(0, 1.35, 0.15);
+    archPortal.add(doorGlass);
 
-      // Yellow wheel stop bumper
-      const bumperGeo = new THREE.BoxGeometry(1.8, 0.12, 0.22);
-      const bumperMat = new THREE.MeshStandardMaterial({ color: 0xfacc15, roughness: 0.4 });
-      const bumper = new THREE.Mesh(bumperGeo, bumperMat);
-      bumper.position.set(bx, 0.24, -0.2);
-      bumper.castShadow = true;
+    // Gate "05" Sign above Door
+    const gateSign = new THREE.Mesh(
+      new THREE.BoxGeometry(1.2, 0.36, 0.15),
+      new THREE.MeshStandardMaterial({ color: 0x15803d, emissive: 0x22c55e, emissiveIntensity: 0.6 })
+    );
+    gateSign.position.set(0, 2.9, 0.25);
+    archPortal.add(gateSign);
 
-      bayLinesGroup.add(leftLine, rightLine, bumper);
-    });
-    dioramaRoot.add(bayLinesGroup);
-
-    // 6. Charming Diorama Trees & Street Lamps
-    const createDioramaTree = (tx: number, tz: number, scale = 1.0) => {
-      const tree = new THREE.Group();
-      tree.position.set(tx, 0.18, tz);
-      tree.scale.set(scale, scale, scale);
-
-      const trunkGeo = new THREE.CylinderGeometry(0.18, 0.24, 1.4, 8);
-      const trunkMat = new THREE.MeshStandardMaterial({ color: 0x78350f, roughness: 0.8 });
-      const trunk = new THREE.Mesh(trunkGeo, trunkMat);
-      trunk.position.y = 0.7;
-      trunk.castShadow = true;
-      tree.add(trunk);
-
-      // Tiered foliage spheres
-      const foliageMat = new THREE.MeshStandardMaterial({ color: 0x22c55e, roughness: 0.65 });
-      const cone1 = new THREE.Mesh(new THREE.ConeGeometry(1.2, 1.6, 8), foliageMat);
-      cone1.position.y = 1.8;
-      cone1.castShadow = true;
-      const cone2 = new THREE.Mesh(new THREE.ConeGeometry(0.9, 1.4, 8), foliageMat);
-      cone2.position.y = 2.6;
-      cone2.castShadow = true;
-      tree.add(cone1, cone2);
-
-      return tree;
-    };
-
-    [
-      [-17, -8, 1.1],
-      [-16, -3, 0.9],
-      [17, -8, 1.1],
-      [16, -3, 0.9],
-      [-18, 8, 1.0],
-      [18, 8, 1.0],
-      [-12, 14, 0.85],
-      [12, 14, 0.85],
-    ].forEach(([tx, tz, s]) => {
-      dioramaRoot.add(createDioramaTree(tx, tz, s));
-    });
-
-    // Street Lamps
-    [
-      [-10, 0.18, -4],
-      [10, 0.18, -4],
-      [-10, 0.18, 10],
-      [10, 0.18, 10],
-    ].forEach(([lx, ly, lz]) => {
-      const lamp = new THREE.Group();
-      lamp.position.set(lx, ly, lz);
-
-      const pole = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.1, 0.14, 4.4, 8),
-        new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.5 })
-      );
-      pole.position.y = 2.2;
-      pole.castShadow = true;
-
-      const bulb = new THREE.Mesh(
-        new THREE.SphereGeometry(0.3, 12, 12),
-        new THREE.MeshStandardMaterial({ color: 0xffedd5, emissive: 0xfef08a, emissiveIntensity: 2.5 })
-      );
-      bulb.position.y = 4.4;
-
-      lamp.add(pole, bulb);
-      dioramaRoot.add(lamp);
-    });
-
-    // -------------------------------------------------------------
-    // COLORFUL 3D TOY TRANSIT BUSES
-    // -------------------------------------------------------------
-    const progress = PlayerProgress.get();
-    const activeLivery = LIVERIES.find((l) => l.id === progress.activeLivery) || LIVERIES[0];
-    const activeUnderglow = UNDERGLOWS.find((u) => u.id === progress.activeUnderglow) || UNDERGLOWS[0];
-    const activeRim = RIMS.find((r) => r.id === progress.activeRim) || RIMS[0];
-
-    interface InteractiveBusEntry {
-      id: string;
-      group: THREE.Group;
-      basePos: THREE.Vector3;
-      baseRot: number;
-      name: string;
-      hopProgress: number;
-      color: string;
+    // 3D Pink Cursive "AIRPORT" Marquee Sign on Arch
+    const airportCanvas = document.createElement('canvas');
+    airportCanvas.width = 512;
+    airportCanvas.height = 160;
+    const actx = airportCanvas.getContext('2d');
+    if (actx) {
+      actx.fillStyle = 'rgba(0,0,0,0)';
+      actx.clearRect(0, 0, 512, 160);
+      actx.fillStyle = '#ec4899';
+      actx.strokeStyle = '#ffffff';
+      actx.lineWidth = 10;
+      actx.font = '900 82px sans-serif';
+      actx.textAlign = 'center';
+      actx.textBaseline = 'middle';
+      actx.strokeText('AIRPORT', 256, 80);
+      actx.fillText('AIRPORT', 256, 80);
     }
+    const airportTex = new THREE.CanvasTexture(airportCanvas);
+    const airportSign = new THREE.Mesh(
+      new THREE.PlaneGeometry(3.6, 1.1),
+      new THREE.MeshBasicMaterial({ map: airportTex, transparent: true })
+    );
+    airportSign.position.set(0, 4.6, 0.35);
+    archPortal.add(airportSign);
 
-    const buses: InteractiveBusEntry[] = [];
+    airportRoot.add(archPortal);
 
-    // Bus 1 (Center Left - Hero Custom Garage Bus)
-    const heroBusRig = buildDioramaVehicleMesh({
-      vehicleId: 'depot_bus_hero',
-      type: 'BUS',
-      colorHex: '#EAB308',
-      length: 3,
-      loadedPassengers: 3,
-      capacity: 4,
-      liveryConfig: activeLivery,
-      underglowConfig: activeUnderglow,
-      rimConfig: activeRim,
-    });
-    const heroBus = heroBusRig.group;
-    heroBus.position.set(-2.5, 0.55, 2.4);
-    heroBus.rotation.y = 0;
-    dioramaRoot.add(heroBus);
-    buses.push({
-      id: 'depot_bus_hero',
-      group: heroBus,
-      basePos: new THREE.Vector3(-2.5, 0.55, 2.4),
-      baseRot: 0,
-      name: 'Custom Garage Bus',
-      hopProgress: 0,
-      color: '#EAB308',
+    // 3. Air Traffic Control Tower (Right Background)
+    const towerGroup = new THREE.Group();
+    towerGroup.position.set(1.9, 0, -1.8);
+
+    // Tower Concrete Shaft
+    const shaft = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.65, 0.85, 6.2, 18),
+      new THREE.MeshStandardMaterial({ color: 0xe2e8f0, roughness: 0.5 })
+    );
+    shaft.position.y = 3.6;
+    shaft.castShadow = true;
+    towerGroup.add(shaft);
+
+    // Yellow Observation Cabin
+    const cabin = new THREE.Mesh(
+      new THREE.CylinderGeometry(1.2, 1.0, 1.2, 18),
+      new THREE.MeshStandardMaterial({ color: 0xfacc15, roughness: 0.3 })
+    );
+    cabin.position.y = 6.8;
+    cabin.castShadow = true;
+    towerGroup.add(cabin);
+
+    // Cabin Glass Windows
+    const cabinGlass = new THREE.Mesh(
+      new THREE.CylinderGeometry(1.15, 1.08, 0.55, 18),
+      glassMat
+    );
+    cabinGlass.position.y = 6.8;
+    towerGroup.add(cabinGlass);
+
+    // Cabin Dome Roof
+    const dome = new THREE.Mesh(
+      new THREE.SphereGeometry(1.2, 18, 12, 0, Math.PI * 2, 0, Math.PI * 0.5),
+      new THREE.MeshStandardMaterial({ color: 0x38bdf8, roughness: 0.3 })
+    );
+    dome.position.y = 7.4;
+    towerGroup.add(dome);
+
+    // Rotating Radar Dish on Tower Mast
+    const radarMast = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.06, 0.06, 0.9, 8),
+      new THREE.MeshStandardMaterial({ color: 0x475569 })
+    );
+    radarMast.position.y = 8.3;
+    towerGroup.add(radarMast);
+
+    const radarDish = new THREE.Mesh(
+      new THREE.SphereGeometry(0.55, 14, 10, 0, Math.PI * 2, 0, Math.PI * 0.4),
+      new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.3 })
+    );
+    radarDish.position.set(0, 8.7, 0);
+    radarDish.rotation.x = -0.6;
+    towerGroup.add(radarDish);
+
+    airportRoot.add(towerGroup);
+
+    // 4. Concourse Glass Facade with "T3" Sign (Right of Portal)
+    const t3Canvas = document.createElement('canvas');
+    t3Canvas.width = 128;
+    t3Canvas.height = 96;
+    const t3ctx = t3Canvas.getContext('2d');
+    if (t3ctx) {
+      t3ctx.fillStyle = '#0284c7';
+      t3ctx.fillRect(0, 0, 128, 96);
+      t3ctx.strokeStyle = '#ffffff';
+      t3ctx.lineWidth = 4;
+      t3ctx.strokeRect(2, 2, 124, 92);
+      t3ctx.fillStyle = '#ffffff';
+      t3ctx.font = '900 52px sans-serif';
+      t3ctx.textAlign = 'center';
+      t3ctx.textBaseline = 'middle';
+      t3ctx.fillText('T3', 64, 48);
+    }
+    const t3Tex = new THREE.CanvasTexture(t3Canvas);
+    const t3Sign = new THREE.Mesh(
+      new THREE.PlaneGeometry(1.1, 0.8),
+      new THREE.MeshBasicMaterial({ map: t3Tex })
+    );
+    t3Sign.position.set(1.9, 3.4, 0.15);
+    airportRoot.add(t3Sign);
+
+    // 5. Sidewalk Platform with Tiles
+    const sidewalk = new THREE.Mesh(
+      new THREE.BoxGeometry(26, 0.35, 3.8),
+      new THREE.MeshStandardMaterial({ color: 0xd1d5db, roughness: 0.6 })
+    );
+    sidewalk.position.set(0, 0.18, 1.8);
+    sidewalk.receiveShadow = true;
+    airportRoot.add(sidewalk);
+
+    // Blue Bus Stop Signpost "29" on Sidewalk (Left side, matching frame_04.jpg)
+    const signPost = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.05, 0.05, 1.8, 8),
+      new THREE.MeshStandardMaterial({ color: 0x0284c7 })
+    );
+    signPost.position.set(-1.85, 0.9, 2.2);
+    airportRoot.add(signPost);
+
+    const sign29Canvas = document.createElement('canvas');
+    sign29Canvas.width = 128;
+    sign29Canvas.height = 160;
+    const sctx = sign29Canvas.getContext('2d');
+    if (sctx) {
+      sctx.fillStyle = '#0284c7';
+      sctx.fillRect(0, 0, 128, 160);
+      sctx.strokeStyle = '#ffffff';
+      sctx.lineWidth = 6;
+      sctx.strokeRect(4, 4, 120, 152);
+      sctx.fillStyle = '#ffffff';
+      sctx.font = '900 68px sans-serif';
+      sctx.textAlign = 'center';
+      sctx.textBaseline = 'middle';
+      sctx.fillText('29', 64, 75);
+      // Small arrow
+      sctx.font = 'bold 32px sans-serif';
+      sctx.fillText('➜', 64, 130);
+    }
+    const sign29Tex = new THREE.CanvasTexture(sign29Canvas);
+    const busSignPlaque = new THREE.Mesh(
+      new THREE.PlaneGeometry(0.65, 0.8),
+      new THREE.MeshBasicMaterial({ map: sign29Tex })
+    );
+    busSignPlaque.position.set(-1.85, 1.5, 2.22);
+    airportRoot.add(busSignPlaque);
+
+    // Potted Flower Planters along Sidewalk
+    [-1.2, 0.8].forEach((px) => {
+      const planter = new THREE.Mesh(
+        new THREE.BoxGeometry(0.9, 0.35, 0.45),
+        new THREE.MeshStandardMaterial({ color: 0x9333ea, roughness: 0.4 })
+      );
+      planter.position.set(px, 0.45, 2.2);
+      airportRoot.add(planter);
+
+      // Colorful flowers
+      const flower = new THREE.Mesh(
+        new THREE.SphereGeometry(0.22, 8, 8),
+        new THREE.MeshStandardMaterial({ color: 0xf43f5e, roughness: 0.3 })
+      );
+      flower.position.set(px, 0.68, 2.2);
+      airportRoot.add(flower);
     });
 
-    // Bus 2 (Center Right - Royal Blue Bus)
-    const blueBusRig = buildDioramaVehicleMesh({
-      vehicleId: 'depot_bus_blue',
-      type: 'BUS',
-      colorHex: '#2563EB',
-      length: 3,
-      loadedPassengers: 2,
-      capacity: 4,
-    });
-    const blueBus = blueBusRig.group;
-    blueBus.position.set(2.5, 0.55, 2.4);
-    blueBus.rotation.y = 0;
-    dioramaRoot.add(blueBus);
-    buses.push({
-      id: 'depot_bus_blue',
-      group: blueBus,
-      basePos: new THREE.Vector3(2.5, 0.55, 2.4),
-      baseRot: 0,
-      name: 'Royal Blue Express',
-      hopProgress: 0,
-      color: '#2563EB',
+    // Colorful Rolling Suitcases on Right Sidewalk & Luggage Cart (Matching frame_04.jpg)
+    const luggageTrolleyGroup = new THREE.Group();
+    luggageTrolleyGroup.position.set(1.95, 0.2, 2.2);
+
+    // Chrome luggage cart frame
+    const cartFrameMat = new THREE.MeshStandardMaterial({ color: 0xe2e8f0, metalness: 0.8, roughness: 0.2 });
+    const cartBase = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.08, 0.9), cartFrameMat);
+    cartBase.position.y = 0.15;
+    luggageTrolleyGroup.add(cartBase);
+
+    // Cart wheels
+    [-0.65, 0.65].forEach((wx) => {
+      [-0.35, 0.35].forEach((wz) => {
+        const wheel = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 0.06, 12), new THREE.MeshStandardMaterial({ color: 0x1e293b }));
+        wheel.rotation.z = Math.PI / 2;
+        wheel.position.set(wx, 0.08, wz);
+        luggageTrolleyGroup.add(wheel);
+      });
     });
 
-    // Bus 3 (Far Left - Crimson City Bus)
-    const redBusRig = buildDioramaVehicleMesh({
-      vehicleId: 'depot_bus_red',
-      type: 'BUS',
-      colorHex: '#EF4444',
-      length: 3,
-      loadedPassengers: 4,
-      capacity: 4,
-    });
-    const redBus = redBusRig.group;
-    redBus.position.set(-7.5, 0.55, 2.4);
-    redBus.rotation.y = 0;
-    dioramaRoot.add(redBus);
-    buses.push({
-      id: 'depot_bus_red',
-      group: redBus,
-      basePos: new THREE.Vector3(-7.5, 0.55, 2.4),
-      baseRot: 0,
-      name: 'Crimson City Commuter',
-      hopProgress: 0,
-      color: '#EF4444',
-    });
+    // Suitcases on cart
+    const luggageConfigs = [
+      { x: -0.35, z: 0.0, color: 0xdb2777, h: 0.85, w: 0.52 }, // Pink upright suitcase
+      { x: 0.25, z: 0.1, color: 0x06b6d4, h: 0.80, w: 0.48 }, // Turquoise suitcase
+      { x: 0.55, z: -0.15, color: 0xf97316, h: 0.70, w: 0.42 }, // Orange suitcase
+    ];
+    luggageConfigs.forEach((cfg) => {
+      const bag = new THREE.Group();
+      bag.position.set(cfg.x, 0.2 + cfg.h * 0.5, cfg.z);
 
-    // Bus 4 (Far Right - Emerald Green Bus)
-    const greenBusRig = buildDioramaVehicleMesh({
-      vehicleId: 'depot_bus_green',
-      type: 'BUS',
-      colorHex: '#10B981',
-      length: 3,
-      loadedPassengers: 1,
-      capacity: 4,
-    });
-    const greenBus = greenBusRig.group;
-    greenBus.position.set(7.5, 0.55, 2.4);
-    greenBus.rotation.y = 0;
-    dioramaRoot.add(greenBus);
-    buses.push({
-      id: 'depot_bus_green',
-      group: greenBus,
-      basePos: new THREE.Vector3(7.5, 0.55, 2.4),
-      baseRot: 0,
-      name: 'Emerald Metro Shuttle',
-      hopProgress: 0,
-      color: '#10B981',
-    });
+      const bagMesh = new THREE.Mesh(
+        new THREE.BoxGeometry(cfg.w, cfg.h, 0.32),
+        new THREE.MeshStandardMaterial({ color: cfg.color, roughness: 0.35 })
+      );
+      bagMesh.castShadow = true;
+      bag.add(bagMesh);
 
-    // Ambient Moving Feeder Car (Slowly drives along the curved feeder loop)
-    const ambientCarRig = buildDioramaVehicleMesh({
-      vehicleId: 'depot_ambient_car',
-      type: 'CAR',
-      colorHex: '#F97316',
-      length: 2,
+      // Handle on top
+      const handle = new THREE.Mesh(
+        new THREE.BoxGeometry(0.2, 0.16, 0.04),
+        new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.4 })
+      );
+      handle.position.y = cfg.h * 0.5 + 0.08;
+      bag.add(handle);
+
+      luggageTrolleyGroup.add(bag);
     });
-    const ambientCar = ambientCarRig.group;
-    dioramaRoot.add(ambientCar);
+    airportRoot.add(luggageTrolleyGroup);
 
     // -------------------------------------------------------------
-    // INTERACTION: TOUCH ORBIT & TAP BUS TO HONK
+    // ROADWAY & CHEVRON MARKINGS
     // -------------------------------------------------------------
-    let isDragging = false;
-    let prevX = 0;
-    let prevY = 0;
-    let userOrbitY = 0;
-    let userOrbitX = 0;
-    let autoRotate = true;
-    let lastInteractTime = Date.now();
+    const road = new THREE.Mesh(
+      new THREE.PlaneGeometry(30, 18),
+      new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.85 })
+    );
+    road.rotation.x = -Math.PI / 2;
+    road.position.set(0, 0.01, 1.0);
+    road.receiveShadow = true;
+    scene.add(road);
+
+    // Yellow Directional Road Markings (Yellow stripes on asphalt)
+    const stripeMat = new THREE.MeshStandardMaterial({ color: 0xfacc15, roughness: 0.3 });
+    [-1.2, 0.2, 1.6].forEach((sx) => {
+      const stripe = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.01, 1.5), stripeMat);
+      stripe.position.set(sx + 0.8, 0.03, 1.5);
+      stripe.rotation.y = 0.45;
+      scene.add(stripe);
+    });
+
+    // -------------------------------------------------------------
+    // THE HERO: VINTAGE RED & CREAM VW CAMPER VAN (Matching frame_04.jpg)
+    // -------------------------------------------------------------
+    const vwBusGroup = new THREE.Group();
+    vwBusGroup.position.set(-0.05, 0.05, 1.35);
+    vwBusGroup.rotation.y = 0.25; // Tilted slightly towards camera right matching frame_04.jpg
+    scene.add(vwBusGroup);
+
+    const busLength = 4.4;
+    const busWidth = 2.15;
+    const busHeight = 2.3;
+
+    const redMat = new THREE.MeshStandardMaterial({
+      color: 0xcc2222, // Deep cheerful red
+      roughness: 0.22,
+      metalness: 0.12,
+    });
+
+    const creamMat = new THREE.MeshStandardMaterial({
+      color: 0xfffbeb, // Ivory / cream
+      roughness: 0.28,
+      metalness: 0.08,
+    });
+
+    const chromeMat = new THREE.MeshStandardMaterial({
+      color: 0xf1f5f9,
+      roughness: 0.08,
+      metalness: 0.95,
+    });
+
+    // Lower Red Body
+    const lowerBody = new THREE.Mesh(
+      new THREE.BoxGeometry(busWidth, busHeight * 0.46, busLength),
+      redMat
+    );
+    lowerBody.position.y = busHeight * 0.23 + 0.36;
+    lowerBody.castShadow = true;
+    vwBusGroup.add(lowerBody);
+
+    // Upper Cream Greenhouse
+    const upperBody = new THREE.Mesh(
+      new THREE.BoxGeometry(busWidth * 0.97, busHeight * 0.44, busLength * 0.97),
+      creamMat
+    );
+    upperBody.position.y = busHeight * 0.68 + 0.36;
+    upperBody.castShadow = true;
+    vwBusGroup.add(upperBody);
+
+    // Rounded Roof
+    const roof = new THREE.Mesh(
+      new THREE.CylinderGeometry(busWidth * 0.485, busWidth * 0.485, busLength * 0.95, 20),
+      creamMat
+    );
+    roof.rotation.set(Math.PI / 2, 0, 0);
+    roof.position.y = busHeight * 0.88 + 0.36;
+    roof.scale.set(1, 0.40, 1);
+    roof.castShadow = true;
+    vwBusGroup.add(roof);
+
+    // Iconic Front Cream V-Chevron Wedge
+    const chevron = new THREE.Mesh(
+      new THREE.ConeGeometry(busWidth * 0.48, busHeight * 0.45, 3),
+      creamMat
+    );
+    chevron.position.set(0, busHeight * 0.24 + 0.36, busLength * 0.505);
+    chevron.rotation.x = Math.PI;
+    chevron.scale.set(1, 1, 0.06);
+    vwBusGroup.add(chevron);
+
+    // Chrome Center Emblem
+    const emblem = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.24, 0.24, 0.05, 24),
+      chromeMat
+    );
+    emblem.rotation.x = Math.PI / 2;
+    emblem.position.set(0, busHeight * 0.31 + 0.36, busLength * 0.52);
+    vwBusGroup.add(emblem);
+
+    // Split-Window Windshields (2 Panes)
+    [-busWidth * 0.24, busWidth * 0.24].forEach((wx) => {
+      const pane = new THREE.Mesh(
+        new THREE.BoxGeometry(busWidth * 0.42, 0.66, 0.08),
+        glassMat
+      );
+      pane.position.set(wx, busHeight * 0.69 + 0.36, busLength * 0.488);
+      pane.rotation.x = -0.15;
+      vwBusGroup.add(pane);
+
+      // Chrome Wiper
+      const wiper = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.38, 0.03), chromeMat);
+      wiper.position.set(wx, busHeight * 0.65 + 0.36, busLength * 0.512);
+      wiper.rotation.z = wx < 0 ? 0.35 : -0.35;
+      vwBusGroup.add(wiper);
+    });
+
+    // Side Windows
+    [-busWidth * 0.495, busWidth * 0.495].forEach((sx) => {
+      [-1.2, -0.4, 0.4, 1.2].forEach((sz) => {
+        const sideWin = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.56, 0.66), glassMat);
+        sideWin.position.set(sx, busHeight * 0.68 + 0.36, sz);
+        vwBusGroup.add(sideWin);
+      });
+    });
+
+    // Round Headlights with Chrome Bezels & Amber Lenses
+    [-busWidth * 0.36, busWidth * 0.36].forEach((hx) => {
+      const ring = new THREE.Mesh(new THREE.TorusGeometry(0.24, 0.045, 12, 24), chromeMat);
+      ring.position.set(hx, busHeight * 0.28 + 0.36, busLength * 0.51);
+      vwBusGroup.add(ring);
+
+      const lens = new THREE.Mesh(
+        new THREE.SphereGeometry(0.21, 16, 12),
+        new THREE.MeshStandardMaterial({
+          color: 0xfef08a,
+          emissive: 0xfacc15,
+          emissiveIntensity: 0.9,
+          roughness: 0.1,
+        })
+      );
+      lens.position.set(hx, busHeight * 0.28 + 0.36, busLength * 0.51);
+      lens.scale.set(1, 1, 0.3);
+      vwBusGroup.add(lens);
+
+      // Amber turn signal
+      const signal = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.065, 0.065, 0.04, 12),
+        new THREE.MeshStandardMaterial({ color: 0xf59e0b, emissive: 0xf59e0b, emissiveIntensity: 1.2 })
+      );
+      signal.rotation.x = Math.PI / 2;
+      signal.position.set(hx, busHeight * 0.12 + 0.36, busLength * 0.51);
+      vwBusGroup.add(signal);
+    });
+
+    // Curved White Front Bumper
+    const frontBumper = new THREE.Mesh(
+      new THREE.BoxGeometry(busWidth * 1.1, 0.20, 0.18),
+      creamMat
+    );
+    frontBumper.position.set(0, 0.34, busLength * 0.528);
+    frontBumper.castShadow = true;
+    vwBusGroup.add(frontBumper);
+
+    // Chrome Bumper Overriders
+    [-0.52, 0.52].forEach((bx) => {
+      const overrider = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.36, 0.15), chromeMat);
+      overrider.position.set(bx, 0.40, busLength * 0.538);
+      vwBusGroup.add(overrider);
+    });
+
+    // Center Front License Plate: "BUS MADNESS"
+    const plateCanvas = document.createElement('canvas');
+    plateCanvas.width = 256;
+    plateCanvas.height = 64;
+    const pctx = plateCanvas.getContext('2d');
+    if (pctx) {
+      pctx.fillStyle = '#1e3a8a';
+      pctx.fillRect(0, 0, 256, 64);
+      pctx.strokeStyle = '#ffffff';
+      pctx.lineWidth = 4;
+      pctx.strokeRect(4, 4, 248, 56);
+      pctx.fillStyle = '#ffffff';
+      pctx.font = 'bold 28px sans-serif';
+      pctx.textAlign = 'center';
+      pctx.textBaseline = 'middle';
+      pctx.fillText('BUS MADNESS', 128, 32);
+    }
+    const plateTex = new THREE.CanvasTexture(plateCanvas);
+    const plate = new THREE.Mesh(
+      new THREE.PlaneGeometry(0.9, 0.24),
+      new THREE.MeshBasicMaterial({ map: plateTex })
+    );
+    plate.position.set(0, 0.27, busLength * 0.542);
+    vwBusGroup.add(plate);
+
+    // Front Roof "BUS" Destination Sign Box
+    const signBox = new THREE.Mesh(
+      new THREE.BoxGeometry(0.95, 0.30, 0.32),
+      new THREE.MeshStandardMaterial({ color: 0xfef3c7, roughness: 0.3 })
+    );
+    signBox.position.set(0, busHeight * 0.96 + 0.36, busLength * 0.40);
+    vwBusGroup.add(signBox);
+
+    const busLabelCanvas = document.createElement('canvas');
+    busLabelCanvas.width = 256;
+    busLabelCanvas.height = 80;
+    const blctx = busLabelCanvas.getContext('2d');
+    if (blctx) {
+      blctx.fillStyle = '#fef08a';
+      blctx.fillRect(0, 0, 256, 80);
+      blctx.strokeStyle = '#78350f';
+      blctx.lineWidth = 6;
+      blctx.strokeRect(6, 6, 244, 68);
+      blctx.fillStyle = '#78350f';
+      blctx.font = '900 48px sans-serif';
+      blctx.textAlign = 'center';
+      blctx.textBaseline = 'middle';
+      blctx.fillText('BUS', 128, 40);
+    }
+    const busLabelTex = new THREE.CanvasTexture(busLabelCanvas);
+    const busLabel = new THREE.Mesh(
+      new THREE.PlaneGeometry(0.85, 0.24),
+      new THREE.MeshBasicMaterial({ map: busLabelTex })
+    );
+    busLabel.position.set(0, busHeight * 0.96 + 0.36, busLength * 0.40 + 0.17);
+    vwBusGroup.add(busLabel);
+
+    // Chrome Side Mirrors on Curved Stalks
+    [-busWidth * 0.58, busWidth * 0.58].forEach((mx) => {
+      const stalk = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.38), chromeMat);
+      stalk.position.set(mx * 0.94, busHeight * 0.52 + 0.36, busLength * 0.38);
+      stalk.rotation.z = mx < 0 ? -0.4 : 0.4;
+      vwBusGroup.add(stalk);
+
+      const mirror = new THREE.Mesh(new THREE.SphereGeometry(0.13, 16, 12), chromeMat);
+      mirror.position.set(mx, busHeight * 0.58 + 0.36, busLength * 0.38);
+      mirror.scale.set(0.3, 1, 1);
+      vwBusGroup.add(mirror);
+    });
+
+    // 4 Wheels with White-Walls & Chrome Domed Hubcaps
+    const wheels: THREE.Group[] = [];
+    const wheelPositions = [
+      [-busWidth * 0.50, 0.40, busLength * 0.32],
+      [busWidth * 0.50, 0.40, busLength * 0.32],
+      [-busWidth * 0.50, 0.40, -busLength * 0.32],
+      [busWidth * 0.50, 0.40, -busLength * 0.32],
+    ];
+
+    wheelPositions.forEach(([wx, wy, wz]) => {
+      const wheel = new THREE.Group();
+      wheel.position.set(wx, wy, wz);
+
+      const tire = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.40, 0.40, 0.24, 20),
+        new THREE.MeshStandardMaterial({ color: 0x111827, roughness: 0.9 })
+      );
+      tire.rotation.z = Math.PI / 2;
+      tire.castShadow = true;
+      wheel.add(tire);
+
+      const whiteWall = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.30, 0.30, 0.245, 20),
+        creamMat
+      );
+      whiteWall.rotation.z = Math.PI / 2;
+      wheel.add(whiteWall);
+
+      const cap = new THREE.Mesh(
+        new THREE.SphereGeometry(0.18, 16, 12),
+        chromeMat
+      );
+      cap.position.x = wx > 0 ? 0.11 : -0.11;
+      wheel.add(cap);
+
+      wheels.push(wheel);
+      vwBusGroup.add(wheel);
+    });
+
+    // -------------------------------------------------------------
+    // INTERACTION: TAP BUS TO HONK & BOUNCE
+    // -------------------------------------------------------------
+    let hopProgress = 0;
+    const triggerBusHonk = () => {
+      sounds.playEscape();
+      hopProgress = 1.0;
+      setInteractiveToast('Beep Beep! 🚌 Vintage Camper Ready!');
+      setTimeout(() => setInteractiveToast(null), 1800);
+    };
 
     const raycaster = new THREE.Raycaster();
     const mouse = new THREE.Vector2();
 
-    const triggerBusHop = (busEntry: InteractiveBusEntry) => {
-      busEntry.hopProgress = 1.0;
-      sounds.playEscape();
-      setInteractiveToast(`Honked ${busEntry.name}!`);
-      setTimeout(() => setInteractiveToast(null), 1800);
-    };
-
-    const handlePointerDown = (e: MouseEvent | TouchEvent) => {
+    const onPointerDown = (e: MouseEvent | TouchEvent) => {
       const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
       const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
-      isDragging = true;
-      prevX = clientX;
-      prevY = clientY;
-      autoRotate = false;
-      lastInteractTime = Date.now();
-    };
+      const rect = container.getBoundingClientRect();
+      mouse.x = ((clientX - rect.left) / rect.width) * 2 - 1;
+      mouse.y = -((clientY - rect.top) / rect.height) * 2 + 1;
 
-    const handlePointerMove = (e: MouseEvent | TouchEvent) => {
-      if (!isDragging) return;
-      const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
-      const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
-
-      const deltaX = (clientX - prevX) * 0.008;
-      const deltaY = (clientY - prevY) * 0.005;
-      prevX = clientX;
-      prevY = clientY;
-
-      userOrbitY += deltaX;
-      userOrbitX = Math.max(-0.25, Math.min(0.35, userOrbitX + deltaY));
-
-      dioramaRoot.rotation.y = userOrbitY;
-      camera.position.y = 14 + userOrbitX * 10;
-      camera.lookAt(0, 0.6, -1.0);
-    };
-
-    const handlePointerUp = (e: MouseEvent | TouchEvent) => {
-      // Check if tap on a bus
-      if (isDragging) {
-        const clientX = 'changedTouches' in e ? e.changedTouches[0].clientX : (e as MouseEvent).clientX;
-        const clientY = 'changedTouches' in e ? e.changedTouches[0].clientY : (e as MouseEvent).clientY;
-
-        const rect = container.getBoundingClientRect();
-        mouse.x = ((clientX - rect.left) / rect.width) * 2 - 1;
-        mouse.y = -((clientY - rect.top) / rect.height) * 2 + 1;
-
-        raycaster.setFromCamera(mouse, camera);
-        const intersects = raycaster.intersectObjects(dioramaRoot.children, true);
-
-        if (intersects.length > 0) {
-          let hitObj: THREE.Object3D | null = intersects[0].object;
-          while (hitObj && hitObj !== dioramaRoot) {
-            const hitBus = buses.find((b) => b.group === hitObj);
-            if (hitBus) {
-              triggerBusHop(hitBus);
-              break;
-            }
-            hitObj = hitObj.parent;
-          }
-        }
+      raycaster.setFromCamera(mouse, camera);
+      const hits = raycaster.intersectObjects(vwBusGroup.children, true);
+      if (hits.length > 0) {
+        triggerBusHonk();
       }
-
-      isDragging = false;
-      setTimeout(() => {
-        if (Date.now() - lastInteractTime >= 2500) {
-          autoRotate = true;
-        }
-      }, 2500);
     };
 
-    container.addEventListener('mousedown', handlePointerDown);
-    window.addEventListener('mousemove', handlePointerMove);
-    window.addEventListener('mouseup', handlePointerUp);
-
-    container.addEventListener('touchstart', handlePointerDown, { passive: true });
-    window.addEventListener('touchmove', handlePointerMove, { passive: true });
-    window.addEventListener('touchend', handlePointerUp, { passive: true });
+    container.addEventListener('pointerdown', onPointerDown);
 
     // -------------------------------------------------------------
     // ANIMATION LOOP
     // -------------------------------------------------------------
     let animId: number;
     let clock = new THREE.Clock();
-    let ambientCarT = 0;
 
     const animate = () => {
       animId = requestAnimationFrame(animate);
       const delta = clock.getDelta();
       const time = clock.getElapsedTime();
 
-      // Gentle auto orbit drift
-      if (autoRotate && !isDragging) {
-        userOrbitY += delta * 0.08;
-        dioramaRoot.rotation.y = userOrbitY;
+      // Radar dish rotation
+      radarDish.rotation.y += delta * 1.5;
+
+      // Soft clouds drift
+      cloudsGroup.position.x = Math.sin(time * 0.1) * 0.8;
+
+      // Bus idle suspension & tap hop
+      if (hopProgress > 0) {
+        hopProgress = Math.max(0, hopProgress - delta * 3.5);
+        const hopY = Math.sin((1 - hopProgress) * Math.PI) * 0.55;
+        const squash = Math.cos((1 - hopProgress) * Math.PI) * 0.15;
+        vwBusGroup.position.y = 0.05 + hopY;
+        vwBusGroup.scale.set(1 + squash * 0.15, 1 - squash * 0.15, 1 + squash * 0.15);
+      } else {
+        const idleBob = Math.sin(time * 2.2) * 0.015;
+        const idleRoll = Math.sin(time * 1.6) * 0.005;
+        vwBusGroup.position.y = 0.05 + idleBob;
+        vwBusGroup.rotation.z = idleRoll;
+        vwBusGroup.scale.set(1, 1, 1);
       }
-
-      // Subtle bus idle suspension breathing & hop reactions
-      buses.forEach((b, i) => {
-        const idleBob = Math.sin(time * 2.5 + i * 1.2) * 0.02;
-        const idleRoll = Math.sin(time * 1.8 + i * 0.8) * 0.008;
-
-        if (b.hopProgress > 0) {
-          b.hopProgress = Math.max(0, b.hopProgress - delta * 3.5);
-          const hopHeight = Math.sin((1 - b.hopProgress) * Math.PI) * 0.65;
-          const squash = Math.cos((1 - b.hopProgress) * Math.PI) * 0.15;
-          b.group.position.y = b.basePos.y + hopHeight;
-          b.group.scale.set(1 + squash * 0.2, 1 - squash * 0.2, 1 + squash * 0.2);
-        } else {
-          b.group.position.y = b.basePos.y + idleBob;
-          b.group.rotation.z = idleRoll;
-          b.group.scale.set(1, 1, 1);
-        }
-      });
-
-      // Ambient car driving along curve
-      ambientCarT = (ambientCarT + delta * 0.06) % 1.0;
-      const carPos = mainCurve.getPointAt(ambientCarT);
-      const carTangent = mainCurve.getTangentAt(ambientCarT);
-      ambientCar.position.copy(carPos);
-      ambientCar.position.y = 0.52;
-      ambientCar.rotation.y = Math.atan2(carTangent.x, carTangent.z);
 
       renderer.render(scene, camera);
     };
 
     animate();
 
-    // -------------------------------------------------------------
-    // RESIZE OBSERVER
-    // -------------------------------------------------------------
     const handleResize = () => {
       if (!container) return;
       width = container.clientWidth || window.innerWidth;
       height = container.clientHeight || window.innerHeight;
-      camera.aspect = width / height;
-      camera.updateProjectionMatrix();
+      updateCamera();
       renderer.setSize(width, height, true);
     };
 
@@ -591,13 +775,7 @@ export const Home3DDepotScene: React.FC = () => {
     return () => {
       cancelAnimationFrame(animId);
       window.removeEventListener('resize', handleResize);
-      container.removeEventListener('mousedown', handlePointerDown);
-      window.removeEventListener('mousemove', handlePointerMove);
-      window.removeEventListener('mouseup', handlePointerUp);
-      container.removeEventListener('touchstart', handlePointerDown);
-      window.removeEventListener('touchmove', handlePointerMove);
-      window.removeEventListener('touchend', handlePointerUp);
-
+      container.removeEventListener('pointerdown', onPointerDown);
       disposeHierarchy(scene);
       if (container.contains(renderer.domElement)) {
         container.removeChild(renderer.domElement);
@@ -608,21 +786,14 @@ export const Home3DDepotScene: React.FC = () => {
 
   return (
     <div className="w-full h-full relative overflow-hidden select-none touch-none">
-      <div ref={mountRef} className="w-full h-full absolute inset-0 cursor-grab active:cursor-grabbing" />
+      <div ref={mountRef} className="w-full h-full absolute inset-0 cursor-pointer" />
 
       {/* Interactive Toast Notification */}
       {interactiveToast && (
-        <div className="absolute top-16 left-1/2 -translate-x-1/2 bg-amber-400 text-slate-950 font-black text-xs px-3.5 py-1.5 rounded-full shadow-lg border border-yellow-200 animate-bounce pointer-events-none z-20 flex items-center gap-1.5">
-          <span>🔊</span>
+        <div className="absolute top-16 left-1/2 -translate-x-1/2 bg-amber-400 text-slate-950 font-black text-xs px-4 py-2 rounded-full shadow-xl border-2 border-yellow-200 animate-bounce pointer-events-none z-30 flex items-center gap-2">
           <span>{interactiveToast}</span>
         </div>
       )}
-
-      {/* Subtle Hint: Touch & drag to orbit diorama */}
-      <div className="absolute bottom-3 left-1/2 -translate-x-1/2 bg-slate-950/60 backdrop-blur-sm border border-slate-800/80 px-3 py-1 rounded-full text-[10px] font-bold text-slate-300 pointer-events-none z-10 flex items-center gap-1.5">
-        <span>👆</span>
-        <span>Drag to explore depot • Tap bus to honk</span>
-      </div>
     </div>
   );
 };
