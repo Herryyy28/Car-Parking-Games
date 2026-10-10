@@ -1,5 +1,9 @@
 {
 	"appId": "com.herry.carparkinggames",
-	"appName": "Car Parking Games",
-	"webDir": "dist"
+	"appName": "Bus Jam 3D",
+	"webDir": "dist",
+	"server": {
+		"url": "http://127.0.0.1:3000",
+		"cleartext": true
+	}
 }
