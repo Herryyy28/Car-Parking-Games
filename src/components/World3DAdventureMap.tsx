@@ -832,14 +832,13 @@ export const World3DAdventureMap: React.FC<World3DAdventureMapProps> = ({
       }
 
       // 4. Animate Ambient Buses along the winding road
-      const zAxis = new THREE.Vector3(0, 0, 1);
       ambientBuses.forEach((b) => {
         b.progress = (b.progress + b.speed) % 1.0;
         const pt = roadSpline.getPoint(b.progress);
         const tangent = roadSpline.getTangent(b.progress);
 
         b.group.position.set(pt.x, pt.y + 0.12, pt.z);
-        b.group.quaternion.setFromUnitVectors(zAxis, tangent);
+        b.group.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), tangent);
       });
 
       renderer.render(scene, camera);

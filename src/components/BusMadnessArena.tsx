@@ -43,15 +43,6 @@ import {
   Check,
   Disc,
 } from 'lucide-react';
-const SHARED_PUFF_GEO = new THREE.SphereGeometry(1, 6, 6);
-const SHARED_PUFF_MAT = new THREE.MeshBasicMaterial({
-  color: 0x94a3b8,
-  transparent: true,
-  opacity: 0.55,
-  depthWrite: false,
-});
-const SHARED_MATRIX = new THREE.Matrix4();
-const SHARED_QUATERNION = new THREE.Quaternion();
 
 interface BusMadnessArenaProps {
   gameState: GameState;
@@ -1610,9 +1601,14 @@ export const BusMadnessArena: React.FC<BusMadnessArenaProps> = ({
 
           // Emit soft exhaust smoke puff particles
           if (Math.random() < 0.45 && anim.progress < 0.85) {
-            const puff = new THREE.Mesh(SHARED_PUFF_GEO, SHARED_PUFF_MAT);
-            const size = 0.16 + Math.random() * 0.12;
-            puff.scale.set(size, size, size);
+            const puffGeo = new THREE.SphereGeometry(0.16 + Math.random() * 0.12, 6, 6);
+            const puffMat = new THREE.MeshBasicMaterial({
+              color: 0x94a3b8,
+              transparent: true,
+              opacity: 0.55,
+              depthWrite: false,
+            });
+            const puff = new THREE.Mesh(puffGeo, puffMat);
             puff.position.set(
               group.position.x + (Math.random() - 0.5) * 0.3,
               0.42,
@@ -1695,8 +1691,8 @@ export const BusMadnessArena: React.FC<BusMadnessArenaProps> = ({
             onConfettiCompleteRef.current();
           }
         } else {
-          SHARED_MATRIX.identity();
-          SHARED_QUATERNION.identity();
+          const matrix = new THREE.Matrix4();
+          const q = new THREE.Quaternion();
 
           for (let i = 0; i < confetti.particles.length; i++) {
             const p = confetti.particles[i];
@@ -1719,9 +1715,9 @@ export const BusMadnessArena: React.FC<BusMadnessArenaProps> = ({
             p.rot.y += p.rotVel.y * delta;
             p.rot.z += p.rotVel.z * delta;
 
-            SHARED_QUATERNION.setFromEuler(p.rot);
-            SHARED_MATRIX.compose(p.pos, SHARED_QUATERNION, p.scale);
-            confetti.mesh.setMatrixAt(i, SHARED_MATRIX);
+            q.setFromEuler(p.rot);
+            matrix.compose(p.pos, q, p.scale);
+            confetti.mesh.setMatrixAt(i, matrix);
           }
           confetti.mesh.instanceMatrix.needsUpdate = true;
         }

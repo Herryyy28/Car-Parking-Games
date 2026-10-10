@@ -44,13 +44,8 @@ export const LoadingScreen: React.FC<LoadingScreenProps> = ({ onComplete }) => {
       {/* Top Vignette & Subtle Atmospheric Gradient */}
       <div className="absolute inset-0 bg-gradient-to-b from-sky-500/25 via-transparent to-black/60 pointer-events-none" />
 
-      {/* TOP HEADER: 3D CARTOON LOGO "BUS JAM 3D" (EXACT SAME AS SCREENSHOT) */}
-      <div className="relative z-10 pt-10 sm:pt-14 flex flex-col items-center animate-bounce-subtle">
-        <img 
-          src="/game_icon.jpg" 
-          alt="Bus Jam 3D Logo" 
-          className="w-48 h-48 sm:w-64 sm:h-64 object-cover rounded-3xl shadow-[0_12px_24px_rgba(0,0,0,0.6)] border-4 border-white"
-        />
+      {/* (Logo removed per request to show full splash background) */}
+      <div className="relative z-10 pt-10 sm:pt-14 flex flex-col items-center">
       </div>
 
       {/* BOTTOM SECTION: "Loading..." TEXT & GREEN GLOW PROGRESS BAR (MATCHING SCREENSHOT 1) */}

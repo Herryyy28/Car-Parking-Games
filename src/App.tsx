@@ -454,59 +454,54 @@ export default function App() {
               {/* Main Content Area based on Tab */}
               {activeTab === 'HOME' && (
                 <>
-                  {/* Top Header: Avatar & Coin Pill (Matching frame_04.jpg) */}
-                  <div className="absolute top-4 left-4 z-20 flex items-start pointer-events-none select-none">
-                    {/* Left: Avatar with connected Coin Pill */}
-                    <div className="pointer-events-auto flex items-center">
-                      {/* Avatar Square (Click to Edit Profile - frame_04.jpg) */}
+                  {/* Top Header: Avatar & Coin Pill (Matching HUD Screenshot) */}
+                  <div className="absolute top-4 left-4 z-20 flex items-center pointer-events-none select-none">
+                    
+                    {/* 1. Avatar Square */}
+                    <div className="relative z-20">
                       <div 
-                        onClick={() => {
-                          sounds.playClick();
-                          setShowProfileModal(true);
-                        }}
-                        className="w-14 h-14 rounded-2xl border-[3.5px] border-[#93C5FD] bg-gradient-to-b from-[#D946EF] to-[#9333EA] shadow-[0_4px_12px_rgba(0,0,0,0.3)] flex items-center justify-center p-1 relative cursor-pointer active:scale-95 transition-transform z-10"
+                        onClick={() => { sounds.playClick(); setShowProfileModal(true); }}
+                        className="pointer-events-auto w-[54px] h-[54px] rounded-[18px] border-[3px] border-[#93D7FB] bg-gradient-to-b from-[#C446FF] to-[#9F13EC] shadow-[0_4px_8px_rgba(0,0,0,0.2)] flex items-center justify-center p-1 cursor-pointer active:scale-95 transition-transform relative"
                         title="Edit Profile"
                       >
-                        <div className="absolute inset-0.5 rounded-[12px] border border-white/35 pointer-events-none" />
-                        <span className="text-3xl filter drop-shadow select-none">
+                        {/* Inner Lighter Purple Ring */}
+                        <div className="absolute inset-[1.5px] rounded-[13px] border-[1.5px] border-[#DD7EFF] pointer-events-none" />
+                        <span className="text-[32px] filter drop-shadow-md select-none relative z-10">
                           {currentAvatarOption.emoji || '🦆'}
                         </span>
                       </div>
+                    </div>
 
-                      {/* Connected Coin Pill (frame_04.jpg) */}
-                      <div className="flex items-center bg-[#FFFDF0] border-[3px] border-[#B45309] rounded-full h-10 shadow-[0_4px_10px_rgba(0,0,0,0.25)] -ml-2.5 z-0 pl-1 pr-3.5">
-                        {/* 3D Gold Coin with embossed 'G' and green '+' badge */}
-                        <div className="w-9 h-9 rounded-full bg-gradient-to-b from-[#FDE047] via-[#F59E0B] to-[#D97706] border-2 border-[#FEF08A] flex items-center justify-center shadow-sm relative -ml-1.5 z-10">
-                          <span className="text-[#78350F] font-black text-sm tracking-tighter">G</span>
-                          {/* Connected Green Plus Button */}
-                          <button 
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              sounds.playClick();
-                              setActiveTab('SHOP');
-                            }}
-                            className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-[#22C55E] border-2 border-white flex items-center justify-center shadow-md active:scale-90 transition-transform"
-                            title="Buy Coins"
-                          >
-                            <span className="text-white text-xs font-black leading-none pb-0.5">+</span>
-                          </button>
-                        </div>
-                        {/* Coin Amount */}
-                        <span className="text-[#451A03] font-black ml-2.5 text-lg tracking-wide font-sans">
-                          {gameState.coins}
-                        </span>
+                    {/* 2. Connected Coin Pill */}
+                    <div className="pointer-events-auto relative z-10 flex items-center bg-[#FFF8EC] border-[3px] border-[#B26B22] rounded-r-full h-[38px] shadow-[0_4px_6px_rgba(0,0,0,0.15)] -ml-[12px] pl-[14px] pr-[16px]">
+                      {/* 3D Gold Coin with embossed 'G' */}
+                      <div className="relative w-[34px] h-[34px] rounded-full bg-gradient-to-br from-[#FDE047] via-[#F59E0B] to-[#D97706] flex items-center justify-center shadow-inner mr-1.5 border border-[#FEF08A]">
+                        <span className="text-[#844309] font-black text-[15px] tracking-tighter" style={{ WebkitTextStroke: '0.5px #A1580E' }}>G</span>
+                        {/* Connected Green Plus Button */}
+                        <button 
+                          onClick={(e) => { e.stopPropagation(); sounds.playClick(); setActiveTab('SHOP'); }}
+                          className="absolute -bottom-1 -right-1 w-[18px] h-[18px] rounded-full bg-[#1BD954] border-[2px] border-white flex items-center justify-center shadow-md active:scale-90 transition-transform"
+                          title="Buy Coins"
+                        >
+                          <span className="text-white text-[14px] font-black leading-none pb-[1px]">+</span>
+                        </button>
                       </div>
+                      {/* Coin Amount */}
+                      <span className="text-[#592608] font-black text-[18px] tracking-wide mt-0.5">
+                        {gameState.coins}
+                      </span>
+                    </div>
 
-                      {/* Garage / Bus Mod Shop Button */}
+                    {/* 3. Garage / Bus Mod Shop Button */}
+                    <div className="relative z-20 ml-3">
                       <button
-                        onClick={() => {
-                          sounds.playClick();
-                          setShowGarageModal(true);
-                        }}
-                        className="ml-3 flex items-center justify-center w-11 h-11 rounded-2xl bg-gradient-to-b from-[#38BDF8] via-[#2563EB] to-[#1D4ED8] border-[3px] border-[#BAE6FD] shadow-[0_4px_10px_rgba(0,0,0,0.3)] active:scale-95 transition-transform"
+                        onClick={() => { sounds.playClick(); setShowGarageModal(true); }}
+                        className="pointer-events-auto w-[52px] h-[52px] rounded-[18px] border-[3px] border-[#93D7FB] bg-gradient-to-b from-[#3492FA] to-[#0D55DE] shadow-[0_4px_8px_rgba(0,0,0,0.2)] flex items-center justify-center cursor-pointer active:scale-95 transition-transform relative"
                         title="Bus Garage & Customization"
                       >
-                        <span className="text-2xl filter drop-shadow select-none">🚌</span>
+                        {/* Inner Lighter Blue Ring */}
+                        <div className="absolute inset-[1.5px] rounded-[13px] border-[1.5px] border-[#7CBDFE] pointer-events-none" />
+                        <span className="text-[30px] filter drop-shadow-md select-none relative z-10">🚌</span>
                       </button>
                     </div>
                   </div>
@@ -533,134 +528,126 @@ export default function App() {
               )}
 
               {activeTab === 'SHOP' && (
-                <div className="absolute inset-0 bg-[#1E3A8A] z-40 pointer-events-auto flex flex-col pt-4 px-4 pb-[105px] overflow-y-auto select-none">
+                <div className="absolute inset-0 bg-[#24368E] z-40 pointer-events-auto flex flex-col pt-4 px-3 pb-[105px] overflow-y-auto select-none overflow-x-hidden">
+                  
                   {/* Top Header: Coin Counter & Golden 3D "Shop" Title */}
-                  <div className="flex items-center justify-between mb-4 border-b-2 border-yellow-400 pb-2">
-                    <div className="flex items-center bg-[#FFF1D0] border-[3px] border-[#B07B46] rounded-full px-2.5 py-1 h-8 shadow-md">
-                      <div className="w-7 h-7 rounded-full bg-amber-400 border-2 border-yellow-200 flex items-center justify-center -ml-2.5 z-10 shadow-sm relative">
-                        <span className="text-[#D97706] font-black text-[12px] absolute">C</span>
+                  <div className="flex items-center justify-between mb-2 pb-2 relative z-10 px-2">
+                    {/* 2. Connected Coin Pill */}
+                    <div className="relative flex items-center bg-[#FFF8EC] border-[3px] border-[#B26B22] rounded-full h-[38px] shadow-[0_4px_6px_rgba(0,0,0,0.15)] pl-[2px] pr-[16px]">
+                      {/* 3D Gold Coin with embossed 'C' */}
+                      <div className="relative w-[34px] h-[34px] rounded-full bg-gradient-to-br from-[#FDE047] via-[#F59E0B] to-[#D97706] flex items-center justify-center shadow-inner mr-1.5 border border-[#FEF08A]">
+                        <span className="text-[#844309] font-black text-[15px] tracking-tighter" style={{ WebkitTextStroke: '0.5px #A1580E' }}>C</span>
+                        {/* Connected Green Plus Button */}
+                        <div className="absolute -bottom-1 -right-1 w-[16px] h-[16px] rounded-full bg-[#1BD954] border-[2px] border-white flex items-center justify-center shadow-md">
+                          <span className="text-white text-[14px] font-black leading-none pb-[1px]">+</span>
+                        </div>
                       </div>
-                      <span className="text-[#8B4513] font-black ml-1.5 pr-2 text-sm">{gameState.coins}</span>
-                      <button className="w-5 h-5 rounded-full bg-[#84cc16] border-2 border-white flex items-center justify-center shadow-sm -mr-1.5">
-                        <span className="text-white text-base font-black leading-none mb-0.5">+</span>
-                      </button>
+                      {/* Coin Amount */}
+                      <span className="text-[#592608] font-black text-[15px] tracking-wide mt-0.5 font-sans">
+                        {gameState.coins}
+                      </span>
                     </div>
 
                     <h1 
-                      className="text-3xl font-black text-[#FBBF24] drop-shadow-[0_2px_0_#B07B46] mr-4" 
-                      style={{WebkitTextStroke: '1px #B07B46'}}
+                      className="text-[36px] font-black text-[#FFDF3E] tracking-wide absolute left-1/2 -translate-x-1/2" 
+                      style={{
+                        WebkitTextStroke: '1.5px #B67115',
+                        textShadow: '0 3px 0 #924C03',
+                        fontFamily: "'Comic Sans MS', cursive, sans-serif"
+                      }}
                     >
                       Shop
                     </h1>
-                    <div className="w-16"></div>
                   </div>
+
+                  {/* Horizontal Yellow Line */}
+                  <div className="w-[120%] -ml-6 h-[2px] bg-[#FFDF3E] mb-5 shadow-[0_1px_0_#924C03] z-0"></div>
                   
                   {/* 1. Remove Ads Banner Card */}
-                  <div className="bg-[#3b82f6] border-[3px] border-[#60a5fa] rounded-[24px] p-4 mb-4 relative overflow-hidden shadow-lg flex items-center justify-between">
-                    <div className="absolute top-2.5 right-2.5 w-[22px] h-[22px] bg-blue-300 rounded-full flex items-center justify-center text-blue-900 text-[11px] font-black shadow-sm cursor-pointer z-10">
+                  <div className="bg-[#4988EE] border-[3px] border-[#72A6F6] rounded-[24px] p-4 mb-4 relative shadow-[0_4px_10px_rgba(0,0,0,0.2)] flex items-center justify-between mx-1 h-[110px]">
+                    <div className="absolute top-3 right-3 w-[20px] h-[20px] bg-[#97C5FB] rounded-full flex items-center justify-center text-[#2A5E9E] text-[12px] font-black shadow-sm">
                       i
                     </div>
-                    <div className="flex flex-col gap-2">
-                      <div className="text-white font-black text-[15px] leading-tight">Remove Banner<br/>and Pop-up Ads</div>
-                      <button 
-                        onClick={() => sounds.playCoinCollect()}
-                        className="bg-gradient-to-b from-[#84cc16] via-[#65a30d] to-[#4d7c0f] border-2 border-[#bef264] text-white font-black text-[13px] px-5 py-1.5 rounded-full shadow-md active:translate-y-0.5 self-start"
-                      >
+                    <div className="flex flex-col justify-between h-full py-1">
+                      <div className="text-white font-black text-[15px] leading-tight mt-1">Remove Banner<br/>and Pop-up Ads</div>
+                      <div className="bg-[#78BA10] border-b-[4px] border-[#538209] border-x-[2px] border-x-[#68A20D] text-white font-black text-[13px] px-4 py-1 rounded-[16px] shadow-md w-fit -ml-1 mt-1">
                         ₹1,100.00
-                      </button>
+                      </div>
                     </div>
-                    {/* Glowing Golden ADS Medallion */}
-                    <div className="relative mr-4 flex items-center justify-center">
-                      <div className="absolute w-20 h-20 bg-amber-400/40 rounded-full blur-xl animate-pulse" />
-                      <div className="w-[68px] h-[68px] rounded-full bg-gradient-to-br from-[#FBBF24] via-[#F59E0B] to-[#B45309] border-[3px] border-[#FEF3C7] flex items-center justify-center shadow-xl rotate-12 relative overflow-hidden">
-                        <span className="text-amber-950 font-black text-xl tracking-tighter drop-shadow-sm">ADS</span>
+                    {/* Glowing ADS Medallion */}
+                    <div className="relative mr-5">
+                      <div className="absolute w-[80px] h-[80px] bg-[#E53B25]/20 rounded-full blur-xl animate-pulse -inset-2" />
+                      <div className="w-[70px] h-[70px] rounded-full bg-[#E53B25] border-[4px] border-[#FAD635] flex items-center justify-center shadow-lg relative overflow-hidden">
+                        <span className="text-[#351A03] font-black text-[22px] tracking-tighter" style={{ textShadow: '0 1px 0 rgba(0,0,0,0.3)' }}>ADS</span>
                         {/* Red Slash */}
-                        <div className="absolute w-full h-[5px] bg-red-600 -rotate-45 transform origin-center shadow-md" />
-                        {/* Red Circle Outline */}
-                        <div className="absolute inset-1 border-[4px] border-red-600 rounded-full opacity-90" />
+                        <div className="absolute w-full h-[6px] bg-[#C11803] -rotate-45 transform origin-center shadow-sm" />
                       </div>
                     </div>
                   </div>
 
-                  {/* 2. Swift Bundle Card */}
-                  <div className="bg-[#FFF1D0] border-4 border-[#1E40AF] rounded-[24px] mb-4 overflow-hidden shadow-md flex flex-col">
-                    <div className="p-4 flex justify-between items-center bg-[#FFF1D0]">
-                      <div className="flex flex-col items-center justify-center w-20">
-                        <div className="w-12 h-12 bg-yellow-400 rounded-full flex items-center justify-center border-[3px] border-yellow-200 shadow-sm mb-1">
-                          <span className="text-amber-800 font-black text-xl">🪙</span>
+                  {/* 2. Bundle 4000 */}
+                  <div className="bg-[#194FD1] rounded-[28px] mb-4 shadow-[0_6px_0_#103597] flex flex-col mx-1 relative h-[140px]">
+                    <div className="bg-[#FFF6DC] rounded-[24px] h-[105px] flex items-center justify-between px-6 z-10 border-b-[3px] border-[#D6C59E]">
+                      <div className="flex flex-col items-center">
+                        <div className="w-[50px] h-[50px] bg-[#FAD425] rounded-full flex items-center justify-center shadow-sm mb-1 mt-1 border-[2px] border-[#FFF1A0]">
+                          <span className="text-white font-black text-[20px] opacity-80" style={{ textShadow: '0 1px 0 rgba(0,0,0,0.2)' }}>🏛️</span>
                         </div>
-                        <div className="text-[#8B4513] font-black text-[15px]">4 000</div>
+                        <div className="text-[#592608] font-black text-[16px]">4 000</div>
                       </div>
-                      <div className="bg-white rounded-2xl p-2.5 shadow-sm border border-amber-100 flex gap-4 mr-2">
-                        <div className="flex flex-col items-center"><span className="text-2xl drop-shadow-sm">🚙</span><span className="text-[#8B4513] font-black text-[11px] mt-1">x1</span></div>
-                        <div className="flex flex-col items-center"><span className="text-2xl drop-shadow-sm">🚁</span><span className="text-[#8B4513] font-black text-[11px] mt-1">x1</span></div>
-                        <div className="flex flex-col items-center"><span className="text-2xl drop-shadow-sm">🌳</span><span className="text-[#8B4513] font-black text-[11px] mt-1">x1</span></div>
+                      <div className="bg-white rounded-[20px] px-3 py-2 flex gap-4 h-[70px] items-center shadow-sm">
+                        <div className="flex flex-col items-center"><span className="text-[26px]">🚙</span><span className="text-[#7B3708] font-black text-[11px]">x1</span></div>
+                        <div className="flex flex-col items-center"><span className="text-[26px]">🚁</span><span className="text-[#7B3708] font-black text-[11px]">x1</span></div>
+                        <div className="flex flex-col items-center"><span className="text-[26px]">🌳</span><span className="text-[#7B3708] font-black text-[11px]">x1</span></div>
                       </div>
                     </div>
-                    <div className="bg-[#1D4ED8] px-5 py-3 border-t-2 border-[#1e3a8a] flex justify-between items-center">
-                      <div className="text-white font-black text-[15px] tracking-wide">Swift Bundle</div>
-                      <button 
-                        onClick={() => sounds.playCoinCollect()}
-                        className="bg-gradient-to-b from-[#84cc16] via-[#65a30d] to-[#4d7c0f] border-2 border-[#bef264] text-white font-black text-[13px] px-5 py-1.5 rounded-full shadow-md active:translate-y-0.5"
-                      >
-                        ₹550.00
-                      </button>
+                    {/* Bottom Blue Base with Green Button Top Edge */}
+                    <div className="h-[35px] w-full flex items-end justify-end px-6 relative overflow-hidden">
+                       <div className="w-[110px] h-[22px] bg-[#78BA10] rounded-t-[16px] border-t-[3px] border-x-[3px] border-[#91DA15]" />
                     </div>
                   </div>
                   
-                  {/* 3. Professional Bundle Card */}
-                  <div className="bg-[#FFF1D0] border-4 border-[#1E40AF] rounded-[24px] mb-4 overflow-hidden shadow-md flex flex-col">
-                    <div className="p-4 flex justify-between items-center bg-[#FFF1D0]">
-                      <div className="flex flex-col items-center justify-center w-20">
-                        <div className="w-12 h-12 bg-yellow-400 rounded-full flex items-center justify-center border-[3px] border-yellow-200 shadow-sm mb-1">
-                          <span className="text-amber-800 font-black text-xl">🪙</span>
+                  {/* 3. Bundle 8000 */}
+                  <div className="bg-[#194FD1] rounded-[28px] mb-4 shadow-[0_6px_0_#103597] flex flex-col mx-1 relative h-[140px]">
+                    <div className="bg-[#FFF6DC] rounded-[24px] h-[105px] flex items-center justify-between px-6 z-10 border-b-[3px] border-[#D6C59E]">
+                      <div className="flex flex-col items-center">
+                        <div className="w-[50px] h-[50px] bg-[#FAD425] rounded-full flex items-center justify-center shadow-sm mb-1 mt-1 border-[2px] border-[#FFF1A0]">
+                          <span className="text-white font-black text-[20px] opacity-80" style={{ textShadow: '0 1px 0 rgba(0,0,0,0.2)' }}>🏛️</span>
                         </div>
-                        <div className="text-[#8B4513] font-black text-[15px]">8 000</div>
+                        <div className="text-[#592608] font-black text-[16px]">8 000</div>
                       </div>
-                      <div className="bg-white rounded-2xl p-2.5 shadow-sm border border-amber-100 flex gap-4 mr-2">
-                        <div className="flex flex-col items-center"><span className="text-2xl drop-shadow-sm">🚙</span><span className="text-[#8B4513] font-black text-[11px] mt-1">x2</span></div>
-                        <div className="flex flex-col items-center"><span className="text-2xl drop-shadow-sm">🚁</span><span className="text-[#8B4513] font-black text-[11px] mt-1">x2</span></div>
-                        <div className="flex flex-col items-center"><span className="text-2xl drop-shadow-sm">🌳</span><span className="text-[#8B4513] font-black text-[11px] mt-1">x2</span></div>
+                      <div className="bg-white rounded-[20px] px-3 py-2 flex gap-4 h-[70px] items-center shadow-sm">
+                        <div className="flex flex-col items-center"><span className="text-[26px]">🚙</span><span className="text-[#7B3708] font-black text-[11px]">x2</span></div>
+                        <div className="flex flex-col items-center"><span className="text-[26px]">🚁</span><span className="text-[#7B3708] font-black text-[11px]">x2</span></div>
+                        <div className="flex flex-col items-center"><span className="text-[26px]">🌳</span><span className="text-[#7B3708] font-black text-[11px]">x2</span></div>
                       </div>
                     </div>
-                    <div className="bg-[#1D4ED8] px-5 py-3 border-t-2 border-[#1e3a8a] flex justify-between items-center">
-                      <div className="text-white font-black text-[15px] tracking-wide">Professional Bundle</div>
-                      <button 
-                        onClick={() => sounds.playCoinCollect()}
-                        className="bg-gradient-to-b from-[#84cc16] via-[#65a30d] to-[#4d7c0f] border-2 border-[#bef264] text-white font-black text-[13px] px-5 py-1.5 rounded-full shadow-md active:translate-y-0.5"
-                      >
-                        ₹950.00
-                      </button>
+                    <div className="h-[35px] w-full flex items-end justify-end px-6 relative overflow-hidden">
+                       <div className="w-[110px] h-[22px] bg-[#78BA10] rounded-t-[16px] border-t-[3px] border-x-[3px] border-[#91DA15]" />
                     </div>
                   </div>
 
-                  {/* 4. Popular Master Bundle Card (with red ribbon matching frame_02.jpg) */}
-                  <div className="bg-[#FFF1D0] border-4 border-[#1E40AF] rounded-[24px] mb-4 overflow-hidden shadow-md relative flex flex-col">
-                    {/* Horizontal Red Pill Tag */}
-                    <div className="absolute top-2 left-2 bg-gradient-to-b from-[#dc2626] to-[#b91c1c] text-white font-black text-[9px] px-2.5 py-0.5 rounded-full shadow-sm z-10 uppercase tracking-widest border border-red-400">
-                      Popular
+                  {/* 4. Popular Master Bundle (18000) */}
+                  <div className="bg-[#194FD1] rounded-[28px] mb-4 shadow-[0_6px_0_#103597] flex flex-col mx-1 relative h-[140px]">
+                    <div className="absolute top-1.5 left-5 z-20">
+                      <div className="bg-[#D82A27] text-white font-black text-[10px] px-3 py-1 rounded-full shadow-sm tracking-wider">
+                        POPULAR
+                      </div>
                     </div>
-                    <div className="p-4 flex justify-between items-center bg-[#FFF1D0] pt-6">
-                      <div className="flex flex-col items-center justify-center w-20">
-                        <div className="w-12 h-12 bg-yellow-400 rounded-full flex items-center justify-center border-[3px] border-yellow-200 shadow-sm mb-1">
-                          <span className="text-amber-800 font-black text-xl">🪙</span>
+                    <div className="bg-[#FFF6DC] rounded-[24px] h-[105px] flex items-center justify-between px-6 z-10 border-b-[3px] border-[#D6C59E] pt-4">
+                      <div className="flex flex-col items-center">
+                        <div className="w-[50px] h-[50px] bg-[#FAD425] rounded-full flex items-center justify-center shadow-sm mb-1 mt-1 border-[2px] border-[#FFF1A0]">
+                          <span className="text-white font-black text-[20px] opacity-80" style={{ textShadow: '0 1px 0 rgba(0,0,0,0.2)' }}>🏛️</span>
                         </div>
-                        <div className="text-[#8B4513] font-black text-[15px]">18 000</div>
+                        <div className="text-[#592608] font-black text-[16px]">18 000</div>
                       </div>
-                      <div className="bg-white rounded-2xl p-2.5 shadow-sm border border-amber-100 flex gap-4 mr-2">
-                        <div className="flex flex-col items-center"><span className="text-2xl drop-shadow-sm">🚙</span><span className="text-[#8B4513] font-black text-[11px] mt-1">x4</span></div>
-                        <div className="flex flex-col items-center"><span className="text-2xl drop-shadow-sm">🚁</span><span className="text-[#8B4513] font-black text-[11px] mt-1">x4</span></div>
-                        <div className="flex flex-col items-center"><span className="text-2xl drop-shadow-sm">🌳</span><span className="text-[#8B4513] font-black text-[11px] mt-1">x4</span></div>
+                      <div className="bg-white rounded-[20px] px-3 py-2 flex gap-4 h-[70px] items-center shadow-sm">
+                        <div className="flex flex-col items-center"><span className="text-[26px]">🚙</span><span className="text-[#7B3708] font-black text-[11px]">x4</span></div>
+                        <div className="flex flex-col items-center"><span className="text-[26px]">🚁</span><span className="text-[#7B3708] font-black text-[11px]">x4</span></div>
+                        <div className="flex flex-col items-center"><span className="text-[26px]">🌳</span><span className="text-[#7B3708] font-black text-[11px]">x4</span></div>
                       </div>
                     </div>
-                    <div className="bg-[#1D4ED8] px-5 py-3 border-t-2 border-[#1e3a8a] flex justify-between items-center">
-                      <div className="text-white font-black text-[15px] tracking-wide">Master Bundle</div>
-                      <button 
-                        onClick={() => sounds.playCoinCollect()}
-                        className="bg-gradient-to-b from-[#84cc16] via-[#65a30d] to-[#4d7c0f] border-2 border-[#bef264] text-white font-black text-[13px] px-5 py-1.5 rounded-full shadow-md active:translate-y-0.5"
-                      >
-                        ₹1,850.00
-                      </button>
+                    <div className="h-[35px] w-full flex items-end justify-end px-6 relative overflow-hidden">
+                       <div className="w-[110px] h-[22px] bg-[#78BA10] rounded-t-[16px] border-t-[3px] border-x-[3px] border-[#91DA15]" />
                     </div>
                   </div>
                 </div>
@@ -867,22 +854,22 @@ export default function App() {
             </div>
 
             {/* Bottom Navigation Bar */}
-            <div className="absolute bottom-0 left-0 right-0 h-[76px] bg-[#1d4ed8] border-t-[3.5px] border-[#F59E0B] z-50 flex items-end justify-between px-2 pb-1 pointer-events-auto select-none shadow-[0_-4px_12px_rgba(0,0,0,0.3)]">
+            <div className="absolute bottom-0 left-0 right-0 h-[76px] bg-[#173EB4] border-t-[3.5px] border-[#FFB00B] z-50 flex items-end justify-between px-2 pb-1 pointer-events-auto select-none shadow-[0_-4px_12px_rgba(0,0,0,0.3)]">
               {/* Tab 1: SHOP */}
               <button 
                 onClick={() => { sounds.playClick(); setActiveTab('SHOP'); }} 
                 className={`flex flex-col items-center justify-end w-1/5 relative transition-all ${
                   activeTab === 'SHOP' 
-                    ? '-mt-[22px] h-[90px] pt-2 pb-1.5 bg-[#1d4ed8] rounded-t-[20px] border-t-[3.5px] border-x-[3.5px] border-[#F59E0B] shadow-md z-10' 
+                    ? '-mt-[22px] h-[90px] pt-2 pb-1 bg-[#173EB4] rounded-t-[20px] border-t-[3.5px] border-x-[3.5px] border-[#FFB00B] shadow-[0_-2px_10px_rgba(0,0,0,0.3)] z-10' 
                     : 'h-[72.5px] justify-center opacity-85 hover:opacity-100 active:scale-95'
                 }`}
               >
                 {activeTab === 'SHOP' ? (
                   <>
-                    <div className="bg-white rounded-[14px] border-[3px] border-[#D97706] w-[48px] h-[40px] flex items-center justify-center shadow-sm mb-1.5">
+                    <div className="bg-white rounded-[10px] border-[2px] border-[#E84120] w-[46px] h-[40px] flex items-center justify-center shadow-sm mb-1">
                       <span className="text-[26px] filter drop-shadow-sm select-none leading-none pt-1">🏪</span>
                     </div>
-                    <span className="text-white font-black text-[12px] tracking-wide drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)] leading-none">Shop</span>
+                    <span className="text-white font-black text-[13px] tracking-wide drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)] leading-none">Shop</span>
                   </>
                 ) : (
                   <span className="text-[34px] filter drop-shadow-sm select-none">🏪</span>
@@ -894,13 +881,13 @@ export default function App() {
                 onClick={() => { sounds.playClick(); setActiveTab('LEADERBOARD'); }} 
                 className={`flex flex-col items-center justify-end w-1/5 relative transition-all ${
                   activeTab === 'LEADERBOARD' 
-                    ? '-mt-[22px] h-[90px] pt-2 pb-1.5 bg-[#1d4ed8] rounded-t-[20px] border-t-[3.5px] border-x-[3.5px] border-[#F59E0B] shadow-md z-10' 
+                    ? '-mt-[22px] h-[90px] pt-2 pb-1 bg-[#173EB4] rounded-t-[20px] border-t-[3.5px] border-x-[3.5px] border-[#FFB00B] shadow-[0_-2px_10px_rgba(0,0,0,0.3)] z-10' 
                     : 'h-[72.5px] justify-center opacity-85 hover:opacity-100 active:scale-95'
                 }`}
               >
                 {activeTab === 'LEADERBOARD' ? (
                   <>
-                    <div className="bg-white rounded-[14px] border-[3px] border-[#D97706] w-[48px] h-[40px] flex items-center justify-center shadow-sm mb-1.5">
+                    <div className="bg-white rounded-[10px] border-[2px] border-[#D97706] w-[46px] h-[40px] flex items-center justify-center shadow-sm mb-1">
                       <span className="text-[26px] filter drop-shadow-sm select-none leading-none pt-1">🏆</span>
                     </div>
                     <span className="text-white font-black text-[12px] tracking-wide drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)] leading-none">Ranking</span>
@@ -915,13 +902,13 @@ export default function App() {
                 onClick={() => { sounds.playClick(); setActiveTab('HOME'); }} 
                 className={`flex flex-col items-center justify-end w-1/5 relative transition-all ${
                   activeTab === 'HOME' 
-                    ? '-mt-[22px] h-[90px] pt-2 pb-1.5 bg-[#1d4ed8] rounded-t-[20px] border-t-[3.5px] border-x-[3.5px] border-[#F59E0B] shadow-md z-10' 
+                    ? '-mt-[22px] h-[90px] pt-2 pb-1 bg-[#173EB4] rounded-t-[20px] border-t-[3.5px] border-x-[3.5px] border-[#FFB00B] shadow-[0_-2px_10px_rgba(0,0,0,0.3)] z-10' 
                     : 'h-[72.5px] justify-center opacity-85 hover:opacity-100 active:scale-95'
                 }`}
               >
                 {activeTab === 'HOME' ? (
                   <>
-                    <div className="bg-white rounded-[14px] border-[3px] border-[#D97706] w-[48px] h-[40px] flex items-center justify-center shadow-sm mb-1.5">
+                    <div className="bg-white rounded-[10px] border-[2px] border-[#D97706] w-[46px] h-[40px] flex items-center justify-center shadow-sm mb-1">
                       <span className="text-[26px] filter drop-shadow-sm select-none leading-none pt-1">🏠</span>
                     </div>
                     <span className="text-white font-black text-[12px] tracking-wide drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)] leading-none">Home</span>
@@ -933,10 +920,23 @@ export default function App() {
               
               {/* Tab 4: JOURNEY */}
               <button 
-                onClick={() => { sounds.playClick(); setScreen('LEVEL_SELECT'); }} 
-                className={`flex flex-col items-center justify-end w-1/5 relative transition-all h-[72.5px] justify-center opacity-85 hover:opacity-100 active:scale-95`}
+                onClick={() => { sounds.playClick(); setActiveTab('JOURNEY'); }} 
+                className={`flex flex-col items-center justify-end w-1/5 relative transition-all ${
+                  activeTab === 'JOURNEY' 
+                    ? '-mt-[22px] h-[90px] pt-2 pb-1 bg-[#173EB4] rounded-t-[20px] border-t-[3.5px] border-x-[3.5px] border-[#FFB00B] shadow-[0_-2px_10px_rgba(0,0,0,0.3)] z-10' 
+                    : 'h-[72.5px] justify-center opacity-85 hover:opacity-100 active:scale-95'
+                }`}
               >
+                {activeTab === 'JOURNEY' ? (
+                  <>
+                    <div className="bg-white rounded-[10px] border-[2px] border-[#D97706] w-[46px] h-[40px] flex items-center justify-center shadow-sm mb-1">
+                      <span className="text-[26px] filter drop-shadow-sm select-none leading-none pt-1">📷</span>
+                    </div>
+                    <span className="text-white font-black text-[12px] tracking-wide drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)] leading-none">Journey</span>
+                  </>
+                ) : (
                   <span className="text-[34px] filter drop-shadow-sm select-none">📷</span>
+                )}
               </button>
               
               {/* Tab 5: SETTINGS */}
@@ -944,13 +944,13 @@ export default function App() {
                 onClick={() => { sounds.playClick(); setActiveTab('SETTINGS'); }} 
                 className={`flex flex-col items-center justify-end w-1/5 relative transition-all ${
                   activeTab === 'SETTINGS' 
-                    ? '-mt-[22px] h-[90px] pt-2 pb-1.5 bg-[#1d4ed8] rounded-t-[20px] border-t-[3.5px] border-x-[3.5px] border-[#F59E0B] shadow-md z-10' 
+                    ? '-mt-[22px] h-[90px] pt-2 pb-1 bg-[#173EB4] rounded-t-[20px] border-t-[3.5px] border-x-[3.5px] border-[#FFB00B] shadow-[0_-2px_10px_rgba(0,0,0,0.3)] z-10' 
                     : 'h-[72.5px] justify-center opacity-85 hover:opacity-100 active:scale-95'
                 }`}
               >
                 {activeTab === 'SETTINGS' ? (
                   <>
-                    <div className="bg-white rounded-[14px] border-[3px] border-[#D97706] w-[48px] h-[40px] flex items-center justify-center shadow-sm mb-1.5">
+                    <div className="bg-white rounded-[10px] border-[2px] border-[#D97706] w-[46px] h-[40px] flex items-center justify-center shadow-sm mb-1">
                       <span className="text-[26px] filter drop-shadow-sm select-none leading-none pt-1">⚙️</span>
                     </div>
                     <span className="text-white font-black text-[12px] tracking-wide drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)] leading-none">Settings</span>
@@ -1582,7 +1582,8 @@ export default function App() {
                 onClick={() => {
                   sounds.playClick();
                   setShowOutOfTimeModal(false);
-                  setScreen('JOURNEY');
+                  setScreen('HOME');
+                  setActiveTab('JOURNEY');
                 }}
                 className="text-sky-200 font-bold text-[13px] tracking-wide hover:text-white transition-colors"
               >
