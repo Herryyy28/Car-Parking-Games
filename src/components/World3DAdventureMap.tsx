@@ -186,27 +186,39 @@ export const World3DAdventureMap: React.FC<World3DAdventureMapProps> = ({
     const terrainGroup = new THREE.Group();
     scene.add(terrainGroup);
 
-    // Base ground island with rounded beveled edges
-    const groundGeo = new THREE.BoxGeometry(62, 3.5, 84, 32, 2, 42);
-    // Displace vertices gently for organic rolling terrain surface
+    // MASSIVE 4D WORLD: Extend to the horizon (360 degrees)
+    const worldSize = 1200;
+    const groundGeo = new THREE.PlaneGeometry(worldSize, worldSize, 200, 200);
+    groundGeo.rotateX(-Math.PI / 2); // Lay flat
+    
+    // Displace vertices to create massive rolling hills and distant mountains
     const posAttr = groundGeo.attributes.position;
     for (let i = 0; i < posAttr.count; i++) {
-      const y = posAttr.getY(i);
-      if (y > 0) {
-        const x = posAttr.getX(i);
-        const z = posAttr.getZ(i);
-        const hillOffset =
-          Math.sin(x * 0.12) * Math.cos(z * 0.08) * 1.2 +
-          Math.sin(z * 0.15) * 0.8;
-        posAttr.setY(i, y + hillOffset);
+      const x = posAttr.getX(i);
+      const z = posAttr.getZ(i);
+      const distFromCenter = Math.sqrt(x*x + z*z);
+      
+      // Keep center relatively flat for the road
+      let elevation = 0;
+      if (distFromCenter > 25) {
+        const distFactor = Math.min(1.0, (distFromCenter - 25) / 100);
+        // Huge distant mountains and rolling hills using sine waves
+        elevation = (Math.sin(x * 0.02) * Math.cos(z * 0.03) * 20 +
+                     Math.sin(x * 0.008 + z * 0.012) * 35 +
+                     Math.cos(z * 0.06) * 5) * distFactor;
+      } else {
+        // Subtle rolling terrain near the road
+        elevation = Math.sin(x * 0.12) * Math.cos(z * 0.08) * 1.2 + Math.sin(z * 0.15) * 0.8;
       }
+      
+      posAttr.setY(i, elevation);
     }
     groundGeo.computeVertexNormals();
 
     const groundMat = new THREE.MeshStandardMaterial({
       color: worldConfig.groundColor,
-      roughness: 0.82,
-      metalness: 0.08,
+      roughness: 0.85,
+      metalness: 0.05,
       flatShading: true,
     });
     const groundMesh = new THREE.Mesh(groundGeo, groundMat);
@@ -214,15 +226,37 @@ export const World3DAdventureMap: React.FC<World3DAdventureMapProps> = ({
     groundMesh.receiveShadow = true;
     terrainGroup.add(groundMesh);
 
-    // Surrounding Ocean / Base Pedestal
-    const baseGeo = new THREE.BoxGeometry(66, 2.0, 88);
-    const baseMat = new THREE.MeshStandardMaterial({
-      color: 0x1e293b,
-      roughness: 0.9,
+    // Endless Surrounding Ocean / Base Pedestal
+    const oceanGeo = new THREE.PlaneGeometry(worldSize * 1.2, worldSize * 1.2);
+    oceanGeo.rotateX(-Math.PI / 2);
+    const oceanMat = new THREE.MeshStandardMaterial({
+      color: 0x0ea5e9, // Bright ocean color
+      roughness: 0.1,
+      metalness: 0.8,
+      transparent: true,
+      opacity: 0.85
     });
-    const baseMesh = new THREE.Mesh(baseGeo, baseMat);
-    baseMesh.position.set(0, -3.8, 0);
-    terrainGroup.add(baseMesh);
+    const oceanMesh = new THREE.Mesh(oceanGeo, oceanMat);
+    oceanMesh.position.set(0, -4.5, 0);
+    terrainGroup.add(oceanMesh);
+
+    // Dynamic Clouds in the sky (InstancedMesh)
+    const cloudGeo = new THREE.SphereGeometry(1, 8, 8);
+    const cloudMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 1.0, flatShading: true, transparent: true, opacity: 0.8 });
+    const cloudCount = 100;
+    const cloudInstanced = new THREE.InstancedMesh(cloudGeo, cloudMat, cloudCount);
+    const cloudDummy = new THREE.Object3D();
+    for(let i=0; i<cloudCount; i++) {
+      const a = Math.random() * Math.PI * 2;
+      const r = 40 + Math.random() * 400;
+      const cy = 40 + Math.random() * 60;
+      cloudDummy.position.set(Math.cos(a)*r, cy, Math.sin(a)*r);
+      cloudDummy.scale.set(10 + Math.random()*20, 5 + Math.random()*8, 10 + Math.random()*20);
+      cloudDummy.rotation.y = Math.random() * Math.PI;
+      cloudDummy.updateMatrix();
+      cloudInstanced.setMatrixAt(i, cloudDummy.matrix);
+    }
+    scene.add(cloudInstanced);
 
     // Generate Catmull-Rom Spline Curve for the Winding Road
     const roadWaypoints = getRoadWaypoints();
@@ -269,14 +303,12 @@ export const World3DAdventureMap: React.FC<World3DAdventureMapProps> = ({
       const tangent = roadSpline.getTangent(t);
       const normal = new THREE.Vector3(-tangent.z, 0, tangent.x).normalize();
 
-      // Left Shoulder Line
       const leftGeo = new THREE.BoxGeometry(0.14, 0.02, 0.6);
       const leftMesh = new THREE.Mesh(leftGeo, shoulderMat);
       leftMesh.position.set(pt.x - normal.x * 2.25, pt.y + 0.25, pt.z - normal.z * 2.25);
       leftMesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), tangent);
       shoulderGroup.add(leftMesh);
 
-      // Right Shoulder Line
       const rightGeo = new THREE.BoxGeometry(0.14, 0.02, 0.6);
       const rightMesh = new THREE.Mesh(rightGeo, shoulderMat);
       rightMesh.position.set(pt.x + normal.x * 2.25, pt.y + 0.25, pt.z + normal.z * 2.25);
@@ -335,55 +367,60 @@ export const World3DAdventureMap: React.FC<World3DAdventureMapProps> = ({
       streetLampGroup.add(lamp);
     }
 
-    // World-themed Decorative Foliage & Props (Trees, Streetlamps, Rocks)
-    const propsGroup = new THREE.Group();
-    scene.add(propsGroup);
+    // MASSIVE WORLD TREES: InstancedMesh for performance
+    const treeFoliageMat = new THREE.MeshStandardMaterial({ color: worldConfig.treeFoliageColor, roughness: 0.7, flatShading: true });
+    const treeTrunkMat = new THREE.MeshStandardMaterial({ color: worldConfig.treeTrunkColor, roughness: 0.85 });
+    const treeTrunkGeo = new THREE.CylinderGeometry(0.3, 0.45, 1.8, 6);
+    const treeFoliageGeo = new THREE.ConeGeometry(1.6, 3.5, 7);
 
-    const treeFoliageMat = new THREE.MeshStandardMaterial({
-      color: worldConfig.treeFoliageColor,
-      roughness: 0.7,
-      flatShading: true,
-    });
-    const treeTrunkMat = new THREE.MeshStandardMaterial({
-      color: worldConfig.treeTrunkColor,
-      roughness: 0.85,
-    });
-    const treeTrunkGeo = new THREE.CylinderGeometry(0.2, 0.3, 1.4, 6);
-    const treeFoliageGeo = new THREE.ConeGeometry(1.2, 2.2, 7);
+    const treeCount = 2000;
+    const trunkInstanced = new THREE.InstancedMesh(treeTrunkGeo, treeTrunkMat, treeCount);
+    const foliageInstanced = new THREE.InstancedMesh(treeFoliageGeo, treeFoliageMat, treeCount);
+    trunkInstanced.castShadow = true;
+    foliageInstanced.castShadow = true;
+    scene.add(trunkInstanced);
+    scene.add(foliageInstanced);
 
-    // Scatter themed trees along terrain borders away from the road
-    for (let i = 0; i < 36; i++) {
-      const angle = (i / 36) * Math.PI * 2;
-      const radius = 22 + (i % 5) * 1.8;
-      const tx = Math.cos(angle) * (radius * 0.95);
-      const tz = Math.sin(angle) * (radius * 1.35);
+    const dummy = new THREE.Object3D();
+    const upVector = new THREE.Vector3(0, 1, 0);
+    
+    // Scatter trees across the massive landscape, avoiding the center road area
+    for (let i = 0; i < treeCount; i++) {
+      const angle = Math.random() * Math.PI * 2;
+      const radius = 18 + Math.random() * 500;
+      const tx = Math.cos(angle) * radius;
+      const tz = Math.sin(angle) * radius;
 
-      // Verify not directly on the road
-      const treePt = new THREE.Vector3(tx, 0, tz);
-      let tooCloseToRoad = false;
-      for (let s = 0; s < roadWaypoints.length; s += 2) {
-        if (treePt.distanceTo(roadWaypoints[s]) < 4.0) {
-          tooCloseToRoad = true;
-          break;
-        }
+      const distFromCenter = Math.sqrt(tx*tx + tz*tz);
+      let elevation = 0;
+      if (distFromCenter > 25) {
+        const distFactor = Math.min(1.0, (distFromCenter - 25) / 100);
+        elevation = (Math.sin(tx * 0.02) * Math.cos(tz * 0.03) * 20 + Math.sin(tx * 0.008 + tz * 0.012) * 35 + Math.cos(tz * 0.06) * 5) * distFactor;
+      } else {
+        elevation = Math.sin(tx * 0.12) * Math.cos(tz * 0.08) * 1.2 + Math.sin(tz * 0.15) * 0.8;
       }
-      if (tooCloseToRoad) continue;
 
-      const tree = new THREE.Group();
-      tree.position.set(tx, 0.2, tz);
-      const trunk = new THREE.Mesh(treeTrunkGeo, treeTrunkMat);
-      trunk.position.y = 0.7;
-      trunk.castShadow = true;
-      tree.add(trunk);
+      const scale = 0.5 + Math.random() * 1.0;
+      const yPos = elevation - 1.8;
 
-      const foliage = new THREE.Mesh(treeFoliageGeo, treeFoliageMat);
-      foliage.position.y = 2.1;
-      foliage.castShadow = true;
-      foliage.scale.setScalar(0.8 + (i % 3) * 0.25);
-      tree.add(foliage);
+      if (yPos < -2.0) continue; // Don't place in deep water
 
-      propsGroup.add(tree);
+      dummy.position.set(tx, yPos + 0.9 * scale, tz);
+      dummy.scale.set(scale, scale, scale);
+      
+      // Give trees slight random tilt
+      dummy.rotation.x = (Math.random() - 0.5) * 0.2;
+      dummy.rotation.z = (Math.random() - 0.5) * 0.2;
+      
+      dummy.updateMatrix();
+      trunkInstanced.setMatrixAt(i, dummy.matrix);
+
+      dummy.position.set(tx, yPos + 2.7 * scale, tz);
+      dummy.updateMatrix();
+      foliageInstanced.setMatrixAt(i, dummy.matrix);
     }
+    trunkInstanced.instanceMatrix.needsUpdate = true;
+    foliageInstanced.instanceMatrix.needsUpdate = true;
 
     // Interactive 3D Bus Stations (25 level destinations)
     const stationGroup = new THREE.Group();
@@ -677,7 +714,7 @@ export const World3DAdventureMap: React.FC<World3DAdventureMapProps> = ({
 
     // Zoom camera in/out
     const zoomCamera = (delta: number) => {
-      spherical.radius = Math.max(14, Math.min(85, spherical.radius + delta));
+      spherical.radius = Math.max(14, Math.min(280, spherical.radius + delta));
       const offset = new THREE.Vector3().setFromSpherical(spherical);
       targetCameraPos.copy(targetLookAt).add(offset);
     };
@@ -708,9 +745,9 @@ export const World3DAdventureMap: React.FC<World3DAdventureMapProps> = ({
       lastPointerX = e.clientX;
       lastPointerY = e.clientY;
 
-      // Orbit camera horizontally and vertically
+      // Orbit camera horizontally and vertically (full 360 enabled, no vertical lock)
       spherical.theta -= dx * 0.006;
-      spherical.phi = Math.max(0.35, Math.min(Math.PI / 2.3, spherical.phi - dy * 0.005));
+      spherical.phi = Math.max(0.1, Math.min(Math.PI / 2.05, spherical.phi - dy * 0.005));
 
       const offset = new THREE.Vector3().setFromSpherical(spherical);
       targetCameraPos.copy(targetLookAt).add(offset);
@@ -744,8 +781,8 @@ export const World3DAdventureMap: React.FC<World3DAdventureMapProps> = ({
 
     const onWheel = (e: WheelEvent) => {
       e.preventDefault();
-      const zoomDelta = e.deltaY * 0.04;
-      spherical.radius = Math.max(14, Math.min(85, spherical.radius + zoomDelta));
+      const zoomDelta = e.deltaY * 0.08;
+      spherical.radius = Math.max(14, Math.min(280, spherical.radius + zoomDelta));
       const offset = new THREE.Vector3().setFromSpherical(spherical);
       targetCameraPos.copy(targetLookAt).add(offset);
     };
@@ -795,13 +832,14 @@ export const World3DAdventureMap: React.FC<World3DAdventureMapProps> = ({
       }
 
       // 4. Animate Ambient Buses along the winding road
+      const zAxis = new THREE.Vector3(0, 0, 1);
       ambientBuses.forEach((b) => {
         b.progress = (b.progress + b.speed) % 1.0;
         const pt = roadSpline.getPoint(b.progress);
         const tangent = roadSpline.getTangent(b.progress);
 
         b.group.position.set(pt.x, pt.y + 0.12, pt.z);
-        b.group.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), tangent);
+        b.group.quaternion.setFromUnitVectors(zAxis, tangent);
       });
 
       renderer.render(scene, camera);
@@ -913,13 +951,13 @@ export const World3DAdventureMap: React.FC<World3DAdventureMapProps> = ({
                 <span className="text-[10px] font-black uppercase tracking-wider text-sky-400">
                   DISTRICT {activeWorldId}
                 </span>
-                <span className="text-slate-500 text-[10px]">•</span>
+                <span className="text-slate-500 text-[10px]">â€¢</span>
                 <span className="text-[10px] font-bold text-amber-400">
                   CH {activeChapterIndex}/5
                 </span>
               </div>
               <div className="text-xs sm:text-sm font-black text-white leading-tight">
-                {worldConfig.name} <span className="text-slate-400 font-normal hidden sm:inline">— {worldConfig.chapters[activeChapterIndex - 1]}</span>
+                {worldConfig.name} <span className="text-slate-400 font-normal hidden sm:inline">â€” {worldConfig.chapters[activeChapterIndex - 1]}</span>
               </div>
             </div>
           </div>
@@ -936,7 +974,7 @@ export const World3DAdventureMap: React.FC<World3DAdventureMapProps> = ({
 
             {/* Coins Pill */}
             <div className="flex items-center gap-1 bg-slate-900/90 backdrop-blur-md border border-slate-700/80 px-2.5 py-1.5 rounded-2xl shadow-xl">
-              <span className="text-xs">🪙</span>
+              <span className="text-xs">ðŸª™</span>
               <span className="text-xs font-black text-amber-200">
                 {coins.toLocaleString()}
               </span>
@@ -958,14 +996,14 @@ export const World3DAdventureMap: React.FC<World3DAdventureMapProps> = ({
             title="Expand Roadmap"
           >
             <div className="w-7 h-7 rounded-full bg-amber-400 text-slate-950 flex items-center justify-center font-black text-xs shadow-md animate-bounce">
-              🛣️
+              ðŸ›£ï¸
             </div>
             <div className="text-left pr-1">
               <span className="text-[9px] font-black uppercase tracking-wider text-sky-400 block">
                 ROAD TRACK
               </span>
               <span className="text-xs font-black text-white">
-                Lvl {selectedStationLevelId} ▶
+                Lvl {selectedStationLevelId} â–¶
               </span>
             </div>
           </button>
@@ -1014,7 +1052,7 @@ export const World3DAdventureMap: React.FC<World3DAdventureMapProps> = ({
                 className="w-7 h-7 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white border border-white/10 flex items-center justify-center font-bold text-xs active:scale-95 transition-colors"
                 title="Minimize Roadmap"
               >
-                ◀
+                â—€
               </button>
             </div>
 
@@ -1025,7 +1063,7 @@ export const World3DAdventureMap: React.FC<World3DAdventureMapProps> = ({
                 <div className="bg-slate-950/60 border border-white/10 rounded-2xl p-2.5">
                   <div className="flex items-center justify-between text-[11px] font-black mb-1">
                     <span className="text-sky-300 truncate">
-                      {worldConfig.icon} {worldConfig.name} • Ch {activeChapterIndex}
+                      {worldConfig.icon} {worldConfig.name} â€¢ Ch {activeChapterIndex}
                     </span>
                     <span className="text-amber-400 font-mono text-[10px]">
                       {chapterCompletedCount}/25
@@ -1080,7 +1118,7 @@ export const World3DAdventureMap: React.FC<World3DAdventureMapProps> = ({
                                 : 'bg-slate-800 text-slate-400 border-white/10'
                             }`}
                           >
-                            {isStCurrent ? '🚌' : isStCompleted ? '✓' : stId}
+                            {isStCurrent ? 'ðŸšŒ' : isStCompleted ? 'âœ“' : stId}
                           </div>
 
                           <div className="min-w-0 flex-1">
@@ -1090,7 +1128,7 @@ export const World3DAdventureMap: React.FC<World3DAdventureMapProps> = ({
                               </span>
                               {isMilestone && (
                                 <span className="text-[10px] text-amber-300" title="Milestone Reward">
-                                  🎁
+                                  ðŸŽ
                                 </span>
                               )}
                             </div>
@@ -1104,7 +1142,7 @@ export const World3DAdventureMap: React.FC<World3DAdventureMapProps> = ({
                         <div className="shrink-0 flex items-center gap-0.5 ml-1">
                           {isStCompleted ? (
                             <div className="flex items-center gap-0.5 text-[10px] font-black text-amber-300">
-                              <span>⭐</span>
+                              <span>â­</span>
                               <span>{stStars || 3}</span>
                             </div>
                           ) : isStLocked ? (
@@ -1163,7 +1201,7 @@ export const World3DAdventureMap: React.FC<World3DAdventureMapProps> = ({
 
                       <div className="shrink-0 text-right ml-1">
                         <span className="text-[10px] font-black text-amber-300 block">
-                          ⭐ {wStars}
+                          â­ {wStars}
                         </span>
                       </div>
                     </button>
@@ -1180,7 +1218,7 @@ export const World3DAdventureMap: React.FC<World3DAdventureMapProps> = ({
                 className="w-7 h-7 rounded-xl bg-slate-800 hover:bg-slate-700 disabled:opacity-30 border border-white/10 text-white flex items-center justify-center active:scale-95 text-xs font-bold transition-colors"
                 title="Previous Chapter"
               >
-                ‹
+                â€¹
               </button>
               <div className="text-center">
                 <span className="text-[11px] font-black text-amber-300 block leading-tight">
@@ -1196,7 +1234,7 @@ export const World3DAdventureMap: React.FC<World3DAdventureMapProps> = ({
                 className="w-7 h-7 rounded-xl bg-slate-800 hover:bg-slate-700 disabled:opacity-30 border border-white/10 text-white flex items-center justify-center active:scale-95 text-xs font-bold transition-colors"
                 title="Next Chapter"
               >
-                ›
+                â€º
               </button>
             </div>
           </div>
@@ -1339,9 +1377,9 @@ export const World3DAdventureMap: React.FC<World3DAdventureMapProps> = ({
                 </div>
                 <div className="flex items-center gap-1.5 text-[10px] font-bold text-sky-400">
                   <span>District {activeWorldId}</span>
-                  <span className="text-slate-600">•</span>
+                  <span className="text-slate-600">â€¢</span>
                   <span className="text-amber-400">Ch {activeChapterIndex}</span>
-                  <span className="text-slate-600">•</span>
+                  <span className="text-slate-600">â€¢</span>
                   <div className="flex items-center">
                     {[1, 2, 3].map((starNum) => (
                       <Star
@@ -1386,7 +1424,7 @@ export const World3DAdventureMap: React.FC<World3DAdventureMapProps> = ({
             <div className="bg-slate-900/80 border border-slate-800/80 rounded-xl py-1 px-1.5">
               <span className="text-[9px] font-bold text-slate-400 block uppercase">Reward</span>
               <span className="font-mono font-black text-emerald-300">
-                +{150 + selectedStationLevelId * 25} 🪙
+                +{150 + selectedStationLevelId * 25} ðŸª™
               </span>
             </div>
           </div>
@@ -1409,7 +1447,7 @@ export const World3DAdventureMap: React.FC<World3DAdventureMapProps> = ({
               className="w-full py-2.5 sm:py-3 rounded-2xl bg-slate-900 border border-slate-800 text-slate-500 font-black text-xs sm:text-sm flex items-center justify-center gap-2 cursor-not-allowed opacity-80"
             >
               <Lock className="w-3.5 h-3.5 text-slate-500" />
-              <span>LOCKED • REACH LEVEL {unlockedLevelId}</span>
+              <span>LOCKED â€¢ REACH LEVEL {unlockedLevelId}</span>
             </button>
           )}
         </div>

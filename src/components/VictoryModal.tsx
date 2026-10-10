@@ -98,53 +98,13 @@ export const VictoryModal: React.FC<VictoryModalProps> = ({
             <span className="absolute top-28 left-20 text-pink-300 text-xl animate-ping">✨</span>
           </div>
 
-          {/* Central 3D BUS MADNESS Emblem */}
+          {/* Central 3D BUS JAM 3D Emblem */}
           <div className="relative z-10 flex flex-col items-center mt-6">
-            {/* Arched Windshield with Rainbow Trim */}
-            <div className="relative w-64 h-36 bg-gradient-to-b from-[#38bdf8] via-[#0284c7] to-[#1e3a8a] rounded-t-full border-[6px] border-[#ef4444] shadow-2xl flex items-center justify-center overflow-hidden">
-              <div className="absolute inset-0 border-t-[5px] border-amber-400 rounded-t-full"></div>
-              {/* Glass Glare */}
-              <div className="absolute -top-10 -left-10 w-44 h-44 bg-white/20 rounded-full blur-lg rotate-12"></div>
-
-              {/* Peeking Cute Commuters on Sides */}
-              {/* Purple Commuter (Left) */}
-              <div className="absolute -left-2 top-8 w-12 h-14 flex flex-col items-center">
-                <div className="w-8 h-8 rounded-full bg-gradient-to-b from-purple-400 to-purple-600 border-2 border-white shadow-md"></div>
-                <div className="w-10 h-7 rounded-t-xl bg-purple-700 -mt-2"></div>
-              </div>
-              {/* Pink Commuter (Right) */}
-              <div className="absolute -right-2 top-8 w-12 h-14 flex flex-col items-center">
-                <div className="w-8 h-8 rounded-full bg-gradient-to-b from-pink-400 to-pink-600 border-2 border-white shadow-md"></div>
-                <div className="w-10 h-7 rounded-t-xl bg-pink-700 -mt-2"></div>
-              </div>
-            </div>
-
-            {/* "BUS" Big 3D Golden Lettering */}
-            <div
-              className="font-black text-6xl text-amber-300 -mt-20 drop-shadow-[0_6px_0_#b45309] tracking-wider z-20"
-              style={{
-                WebkitTextStroke: '3px #78350f',
-                textShadow: '0 8px 12px rgba(0,0,0,0.8)',
-              }}
-            >
-              BUS
-            </div>
-
-            {/* "MADNESS" Extruded White/Cream Lettering on Bumper Base */}
-            <div className="relative z-20 -mt-2 w-72 bg-gradient-to-b from-[#1e293b] to-[#0f172a] border-4 border-yellow-400 rounded-2xl py-1.5 px-4 shadow-[0_8px_0_#020617] flex items-center justify-center">
-              <span
-                className="font-black text-4xl text-[#FFF8E7] drop-shadow-[0_3px_0_#94a3b8] tracking-widest"
-                style={{
-                  WebkitTextStroke: '2px #334155',
-                  textShadow: '0 4px 8px rgba(0,0,0,0.9)',
-                }}
-              >
-                MADNESS
-              </span>
-              {/* Golden Headlight Tabs */}
-              <div className="absolute left-3 w-5 h-2.5 bg-amber-400 rounded-sm border border-amber-600"></div>
-              <div className="absolute right-3 w-5 h-2.5 bg-amber-400 rounded-sm border border-amber-600"></div>
-            </div>
+            <img 
+              src="/game_icon.jpg" 
+              alt="Bus Jam 3D Logo" 
+              className="w-56 h-56 object-cover rounded-[2rem] shadow-[0_16px_32px_rgba(0,0,0,0.8)] border-4 border-white/20"
+            />
           </div>
 
           {/* New Feature Progress Bar (frame_08.jpg) */}
@@ -157,7 +117,7 @@ export const VictoryModal: React.FC<VictoryModalProps> = ({
             </div>
 
             {/* Outer Progress Pill */}
-            <div className="w-full h-8 bg-slate-900/90 border-2 border-amber-200/80 rounded-full p-1 shadow-xl flex items-center relative overflow-visible">
+            <div className="w-full h-8 bg-[#1e293b] border-[3px] border-[#FFF8E7] rounded-full p-0.5 shadow-xl flex items-center relative overflow-visible mt-2">
               {/* Filled Green Progress Track */}
               <div
                 className="h-full bg-gradient-to-r from-[#34d399] via-[#10b981] to-[#059669] rounded-full transition-all duration-700 ease-out flex items-center justify-center shadow-inner"
@@ -169,8 +129,10 @@ export const VictoryModal: React.FC<VictoryModalProps> = ({
               </div>
 
               {/* Mystery Bus Lock Medal on Right */}
-              <div className="absolute -right-2 w-9 h-9 rounded-full bg-gradient-to-b from-amber-200 to-amber-500 border-2 border-white shadow-lg flex items-center justify-center">
-                <span className="text-sm font-black text-amber-950">🚌</span>
+              <div className="absolute -right-3 w-10 h-10 rounded-full bg-[#64748b] border-[3px] border-[#cbd5e1] shadow-lg flex items-center justify-center overflow-hidden">
+                <div className="w-6 h-5 bg-[#94a3b8] rounded-md relative flex items-center justify-center border border-[#cbd5e1]">
+                  <div className="text-[#334155] font-black text-[10px]">?</div>
+                </div>
               </div>
             </div>
           </div>

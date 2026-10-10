@@ -27,19 +27,11 @@ import android.widget.TextView
 class AndroidLauncher : Activity() {
 
     private lateinit var webView: WebView
-    private lateinit var errorLayout: LinearLayout
-    private val gameUrl = "http://localhost:3000"
-
-    private var hasPageError = false
-    private val retryHandler = android.os.Handler(android.os.Looper.getMainLooper())
-    private val autoRetryRunnable = object : Runnable {
-        override fun run() {
-            if (hasPageError && !isFinishing) {
-                hasPageError = false
-                webView.loadUrl(gameUrl)
-                retryHandler.postDelayed(this, 3000)
-            }
-        }
+    // Load local dev server during debug for live reload, otherwise load bundled assets
+    private val gameUrl = if (com.trafficpuzzle.game.BuildConfig.DEBUG) {
+        "http://localhost:3000"
+    } else {
+        "file:///android_asset/web/index.html"
     }
 
     @SuppressLint("SetJavaScriptEnabled")
@@ -89,115 +81,15 @@ class AndroidLauncher : Activity() {
             }
 
             webViewClient = object : WebViewClient() {
-                override fun onPageStarted(view: WebView?, url: String?, favicon: android.graphics.Bitmap?) {
-                    super.onPageStarted(view, url, favicon)
-                    hasPageError = false
-                }
-
-                override fun onReceivedError(
-                    view: WebView?,
-                    request: WebResourceRequest?,
-                    error: WebResourceError?
-                ) {
-                    if (request?.isForMainFrame == true) {
-                        hasPageError = true
-                        showErrorScreen()
-                    }
-                }
-
-                @Suppress("DEPRECATION")
-                override fun onReceivedError(
-                    view: WebView?,
-                    errorCode: Int,
-                    description: String?,
-                    failingUrl: String?
-                ) {
-                    hasPageError = true
-                    showErrorScreen()
-                }
-
                 override fun onPageFinished(view: WebView?, url: String?) {
                     super.onPageFinished(view, url)
-                    if (!hasPageError) {
-                        retryHandler.removeCallbacks(autoRetryRunnable)
-                        errorLayout.visibility = View.GONE
-                        webView.visibility = View.VISIBLE
-                    }
+                    webView.visibility = View.VISIBLE
                 }
             }
-        }
-
-        // Connection helper screen in case server isn't reached yet
-        errorLayout = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            gravity = android.view.Gravity.CENTER
-            setBackgroundColor(Color.parseColor("#0a101d"))
-            setPadding(48, 48, 48, 48)
-            visibility = View.GONE
-
-            val title = TextView(this@AndroidLauncher).apply {
-                text = "BUS GAME 3D"
-                textSize = 28f
-                setTextColor(Color.parseColor("#facc15"))
-                typeface = android.graphics.Typeface.DEFAULT_BOLD
-                gravity = android.view.Gravity.CENTER
-            }
-
-            val subtitle = TextView(this@AndroidLauncher).apply {
-                text = "Live dev server not reachable.\nPlay offline or connect via USB with 'run-live-device.ps1'."
-                textSize = 14f
-                setTextColor(Color.parseColor("#94a3b8"))
-                gravity = android.view.Gravity.CENTER
-                setPadding(0, 24, 0, 32)
-            }
-
-            val playOfflineBtn = Button(this@AndroidLauncher).apply {
-                text = "⚡ PLAY OFFLINE NOW"
-                setBackgroundColor(Color.parseColor("#059669"))
-                setTextColor(Color.WHITE)
-                textSize = 16f
-                typeface = android.graphics.Typeface.DEFAULT_BOLD
-                setPadding(32, 18, 32, 18)
-                setOnClickListener {
-                    hasPageError = false
-                    errorLayout.visibility = View.GONE
-                    webView.loadUrl("file:///android_asset/web/index.html")
-                }
-            }
-
-            val retryBtn = Button(this@AndroidLauncher).apply {
-                text = "🔄 RETRY LIVE SERVER (:3000)"
-                setBackgroundColor(Color.parseColor("#0284c7"))
-                setTextColor(Color.WHITE)
-                textSize = 14f
-                setPadding(32, 14, 32, 14)
-                setOnClickListener {
-                    hasPageError = false
-                    errorLayout.visibility = View.GONE
-                    webView.loadUrl(gameUrl)
-                }
-            }
-
-            val space = View(this@AndroidLauncher).apply {
-                layoutParams = LinearLayout.LayoutParams(1, 24)
-            }
-
-            addView(title)
-            addView(subtitle)
-            addView(playOfflineBtn)
-            addView(space)
-            addView(retryBtn)
         }
 
         rootLayout.addView(
             webView,
-            FrameLayout.LayoutParams(
-                FrameLayout.LayoutParams.MATCH_PARENT,
-                FrameLayout.LayoutParams.MATCH_PARENT
-            )
-        )
-        rootLayout.addView(
-            errorLayout,
             FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT,
                 FrameLayout.LayoutParams.MATCH_PARENT
@@ -209,15 +101,7 @@ class AndroidLauncher : Activity() {
         webView.loadUrl(gameUrl)
     }
 
-    private fun showErrorScreen() {
-        runOnUiThread {
-            webView.stopLoading()
-            webView.visibility = View.GONE
-            errorLayout.visibility = View.VISIBLE
-            retryHandler.removeCallbacks(autoRetryRunnable)
-            retryHandler.postDelayed(autoRetryRunnable, 3000)
-        }
-    }
+
 
     private fun hideSystemUI() {
         window.decorView.systemUiVisibility = (
@@ -246,7 +130,6 @@ class AndroidLauncher : Activity() {
     }
 
     override fun onDestroy() {
-        retryHandler.removeCallbacks(autoRetryRunnable)
         if (::webView.isInitialized) {
             webView.destroy()
         }

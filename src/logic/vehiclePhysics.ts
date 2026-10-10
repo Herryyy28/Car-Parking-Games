@@ -116,17 +116,17 @@ export class NaturalVehiclePhysics {
         physics.velocity + effectiveAcceleration * delta
       );
       // Nose squat easing on launch: settles smoothly as vehicle reaches cruise speed
-      const launchSquat = -0.07 * (1.0 - launchRamp) * (cfg.mass / 2000);
+      const launchSquat = -0.12 * (1.0 - launchRamp) * (cfg.mass / 2000); // Increased squat for softer look
       const cruiseSquat = -0.02;
       const targetPitch = THREE.MathUtils.lerp(launchSquat, cruiseSquat, launchRamp);
-      physics.bodyPitchAngle = THREE.MathUtils.lerp(physics.bodyPitchAngle, targetPitch, delta * 7.0);
+      physics.bodyPitchAngle = THREE.MathUtils.lerp(physics.bodyPitchAngle, targetPitch, delta * 5.0); // Slower lerp for softer feel
     } else {
       physics.velocity = Math.max(
         0.5,
         physics.velocity - physics.brakingPower * delta
       );
       // Nose dives slightly during braking and parking
-      physics.bodyPitchAngle = THREE.MathUtils.lerp(physics.bodyPitchAngle, 0.06, delta * 8.0);
+      physics.bodyPitchAngle = THREE.MathUtils.lerp(physics.bodyPitchAngle, 0.10, delta * 5.0); // More dive, softer lerp
     }
 
     // 4. Progress along spline
@@ -181,8 +181,8 @@ export class NaturalVehiclePhysics {
       physics.steeringAngle = THREE.MathUtils.lerp(physics.steeringAngle, desiredSteer, delta * 12.0);
 
       // Chassis roll (lean outward into the turn centrifugal force)
-      const targetRoll = -desiredSteer * (physics.velocity / 18.0) * cfg.bodyRollFactor * 1.5;
-      physics.bodyRollAngle = THREE.MathUtils.lerp(physics.bodyRollAngle, targetRoll, delta * 8.0);
+      const targetRoll = -desiredSteer * (physics.velocity / 12.0) * cfg.bodyRollFactor * 2.2; // Exaggerated roll
+      physics.bodyRollAngle = THREE.MathUtils.lerp(physics.bodyRollAngle, targetRoll, delta * 5.0); // Softer transition
     } else {
       physics.steeringAngle = THREE.MathUtils.lerp(physics.steeringAngle, 0, delta * 8.0);
       physics.bodyRollAngle = THREE.MathUtils.lerp(physics.bodyRollAngle, 0, delta * 8.0);
@@ -190,7 +190,8 @@ export class NaturalVehiclePhysics {
 
     // 6. Natural suspension bounce & tire rotation
     const suspensionFrequency = cfg.suspensionStiffness;
-    physics.suspensionOffset = Math.sin(elapsed * suspensionFrequency + physics.pathT * 20.0) * 0.015 * (physics.velocity / 12.0);
+    // Softer, larger suspension bounce
+    physics.suspensionOffset = Math.sin(elapsed * suspensionFrequency * 0.85 + physics.pathT * 15.0) * 0.045 * (physics.velocity / 6.0);
 
     const tireRadius = 0.35;
     physics.wheelRotation += distanceStep / tireRadius;

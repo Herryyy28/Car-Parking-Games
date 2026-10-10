@@ -44,61 +44,13 @@ export const LoadingScreen: React.FC<LoadingScreenProps> = ({ onComplete }) => {
       {/* Top Vignette & Subtle Atmospheric Gradient */}
       <div className="absolute inset-0 bg-gradient-to-b from-sky-500/25 via-transparent to-black/60 pointer-events-none" />
 
-      {/* TOP HEADER: 3D CARTOON LOGO "BUS MADNESS" (EXACT SAME AS SCREENSHOT 1) */}
+      {/* TOP HEADER: 3D CARTOON LOGO "BUS JAM 3D" (EXACT SAME AS SCREENSHOT) */}
       <div className="relative z-10 pt-10 sm:pt-14 flex flex-col items-center animate-bounce-subtle">
-        {/* BUS TEXT */}
-        <div className="flex items-center justify-center font-black tracking-tight drop-shadow-[0_8px_0_#1e3a8a] filter">
-          {/* B - Red */}
-          <span 
-            className="text-7xl sm:text-8xl text-red-500 transform -rotate-6 inline-block"
-            style={{
-              WebkitTextStroke: '3.5px #1E3A8A',
-              textShadow: '0 6px 0 #b91c1c, 0 10px 0 #1E3A8A, 0 12px 14px rgba(0,0,0,0.6)',
-              filter: 'drop-shadow(0 2px 0 #ffffff)'
-            }}
-          >
-            B
-          </span>
-          {/* U - Yellow / Amber */}
-          <span 
-            className="text-7xl sm:text-8xl text-amber-400 transform rotate-2 -ml-1 inline-block"
-            style={{
-              WebkitTextStroke: '3.5px #1E3A8A',
-              textShadow: '0 6px 0 #d97706, 0 10px 0 #1E3A8A, 0 12px 14px rgba(0,0,0,0.6)',
-              filter: 'drop-shadow(0 2px 0 #ffffff)'
-            }}
-          >
-            U
-          </span>
-          {/* S - Bright Green */}
-          <span 
-            className="text-7xl sm:text-8xl text-lime-500 transform rotate-6 -ml-1 inline-block"
-            style={{
-              WebkitTextStroke: '3.5px #1E3A8A',
-              textShadow: '0 6px 0 #15803d, 0 10px 0 #1E3A8A, 0 12px 14px rgba(0,0,0,0.6)',
-              filter: 'drop-shadow(0 2px 0 #ffffff)'
-            }}
-          >
-            S
-          </span>
-        </div>
-
-        {/* MADNESS TEXT */}
-        <div className="relative -mt-3.5 z-20">
-          <div 
-            className="bg-[#2563EB] border-[3.5px] border-white px-7 py-1 rounded-2xl shadow-[0_8px_0_#1E3A8A,0_12px_16px_rgba(0,0,0,0.5)] transform -rotate-1"
-          >
-            <span 
-              className="text-3xl sm:text-4xl font-black text-white tracking-widest uppercase drop-shadow-[0_2px_0_#1E3A8A]"
-              style={{
-                WebkitTextStroke: '1px #1E3A8A',
-                letterSpacing: '0.12em',
-              }}
-            >
-              MADNESS
-            </span>
-          </div>
-        </div>
+        <img 
+          src="/game_icon.jpg" 
+          alt="Bus Jam 3D Logo" 
+          className="w-48 h-48 sm:w-64 sm:h-64 object-cover rounded-3xl shadow-[0_12px_24px_rgba(0,0,0,0.6)] border-4 border-white"
+        />
       </div>
 
       {/* BOTTOM SECTION: "Loading..." TEXT & GREEN GLOW PROGRESS BAR (MATCHING SCREENSHOT 1) */}

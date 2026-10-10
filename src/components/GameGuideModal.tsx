@@ -59,43 +59,33 @@ export const GameGuideModal: React.FC<GameGuideModalProps> = ({
   ];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-3 sm:p-4 animate-in fade-in duration-200">
-      <div className="w-full max-w-lg game-modal-3d border-2 border-amber-400/60 rounded-[32px] overflow-hidden flex flex-col max-h-[90vh] shadow-2xl">
-        {/* Header with Title and Close Button */}
-        <div className="relative bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 p-4 sm:p-5 text-white flex items-center justify-between shrink-0 border-b border-amber-400/30">
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-2xl bg-black/25 backdrop-blur-md border border-white/30 flex items-center justify-center text-2xl shadow-inner animate-float-3d">
-              🚌
-            </div>
-            <div>
-              <div className="flex items-center gap-1.5">
-                <span className="text-[10px] font-black uppercase tracking-wider bg-black/30 px-2 py-0.5 rounded-full text-amber-200">
-                  Official Guide
-                </span>
-                <span className="text-[10px] font-black uppercase tracking-wider bg-emerald-500/30 px-2 py-0.5 rounded-full text-emerald-200">
-                  3D Bus Jam
-                </span>
-              </div>
-              <h2 className="text-xl sm:text-2xl font-black text-white leading-tight drop-shadow-sm">
-                Bus Game 3D
-              </h2>
-            </div>
-          </div>
-
-          <button
-            onClick={() => {
-              sounds.playClick();
-              onClose();
-            }}
-            className="w-10 h-10 rounded-2xl bg-black/25 hover:bg-black/40 border border-white/20 flex items-center justify-center text-white active:scale-90 transition-transform"
-            aria-label="Close Guide"
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+      <div className="w-full max-w-sm bg-gradient-to-b from-[#1e40af] via-[#1d4ed8] to-[#1e3a8a] border-4 border-yellow-400 rounded-[36px] pt-7 pb-5 px-4 text-center shadow-[0_20px_50px_rgba(0,0,0,0.8)] relative flex flex-col max-h-[90vh]">
+        
+        {/* Top Header Tab: "Guide" */}
+        <div className="absolute -top-5 left-1/2 -translate-x-1/2 bg-gradient-to-b from-[#2563eb] to-[#1e3a8a] border-2 border-yellow-400 rounded-full px-7 py-1 shadow-md z-10">
+          <span 
+            className="text-white font-black text-xl tracking-wide drop-shadow-[0_2px_2px_rgba(0,0,0,0.8)]"
+            style={{ WebkitTextStroke: '0.8px #172554' }}
           >
-            <X className="w-5 h-5" />
-          </button>
+            How to Play
+          </span>
         </div>
 
+        {/* Red Circular Close Button (Top-Right) */}
+        <button
+          onClick={() => {
+            sounds.playClick();
+            onClose();
+          }}
+          className="absolute -right-3 -top-3 w-8 h-8 bg-gradient-to-b from-red-500 to-red-700 rounded-full border-2 border-yellow-400 flex items-center justify-center shadow-lg active:scale-90 transition-transform z-10"
+          title="Close"
+        >
+          <span className="text-white font-black text-xl leading-none">×</span>
+        </button>
+
         {/* Tab Navigation */}
-        <div className="flex bg-slate-900/90 border-b border-slate-800 p-1.5 gap-1 shrink-0">
+        <div className="flex bg-[#1e3a8a]/50 border-2 border-[#1e3a8a] rounded-2xl p-1 gap-1 shrink-0 mt-3 mb-3 shadow-inner">
           <button
             onClick={() => {
               sounds.playClick();
@@ -103,12 +93,12 @@ export const GameGuideModal: React.FC<GameGuideModalProps> = ({
             }}
             className={`flex-1 py-2 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-1.5 ${
               activeTab === 'HOW_TO_PLAY'
-                ? 'bg-amber-500 text-slate-950 shadow-md'
-                : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+                ? 'bg-gradient-to-b from-[#fbbf24] to-[#f59e0b] text-amber-950 shadow-md border-b-2 border-[#b45309]'
+                : 'text-sky-200 hover:text-white hover:bg-white/10'
             }`}
           >
             <Car className="w-3.5 h-3.5" />
-            <span>How to Play</span>
+            <span>Guide</span>
           </button>
 
           <button
@@ -118,8 +108,8 @@ export const GameGuideModal: React.FC<GameGuideModalProps> = ({
             }}
             className={`flex-1 py-2 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-1.5 ${
               activeTab === 'FEATURES'
-                ? 'bg-amber-500 text-slate-950 shadow-md'
-                : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+                ? 'bg-gradient-to-b from-[#fbbf24] to-[#f59e0b] text-amber-950 shadow-md border-b-2 border-[#b45309]'
+                : 'text-sky-200 hover:text-white hover:bg-white/10'
             }`}
           >
             <Sparkles className="w-3.5 h-3.5" />
@@ -133,8 +123,8 @@ export const GameGuideModal: React.FC<GameGuideModalProps> = ({
             }}
             className={`flex-1 py-2 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-1.5 ${
               activeTab === 'FAQ'
-                ? 'bg-amber-500 text-slate-950 shadow-md'
-                : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+                ? 'bg-gradient-to-b from-[#fbbf24] to-[#f59e0b] text-amber-950 shadow-md border-b-2 border-[#b45309]'
+                : 'text-sky-200 hover:text-white hover:bg-white/10'
             }`}
           >
             <HelpCircle className="w-3.5 h-3.5" />
@@ -143,70 +133,70 @@ export const GameGuideModal: React.FC<GameGuideModalProps> = ({
         </div>
 
         {/* Scrollable Content Body */}
-        <div className="p-4 sm:p-5 overflow-y-auto flex-1 space-y-4 text-slate-200 text-xs sm:text-sm">
+        <div className="overflow-y-auto flex-1 space-y-3 text-slate-800 text-xs sm:text-sm bg-transparent rounded-2xl custom-scrollbar pr-1">
           {activeTab === 'HOW_TO_PLAY' && (
-            <div className="space-y-3.5 animate-in fade-in duration-150">
+            <div className="space-y-3 animate-in fade-in duration-150">
               {/* Introduction Banner */}
-              <div className="p-3.5 rounded-2xl bg-gradient-to-br from-amber-500/15 to-orange-500/10 border border-amber-400/30">
-                <p className="text-amber-200 font-bold leading-relaxed">
-                  Clear the chaotic <span className="text-white font-black">Bus Jam</span>, sort passengers to matching seats, and master this brain-burning 3D traffic escape puzzle!
+              <div className="p-3 rounded-2xl bg-gradient-to-r from-amber-200 to-yellow-100 border-2 border-amber-400 shadow-sm text-center">
+                <p className="text-amber-900 font-bold leading-relaxed text-xs">
+                  Clear the chaotic <span className="font-black text-amber-700">Bus Jam</span>, sort passengers to matching seats, and master this 3D puzzle!
                 </p>
               </div>
 
               {/* Step by Step Cards */}
               <div className="space-y-2.5">
-                <div className="p-3 rounded-2xl bg-slate-900/80 border border-slate-800 flex items-start gap-3">
-                  <div className="w-8 h-8 rounded-xl bg-amber-400/20 text-amber-300 font-black text-sm flex items-center justify-center shrink-0 border border-amber-400/30">
+                <div className="p-3.5 rounded-2xl bg-[#FFF8E7] border-2 border-[#D97706]/30 flex items-start gap-3 shadow-sm text-left">
+                  <div className="w-8 h-8 rounded-full bg-[#3b82f6] text-white font-black text-sm flex items-center justify-center shrink-0 border-2 border-blue-200 shadow-inner">
                     1
                   </div>
                   <div>
-                    <h4 className="font-black text-white text-sm flex items-center gap-1.5">
-                      Tap Vehicles to Move
+                    <h4 className="font-black text-sky-900 text-[13px] mb-0.5 flex items-center gap-1.5">
+                      Tap to Move
                     </h4>
-                    <p className="text-slate-400 text-xs mt-0.5 leading-relaxed">
-                      Tap any unblocked bus or car. Vehicles drive straight in the direction their headlights point.
+                    <p className="text-slate-600 text-[11px] leading-relaxed font-semibold">
+                      Tap any unblocked vehicle. It drives straight in the direction it's facing.
                     </p>
                   </div>
                 </div>
 
-                <div className="p-3 rounded-2xl bg-slate-900/80 border border-slate-800 flex items-start gap-3">
-                  <div className="w-8 h-8 rounded-xl bg-sky-400/20 text-sky-300 font-black text-sm flex items-center justify-center shrink-0 border border-sky-400/30">
+                <div className="p-3.5 rounded-2xl bg-[#FFF8E7] border-2 border-[#D97706]/30 flex items-start gap-3 shadow-sm text-left">
+                  <div className="w-8 h-8 rounded-full bg-[#f59e0b] text-white font-black text-sm flex items-center justify-center shrink-0 border-2 border-yellow-200 shadow-inner">
                     2
                   </div>
                   <div>
-                    <h4 className="font-black text-white text-sm flex items-center gap-1.5">
-                      Space is Tight - Watch Moves!
+                    <h4 className="font-black text-sky-900 text-[13px] mb-0.5 flex items-center gap-1.5">
+                      Space is Tight
                     </h4>
-                    <p className="text-slate-400 text-xs mt-0.5 leading-relaxed">
-                      Every move matters! Avoid parking lot gridlock by thinking 2 to 3 steps ahead before tapping.
+                    <p className="text-slate-600 text-[11px] leading-relaxed font-semibold">
+                      Every move matters! Avoid gridlock by thinking 2 to 3 steps ahead.
                     </p>
                   </div>
                 </div>
 
-                <div className="p-3 rounded-2xl bg-slate-900/80 border border-slate-800 flex items-start gap-3">
-                  <div className="w-8 h-8 rounded-xl bg-emerald-400/20 text-emerald-300 font-black text-sm flex items-center justify-center shrink-0 border border-emerald-400/30">
+                <div className="p-3.5 rounded-2xl bg-[#FFF8E7] border-2 border-[#D97706]/30 flex items-start gap-3 shadow-sm text-left">
+                  <div className="w-8 h-8 rounded-full bg-[#10b981] text-white font-black text-sm flex items-center justify-center shrink-0 border-2 border-green-200 shadow-inner">
                     3
                   </div>
                   <div>
-                    <h4 className="font-black text-white text-sm flex items-center gap-1.5">
-                      Match Passenger Colors
+                    <h4 className="font-black text-sky-900 text-[13px] mb-0.5 flex items-center gap-1.5">
+                      Match Colors
                     </h4>
-                    <p className="text-slate-400 text-xs mt-0.5 leading-relaxed">
-                      Waiting passengers in queue will only board matching-color vehicles docked at the boarding bays.
+                    <p className="text-slate-600 text-[11px] leading-relaxed font-semibold">
+                      Waiting passengers only board matching-color vehicles docked at the bays.
                     </p>
                   </div>
                 </div>
 
-                <div className="p-3 rounded-2xl bg-slate-900/80 border border-slate-800 flex items-start gap-3">
-                  <div className="w-8 h-8 rounded-xl bg-purple-400/20 text-purple-300 font-black text-sm flex items-center justify-center shrink-0 border border-purple-400/30">
+                <div className="p-3.5 rounded-2xl bg-[#FFF8E7] border-2 border-[#D97706]/30 flex items-start gap-3 shadow-sm text-left">
+                  <div className="w-8 h-8 rounded-full bg-[#8b5cf6] text-white font-black text-sm flex items-center justify-center shrink-0 border-2 border-purple-200 shadow-inner">
                     4
                   </div>
                   <div>
-                    <h4 className="font-black text-white text-sm flex items-center gap-1.5">
-                      Escape the Traffic Maze
+                    <h4 className="font-black text-sky-900 text-[13px] mb-0.5 flex items-center gap-1.5">
+                      Escape the Jam
                     </h4>
-                    <p className="text-slate-400 text-xs mt-0.5 leading-relaxed">
-                      When a bus is fully loaded with its color passengers, it zooms off the dock into the highway, freeing the bay for the next vehicle!
+                    <p className="text-slate-600 text-[11px] leading-relaxed font-semibold">
+                      When a bus is fully loaded, it zooms off the dock into the highway!
                     </p>
                   </div>
                 </div>
@@ -215,75 +205,51 @@ export const GameGuideModal: React.FC<GameGuideModalProps> = ({
           )}
 
           {activeTab === 'FEATURES' && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 animate-in fade-in duration-150">
-              <div className="p-3 rounded-2xl bg-slate-900/80 border border-slate-800 flex items-start gap-2.5">
-                <div className="p-2 rounded-xl bg-amber-500/15 text-amber-400 shrink-0">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 animate-in fade-in duration-150 text-left">
+              <div className="p-3 rounded-2xl bg-[#FFF8E7] border-2 border-[#D97706]/30 flex items-start gap-2.5 shadow-sm">
+                <div className="p-2 rounded-xl bg-amber-100 text-amber-600 shrink-0 shadow-inner">
                   <Brain className="w-4 h-4" />
                 </div>
                 <div>
-                  <h4 className="font-bold text-white text-xs">Smart Bus Mechanics</h4>
-                  <p className="text-slate-400 text-[11px] mt-0.5 leading-normal">
-                    Color Jam + Bus Escape + Traffic Jam logic combined into one fluid experience.
+                  <h4 className="font-black text-sky-900 text-[11px] mb-0.5">Smart Mechanics</h4>
+                  <p className="text-slate-600 text-[10px] leading-tight font-semibold">
+                    Color Jam + Bus Escape combined into one experience.
                   </p>
                 </div>
               </div>
 
-              <div className="p-3 rounded-2xl bg-slate-900/80 border border-slate-800 flex items-start gap-2.5">
-                <div className="p-2 rounded-xl bg-rose-500/15 text-rose-400 shrink-0">
+              <div className="p-3 rounded-2xl bg-[#FFF8E7] border-2 border-[#D97706]/30 flex items-start gap-2.5 shadow-sm">
+                <div className="p-2 rounded-xl bg-rose-100 text-rose-500 shrink-0 shadow-inner">
                   <Flame className="w-4 h-4" />
                 </div>
                 <div>
-                  <h4 className="font-bold text-white text-xs">Endless Challenges</h4>
-                  <p className="text-slate-400 text-[11px] mt-0.5 leading-normal">
-                    From simple queues to complex mazes across 8 unique themed 3D worlds.
+                  <h4 className="font-black text-sky-900 text-[11px] mb-0.5">Endless Challenges</h4>
+                  <p className="text-slate-600 text-[10px] leading-tight font-semibold">
+                    From simple queues to complex mazes across 3D worlds.
                   </p>
                 </div>
               </div>
 
-              <div className="p-3 rounded-2xl bg-slate-900/80 border border-slate-800 flex items-start gap-2.5">
-                <div className="p-2 rounded-xl bg-sky-500/15 text-sky-400 shrink-0">
+              <div className="p-3 rounded-2xl bg-[#FFF8E7] border-2 border-[#D97706]/30 flex items-start gap-2.5 shadow-sm">
+                <div className="p-2 rounded-xl bg-sky-100 text-sky-500 shrink-0 shadow-inner">
                   <Zap className="w-4 h-4" />
                 </div>
                 <div>
-                  <h4 className="font-bold text-white text-xs">Tactical Boosters</h4>
-                  <p className="text-slate-400 text-[11px] mt-0.5 leading-normal">
-                    Hint, Shuffle, Passenger Magnet, and Undo save you from tight gridlocks.
+                  <h4 className="font-black text-sky-900 text-[11px] mb-0.5">Tactical Boosters</h4>
+                  <p className="text-slate-600 text-[10px] leading-tight font-semibold">
+                    Hint, Shuffle, Passenger Magnet save you from gridlocks.
                   </p>
                 </div>
               </div>
 
-              <div className="p-3 rounded-2xl bg-slate-900/80 border border-slate-800 flex items-start gap-2.5">
-                <div className="p-2 rounded-xl bg-purple-500/15 text-purple-400 shrink-0">
-                  <Volume2 className="w-4 h-4" />
-                </div>
-                <div>
-                  <h4 className="font-bold text-white text-xs">ASMR & Relaxing Vibe</h4>
-                  <p className="text-slate-400 text-[11px] mt-0.5 leading-normal">
-                    Satisfying boarding pops, engine zooms, soothing lo-fi radio, and realistic physics.
-                  </p>
-                </div>
-              </div>
-
-              <div className="p-3 rounded-2xl bg-slate-900/80 border border-slate-800 flex items-start gap-2.5">
-                <div className="p-2 rounded-xl bg-emerald-500/15 text-emerald-400 shrink-0">
+              <div className="p-3 rounded-2xl bg-[#FFF8E7] border-2 border-[#D97706]/30 flex items-start gap-2.5 shadow-sm">
+                <div className="p-2 rounded-xl bg-emerald-100 text-emerald-500 shrink-0 shadow-inner">
                   <WifiOff className="w-4 h-4" />
                 </div>
                 <div>
-                  <h4 className="font-bold text-white text-xs">Play Offline Anytime</h4>
-                  <p className="text-slate-400 text-[11px] mt-0.5 leading-normal">
-                    Zero Wi-Fi or data required. Jump into your next logic puzzle anywhere, anytime.
-                  </p>
-                </div>
-              </div>
-
-              <div className="p-3 rounded-2xl bg-slate-900/80 border border-slate-800 flex items-start gap-2.5">
-                <div className="p-2 rounded-xl bg-pink-500/15 text-pink-400 shrink-0">
-                  <Heart className="w-4 h-4" />
-                </div>
-                <div>
-                  <h4 className="font-bold text-white text-xs">Senior-Friendly Design</h4>
-                  <p className="text-slate-400 text-[11px] mt-0.5 leading-normal">
-                    High contrast, bold color stickmen, big touch targets, and accessible fonts for all ages.
+                  <h4 className="font-black text-sky-900 text-[11px] mb-0.5">Offline Play</h4>
+                  <p className="text-slate-600 text-[10px] leading-tight font-semibold">
+                    Zero Wi-Fi required. Jump into your next puzzle anywhere.
                   </p>
                 </div>
               </div>
@@ -297,32 +263,32 @@ export const GameGuideModal: React.FC<GameGuideModalProps> = ({
                 return (
                   <div
                     key={index}
-                    className="rounded-2xl bg-slate-900/80 border border-slate-800 overflow-hidden transition-all"
+                    className="rounded-2xl bg-[#FFF8E7] border-2 border-[#D97706]/30 overflow-hidden transition-all shadow-sm"
                   >
                     <button
                       onClick={() => {
                         sounds.playClick();
                         setExpandedFaq(isExpanded ? null : index);
                       }}
-                      className="w-full p-3.5 text-left flex items-center justify-between gap-3 hover:bg-slate-800/40 transition-colors"
+                      className="w-full p-3.5 text-left flex items-center justify-between gap-3 hover:bg-white/50 transition-colors"
                     >
                       <div className="flex items-center gap-2">
-                        <span className={`text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full border ${faq.badgeColor}`}>
+                        <span className={`text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full border bg-white shadow-inner ${faq.badgeColor}`}>
                           {faq.badge}
                         </span>
-                        <h4 className="font-bold text-white text-xs sm:text-sm">
+                        <h4 className="font-black text-sky-900 text-[13px]">
                           {faq.q}
                         </h4>
                       </div>
                       {isExpanded ? (
-                        <ChevronUp className="w-4 h-4 text-slate-400 shrink-0" />
+                        <ChevronUp className="w-4 h-4 text-slate-500 shrink-0" />
                       ) : (
-                        <ChevronDown className="w-4 h-4 text-slate-400 shrink-0" />
+                        <ChevronDown className="w-4 h-4 text-slate-500 shrink-0" />
                       )}
                     </button>
 
                     {isExpanded && (
-                      <div className="px-3.5 pb-3.5 pt-1 text-slate-300 text-xs border-t border-slate-800/60 leading-relaxed">
+                      <div className="px-3.5 pb-3.5 pt-1 text-slate-600 text-[11px] font-semibold border-t border-amber-900/10 leading-relaxed text-left">
                         {faq.a}
                       </div>
                     )}
@@ -333,18 +299,18 @@ export const GameGuideModal: React.FC<GameGuideModalProps> = ({
           )}
         </div>
 
-        {/* Tactile Action Footer */}
-        <div className="p-4 bg-slate-950 border-t border-slate-800 shrink-0 flex items-center gap-2.5">
+        {/* Bottom Play Action (Matches Settings Modal button) */}
+        <div className="mt-4 pt-1 shrink-0 flex items-center justify-center">
           <button
             onClick={() => {
               sounds.playClick();
               onClose();
               if (onPlayNow) onPlayNow();
             }}
-            className="flex-1 py-3.5 rounded-2xl game-btn game-btn-emerald shine-sweep text-white font-black text-sm flex items-center justify-center gap-2 shadow-lg"
+            className="w-full py-3 bg-gradient-to-b from-[#84cc16] via-[#65a30d] to-[#4d7c0f] border-[3px] border-[#365314] rounded-2xl text-white font-black text-xl shadow-[0_4px_0_#14532d] active:translate-y-1 active:shadow-none transition-all flex items-center justify-center"
+            style={{ WebkitTextStroke: '1px #14532d' }}
           >
-            <Play className="w-4 h-4 fill-white" />
-            <span>PLAY NOW & ESCAPE JAM!</span>
+            PLAY NOW!
           </button>
         </div>
       </div>

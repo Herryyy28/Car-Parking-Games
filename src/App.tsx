@@ -119,6 +119,7 @@ export default function App() {
 
   // Modals
   const [showGarageModal, setShowGarageModal] = useState(false);
+  const [customizationVersion, setCustomizationVersion] = useState(0);
   const [showPauseModal, setShowPauseModal] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [showDailyModal, setShowDailyModal] = useState(false);
@@ -495,6 +496,18 @@ export default function App() {
                           {gameState.coins}
                         </span>
                       </div>
+
+                      {/* Garage / Bus Mod Shop Button */}
+                      <button
+                        onClick={() => {
+                          sounds.playClick();
+                          setShowGarageModal(true);
+                        }}
+                        className="ml-3 flex items-center justify-center w-11 h-11 rounded-2xl bg-gradient-to-b from-[#38BDF8] via-[#2563EB] to-[#1D4ED8] border-[3px] border-[#BAE6FD] shadow-[0_4px_10px_rgba(0,0,0,0.3)] active:scale-95 transition-transform"
+                        title="Bus Garage & Customization"
+                      >
+                        <span className="text-2xl filter drop-shadow select-none">🚌</span>
+                      </button>
                     </div>
                   </div>
 
@@ -543,48 +556,52 @@ export default function App() {
                   </div>
                   
                   {/* 1. Remove Ads Banner Card */}
-                  <div className="bg-[#3b82f6]/95 border-2 border-[#60a5fa] rounded-2xl p-4 mb-3.5 relative overflow-hidden shadow-lg flex items-center justify-between">
-                    <div className="absolute top-2 right-2 w-5 h-5 bg-blue-400 rounded-full flex items-center justify-center text-white text-xs font-bold shadow-sm">
+                  <div className="bg-[#3b82f6] border-[3px] border-[#60a5fa] rounded-[24px] p-4 mb-4 relative overflow-hidden shadow-lg flex items-center justify-between">
+                    <div className="absolute top-2.5 right-2.5 w-[22px] h-[22px] bg-blue-300 rounded-full flex items-center justify-center text-blue-900 text-[11px] font-black shadow-sm cursor-pointer z-10">
                       i
                     </div>
-                    <div>
-                      <div className="text-white font-black text-sm">Remove Banner</div>
-                      <div className="text-white font-black text-sm mb-3">and Pop-up Ads</div>
+                    <div className="flex flex-col gap-2">
+                      <div className="text-white font-black text-[15px] leading-tight">Remove Banner<br/>and Pop-up Ads</div>
                       <button 
                         onClick={() => sounds.playCoinCollect()}
-                        className="bg-gradient-to-b from-[#84cc16] to-[#4d7c0f] border-2 border-[#bef264] text-white font-black text-sm px-5 py-1.5 rounded-xl shadow-md active:translate-y-0.5"
+                        className="bg-gradient-to-b from-[#84cc16] via-[#65a30d] to-[#4d7c0f] border-2 border-[#bef264] text-white font-black text-[13px] px-5 py-1.5 rounded-full shadow-md active:translate-y-0.5 self-start"
                       >
                         ₹1,100.00
                       </button>
                     </div>
                     {/* Glowing Golden ADS Medallion */}
-                    <div className="relative mr-2 flex items-center justify-center">
-                      <div className="absolute w-24 h-24 bg-amber-400/20 rounded-full blur-lg animate-pulse" />
-                      <div className="w-20 h-20 rounded-full bg-gradient-to-br from-amber-300 via-amber-400 to-amber-600 border-4 border-yellow-200 flex items-center justify-center shadow-xl rotate-12 relative">
-                        <span className="text-amber-950 font-black text-2xl tracking-tighter">ADS</span>
-                        <div className="absolute w-full h-1 bg-red-600 rotate-45 transform origin-center shadow" />
+                    <div className="relative mr-4 flex items-center justify-center">
+                      <div className="absolute w-20 h-20 bg-amber-400/40 rounded-full blur-xl animate-pulse" />
+                      <div className="w-[68px] h-[68px] rounded-full bg-gradient-to-br from-[#FBBF24] via-[#F59E0B] to-[#B45309] border-[3px] border-[#FEF3C7] flex items-center justify-center shadow-xl rotate-12 relative overflow-hidden">
+                        <span className="text-amber-950 font-black text-xl tracking-tighter drop-shadow-sm">ADS</span>
+                        {/* Red Slash */}
+                        <div className="absolute w-full h-[5px] bg-red-600 -rotate-45 transform origin-center shadow-md" />
+                        {/* Red Circle Outline */}
+                        <div className="absolute inset-1 border-[4px] border-red-600 rounded-full opacity-90" />
                       </div>
                     </div>
                   </div>
 
                   {/* 2. Swift Bundle Card */}
-                  <div className="bg-[#FFF1D0] border-4 border-[#B07B46] rounded-2xl mb-3.5 overflow-hidden shadow-md">
-                    <div className="p-3.5 flex justify-between items-center border-b-2 border-amber-200">
-                      <div className="flex flex-col items-center">
-                        <div className="text-3xl mb-0.5">🪙</div>
-                        <div className="text-[#8B4513] font-black text-lg" style={{WebkitTextStroke: '0.5px white'}}>4 000</div>
+                  <div className="bg-[#FFF1D0] border-4 border-[#1E40AF] rounded-[24px] mb-4 overflow-hidden shadow-md flex flex-col">
+                    <div className="p-4 flex justify-between items-center bg-[#FFF1D0]">
+                      <div className="flex flex-col items-center justify-center w-20">
+                        <div className="w-12 h-12 bg-yellow-400 rounded-full flex items-center justify-center border-[3px] border-yellow-200 shadow-sm mb-1">
+                          <span className="text-amber-800 font-black text-xl">🪙</span>
+                        </div>
+                        <div className="text-[#8B4513] font-black text-[15px]">4 000</div>
                       </div>
-                      <div className="bg-white/80 rounded-xl p-2 border-2 border-amber-200 flex gap-4">
-                        <div className="flex flex-col items-center"><span className="text-2xl">🚙</span><span className="text-[#8B4513] font-black text-xs">x1</span></div>
-                        <div className="flex flex-col items-center"><span className="text-2xl">🚁</span><span className="text-[#8B4513] font-black text-xs">x1</span></div>
-                        <div className="flex flex-col items-center"><span className="text-2xl">🟢</span><span className="text-[#8B4513] font-black text-xs">x1</span></div>
+                      <div className="bg-white rounded-2xl p-2.5 shadow-sm border border-amber-100 flex gap-4 mr-2">
+                        <div className="flex flex-col items-center"><span className="text-2xl drop-shadow-sm">🚙</span><span className="text-[#8B4513] font-black text-[11px] mt-1">x1</span></div>
+                        <div className="flex flex-col items-center"><span className="text-2xl drop-shadow-sm">🚁</span><span className="text-[#8B4513] font-black text-[11px] mt-1">x1</span></div>
+                        <div className="flex flex-col items-center"><span className="text-2xl drop-shadow-sm">🌳</span><span className="text-[#8B4513] font-black text-[11px] mt-1">x1</span></div>
                       </div>
                     </div>
-                    <div className="bg-[#1D4ED8] px-4 py-2.5 flex justify-between items-center">
-                      <div className="text-white font-black text-base">Swift Bundle</div>
+                    <div className="bg-[#1D4ED8] px-5 py-3 border-t-2 border-[#1e3a8a] flex justify-between items-center">
+                      <div className="text-white font-black text-[15px] tracking-wide">Swift Bundle</div>
                       <button 
                         onClick={() => sounds.playCoinCollect()}
-                        className="bg-gradient-to-b from-[#84cc16] to-[#4d7c0f] border-2 border-[#bef264] text-white font-black text-sm px-4 py-1.5 rounded-lg shadow-md active:translate-y-0.5"
+                        className="bg-gradient-to-b from-[#84cc16] via-[#65a30d] to-[#4d7c0f] border-2 border-[#bef264] text-white font-black text-[13px] px-5 py-1.5 rounded-full shadow-md active:translate-y-0.5"
                       >
                         ₹550.00
                       </button>
@@ -592,53 +609,57 @@ export default function App() {
                   </div>
                   
                   {/* 3. Professional Bundle Card */}
-                  <div className="bg-[#FFF1D0] border-4 border-[#B07B46] rounded-2xl mb-3.5 overflow-hidden shadow-md">
-                    <div className="p-3.5 flex justify-between items-center border-b-2 border-amber-200">
-                      <div className="flex flex-col items-center">
-                        <div className="text-3xl mb-0.5">🪙</div>
-                        <div className="text-[#8B4513] font-black text-lg" style={{WebkitTextStroke: '0.5px white'}}>8 000</div>
+                  <div className="bg-[#FFF1D0] border-4 border-[#1E40AF] rounded-[24px] mb-4 overflow-hidden shadow-md flex flex-col">
+                    <div className="p-4 flex justify-between items-center bg-[#FFF1D0]">
+                      <div className="flex flex-col items-center justify-center w-20">
+                        <div className="w-12 h-12 bg-yellow-400 rounded-full flex items-center justify-center border-[3px] border-yellow-200 shadow-sm mb-1">
+                          <span className="text-amber-800 font-black text-xl">🪙</span>
+                        </div>
+                        <div className="text-[#8B4513] font-black text-[15px]">8 000</div>
                       </div>
-                      <div className="bg-white/80 rounded-xl p-2 border-2 border-amber-200 flex gap-4">
-                        <div className="flex flex-col items-center"><span className="text-2xl">🚙</span><span className="text-[#8B4513] font-black text-xs">x2</span></div>
-                        <div className="flex flex-col items-center"><span className="text-2xl">🚁</span><span className="text-[#8B4513] font-black text-xs">x2</span></div>
-                        <div className="flex flex-col items-center"><span className="text-2xl">🟢</span><span className="text-[#8B4513] font-black text-xs">x2</span></div>
+                      <div className="bg-white rounded-2xl p-2.5 shadow-sm border border-amber-100 flex gap-4 mr-2">
+                        <div className="flex flex-col items-center"><span className="text-2xl drop-shadow-sm">🚙</span><span className="text-[#8B4513] font-black text-[11px] mt-1">x2</span></div>
+                        <div className="flex flex-col items-center"><span className="text-2xl drop-shadow-sm">🚁</span><span className="text-[#8B4513] font-black text-[11px] mt-1">x2</span></div>
+                        <div className="flex flex-col items-center"><span className="text-2xl drop-shadow-sm">🌳</span><span className="text-[#8B4513] font-black text-[11px] mt-1">x2</span></div>
                       </div>
                     </div>
-                    <div className="bg-[#1D4ED8] px-4 py-2.5 flex justify-between items-center">
-                      <div className="text-white font-black text-base">Professional Bundle</div>
+                    <div className="bg-[#1D4ED8] px-5 py-3 border-t-2 border-[#1e3a8a] flex justify-between items-center">
+                      <div className="text-white font-black text-[15px] tracking-wide">Professional Bundle</div>
                       <button 
                         onClick={() => sounds.playCoinCollect()}
-                        className="bg-gradient-to-b from-[#84cc16] to-[#4d7c0f] border-2 border-[#bef264] text-white font-black text-sm px-4 py-1.5 rounded-lg shadow-md active:translate-y-0.5"
+                        className="bg-gradient-to-b from-[#84cc16] via-[#65a30d] to-[#4d7c0f] border-2 border-[#bef264] text-white font-black text-[13px] px-5 py-1.5 rounded-full shadow-md active:translate-y-0.5"
                       >
                         ₹950.00
                       </button>
                     </div>
                   </div>
 
-                  {/* 4. Popular Master Bundle Card (with red ribbon) */}
-                  <div className="bg-[#FFF1D0] border-4 border-[#B07B46] rounded-2xl mb-3.5 overflow-hidden shadow-md relative">
-                    {/* Red Corner Ribbon */}
-                    <div className="absolute top-0 left-0 bg-red-600 text-white font-black text-[10px] px-3 py-0.5 rounded-br-lg shadow-sm z-10 uppercase tracking-wider">
+                  {/* 4. Popular Master Bundle Card (with red ribbon matching frame_02.jpg) */}
+                  <div className="bg-[#FFF1D0] border-4 border-[#1E40AF] rounded-[24px] mb-4 overflow-hidden shadow-md relative flex flex-col">
+                    {/* Horizontal Red Pill Tag */}
+                    <div className="absolute top-2 left-2 bg-gradient-to-b from-[#dc2626] to-[#b91c1c] text-white font-black text-[9px] px-2.5 py-0.5 rounded-full shadow-sm z-10 uppercase tracking-widest border border-red-400">
                       Popular
                     </div>
-                    <div className="p-3.5 pt-5 flex justify-between items-center border-b-2 border-amber-200">
-                      <div className="flex flex-col items-center">
-                        <div className="text-3xl mb-0.5">🪙</div>
-                        <div className="text-[#8B4513] font-black text-lg" style={{WebkitTextStroke: '0.5px white'}}>16 000</div>
+                    <div className="p-4 flex justify-between items-center bg-[#FFF1D0] pt-6">
+                      <div className="flex flex-col items-center justify-center w-20">
+                        <div className="w-12 h-12 bg-yellow-400 rounded-full flex items-center justify-center border-[3px] border-yellow-200 shadow-sm mb-1">
+                          <span className="text-amber-800 font-black text-xl">🪙</span>
+                        </div>
+                        <div className="text-[#8B4513] font-black text-[15px]">18 000</div>
                       </div>
-                      <div className="bg-white/80 rounded-xl p-2 border-2 border-amber-200 flex gap-4">
-                        <div className="flex flex-col items-center"><span className="text-2xl">🚙</span><span className="text-[#8B4513] font-black text-xs">x4</span></div>
-                        <div className="flex flex-col items-center"><span className="text-2xl">🚁</span><span className="text-[#8B4513] font-black text-xs">x4</span></div>
-                        <div className="flex flex-col items-center"><span className="text-2xl">🟢</span><span className="text-[#8B4513] font-black text-xs">x4</span></div>
+                      <div className="bg-white rounded-2xl p-2.5 shadow-sm border border-amber-100 flex gap-4 mr-2">
+                        <div className="flex flex-col items-center"><span className="text-2xl drop-shadow-sm">🚙</span><span className="text-[#8B4513] font-black text-[11px] mt-1">x4</span></div>
+                        <div className="flex flex-col items-center"><span className="text-2xl drop-shadow-sm">🚁</span><span className="text-[#8B4513] font-black text-[11px] mt-1">x4</span></div>
+                        <div className="flex flex-col items-center"><span className="text-2xl drop-shadow-sm">🌳</span><span className="text-[#8B4513] font-black text-[11px] mt-1">x4</span></div>
                       </div>
                     </div>
-                    <div className="bg-[#1D4ED8] px-4 py-2.5 flex justify-between items-center">
-                      <div className="text-white font-black text-base">Master Bundle</div>
+                    <div className="bg-[#1D4ED8] px-5 py-3 border-t-2 border-[#1e3a8a] flex justify-between items-center">
+                      <div className="text-white font-black text-[15px] tracking-wide">Master Bundle</div>
                       <button 
                         onClick={() => sounds.playCoinCollect()}
-                        className="bg-gradient-to-b from-[#84cc16] to-[#4d7c0f] border-2 border-[#bef264] text-white font-black text-sm px-4 py-1.5 rounded-lg shadow-md active:translate-y-0.5"
+                        className="bg-gradient-to-b from-[#84cc16] via-[#65a30d] to-[#4d7c0f] border-2 border-[#bef264] text-white font-black text-[13px] px-5 py-1.5 rounded-full shadow-md active:translate-y-0.5"
                       >
-                        ₹1,800.00
+                        ₹1,850.00
                       </button>
                     </div>
                   </div>
@@ -845,100 +866,77 @@ export default function App() {
 
             </div>
 
-            {/* Bottom Navigation Bar (Matching frame_04.jpg) */}
-            <div className="absolute bottom-0 left-0 right-0 h-[82px] bg-[#1E40AF] border-t-[3.5px] border-[#F59E0B] z-50 flex items-end justify-between px-2 pb-1 pointer-events-auto select-none shadow-[0_-4px_12px_rgba(0,0,0,0.3)]">
+            {/* Bottom Navigation Bar */}
+            <div className="absolute bottom-0 left-0 right-0 h-[76px] bg-[#1d4ed8] border-t-[3.5px] border-[#F59E0B] z-50 flex items-end justify-between px-2 pb-1 pointer-events-auto select-none shadow-[0_-4px_12px_rgba(0,0,0,0.3)]">
               {/* Tab 1: SHOP */}
               <button 
                 onClick={() => { sounds.playClick(); setActiveTab('SHOP'); }} 
                 className={`flex flex-col items-center justify-end w-1/5 relative transition-all ${
                   activeTab === 'SHOP' 
-                    ? '-mt-4.5 pt-1 pb-1 px-1 bg-[#1E40AF] rounded-t-2xl border-t-[3.5px] border-x-[3.5px] border-[#F59E0B] shadow-md' 
-                    : 'pb-2 opacity-95 hover:opacity-100 active:scale-95'
+                    ? '-mt-[22px] h-[90px] pt-2 pb-1.5 bg-[#1d4ed8] rounded-t-[20px] border-t-[3.5px] border-x-[3.5px] border-[#F59E0B] shadow-md z-10' 
+                    : 'h-[72.5px] justify-center opacity-85 hover:opacity-100 active:scale-95'
                 }`}
               >
                 {activeTab === 'SHOP' ? (
-                  <div className="w-12 h-10 bg-[#FFFDF0] rounded-xl border-[2.5px] border-[#B45309] flex items-center justify-center shadow-sm">
-                    <span className="text-2xl filter drop-shadow-sm">🏪</span>
-                  </div>
+                  <>
+                    <div className="bg-white rounded-[14px] border-[3px] border-[#D97706] w-[48px] h-[40px] flex items-center justify-center shadow-sm mb-1.5">
+                      <span className="text-[26px] filter drop-shadow-sm select-none leading-none pt-1">🏪</span>
+                    </div>
+                    <span className="text-white font-black text-[12px] tracking-wide drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)] leading-none">Shop</span>
+                  </>
                 ) : (
-                  <div className="flex items-center justify-center h-10">
-                    <span className="text-3xl filter drop-shadow-sm">🏪</span>
-                  </div>
-                )}
-                {activeTab === 'SHOP' && (
-                  <span className="text-white font-black text-[11px] tracking-wide mt-0.5 drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]">
-                    Shop
-                  </span>
+                  <span className="text-[34px] filter drop-shadow-sm select-none">🏪</span>
                 )}
               </button>
               
-              {/* Tab 2: LEADERBOARD */}
+              {/* Tab 2: LEADERBOARD / TROPHY */}
               <button 
                 onClick={() => { sounds.playClick(); setActiveTab('LEADERBOARD'); }} 
                 className={`flex flex-col items-center justify-end w-1/5 relative transition-all ${
                   activeTab === 'LEADERBOARD' 
-                    ? '-mt-4.5 pt-1 pb-1 px-1 bg-[#1E40AF] rounded-t-2xl border-t-[3.5px] border-x-[3.5px] border-[#F59E0B] shadow-md' 
-                    : 'pb-2 opacity-95 hover:opacity-100 active:scale-95'
+                    ? '-mt-[22px] h-[90px] pt-2 pb-1.5 bg-[#1d4ed8] rounded-t-[20px] border-t-[3.5px] border-x-[3.5px] border-[#F59E0B] shadow-md z-10' 
+                    : 'h-[72.5px] justify-center opacity-85 hover:opacity-100 active:scale-95'
                 }`}
               >
                 {activeTab === 'LEADERBOARD' ? (
-                  <div className="w-12 h-10 bg-[#FFFDF0] rounded-xl border-[2.5px] border-[#B45309] flex items-center justify-center shadow-sm">
-                    <span className="text-2xl filter drop-shadow-sm">🏆</span>
-                  </div>
+                  <>
+                    <div className="bg-white rounded-[14px] border-[3px] border-[#D97706] w-[48px] h-[40px] flex items-center justify-center shadow-sm mb-1.5">
+                      <span className="text-[26px] filter drop-shadow-sm select-none leading-none pt-1">🏆</span>
+                    </div>
+                    <span className="text-white font-black text-[12px] tracking-wide drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)] leading-none">Ranking</span>
+                  </>
                 ) : (
-                  <div className="flex items-center justify-center h-10">
-                    <span className="text-3xl filter drop-shadow-sm">🏆</span>
-                  </div>
-                )}
-                {activeTab === 'LEADERBOARD' && (
-                  <span className="text-white font-black text-[11px] tracking-wide mt-0.5 drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]">
-                    Ranking
-                  </span>
+                  <span className="text-[34px] filter drop-shadow-sm select-none">🏆</span>
                 )}
               </button>
               
-              {/* Tab 3: HOME (Elevated Arched Tab in frame_04.jpg) */}
+              {/* Tab 3: HOME */}
               <button 
                 onClick={() => { sounds.playClick(); setActiveTab('HOME'); }} 
                 className={`flex flex-col items-center justify-end w-1/5 relative transition-all ${
                   activeTab === 'HOME' 
-                    ? '-mt-4.5 pt-1 pb-1 px-1 bg-[#1E40AF] rounded-t-2xl border-t-[3.5px] border-x-[3.5px] border-[#F59E0B] shadow-md' 
-                    : 'pb-2 opacity-95 hover:opacity-100 active:scale-95'
+                    ? '-mt-[22px] h-[90px] pt-2 pb-1.5 bg-[#1d4ed8] rounded-t-[20px] border-t-[3.5px] border-x-[3.5px] border-[#F59E0B] shadow-md z-10' 
+                    : 'h-[72.5px] justify-center opacity-85 hover:opacity-100 active:scale-95'
                 }`}
               >
-                <div className="w-12 h-10 bg-[#FFFDF0] rounded-xl border-[2.5px] border-[#B45309] flex items-center justify-center shadow-sm">
-                  <span className="text-2xl text-red-500 filter drop-shadow-sm">🏠</span>
-                </div>
-                {activeTab === 'HOME' && (
-                  <span className="text-white font-black text-[11px] tracking-wide mt-0.5 drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]">
-                    Home
-                  </span>
+                {activeTab === 'HOME' ? (
+                  <>
+                    <div className="bg-white rounded-[14px] border-[3px] border-[#D97706] w-[48px] h-[40px] flex items-center justify-center shadow-sm mb-1.5">
+                      <span className="text-[26px] filter drop-shadow-sm select-none leading-none pt-1">🏠</span>
+                    </div>
+                    <span className="text-white font-black text-[12px] tracking-wide drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)] leading-none">Home</span>
+                  </>
+                ) : (
+                  <span className="text-[34px] filter drop-shadow-sm select-none">🏠</span>
                 )}
               </button>
               
               {/* Tab 4: JOURNEY */}
               <button 
-                onClick={() => { sounds.playClick(); setActiveTab('JOURNEY'); }} 
-                className={`flex flex-col items-center justify-end w-1/5 relative transition-all ${
-                  activeTab === 'JOURNEY' 
-                    ? '-mt-4.5 pt-1 pb-1 px-1 bg-[#1E40AF] rounded-t-2xl border-t-[3.5px] border-x-[3.5px] border-[#F59E0B] shadow-md' 
-                    : 'pb-2 opacity-95 hover:opacity-100 active:scale-95'
-                }`}
+                onClick={() => { sounds.playClick(); setScreen('LEVEL_SELECT'); }} 
+                className={`flex flex-col items-center justify-end w-1/5 relative transition-all h-[72.5px] justify-center opacity-85 hover:opacity-100 active:scale-95`}
               >
-                {activeTab === 'JOURNEY' ? (
-                  <div className="w-12 h-10 bg-[#FFFDF0] rounded-xl border-[2.5px] border-[#B45309] flex items-center justify-center shadow-sm">
-                    <span className="text-2xl filter drop-shadow-sm">📷</span>
-                  </div>
-                ) : (
-                  <div className="flex items-center justify-center h-10">
-                    <span className="text-3xl filter drop-shadow-sm">📷</span>
-                  </div>
-                )}
-                {activeTab === 'JOURNEY' && (
-                  <span className="text-white font-black text-[11px] tracking-wide mt-0.5 drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]">
-                    Journey
-                  </span>
-                )}
+                  <span className="text-[34px] filter drop-shadow-sm select-none">📷</span>
               </button>
               
               {/* Tab 5: SETTINGS */}
@@ -946,23 +944,19 @@ export default function App() {
                 onClick={() => { sounds.playClick(); setActiveTab('SETTINGS'); }} 
                 className={`flex flex-col items-center justify-end w-1/5 relative transition-all ${
                   activeTab === 'SETTINGS' 
-                    ? '-mt-4.5 pt-1 pb-1 px-1 bg-[#1E40AF] rounded-t-2xl border-t-[3.5px] border-x-[3.5px] border-[#F59E0B] shadow-md' 
-                    : 'pb-2 opacity-95 hover:opacity-100 active:scale-95'
+                    ? '-mt-[22px] h-[90px] pt-2 pb-1.5 bg-[#1d4ed8] rounded-t-[20px] border-t-[3.5px] border-x-[3.5px] border-[#F59E0B] shadow-md z-10' 
+                    : 'h-[72.5px] justify-center opacity-85 hover:opacity-100 active:scale-95'
                 }`}
               >
                 {activeTab === 'SETTINGS' ? (
-                  <div className="w-12 h-10 bg-[#FFFDF0] rounded-xl border-[2.5px] border-[#B45309] flex items-center justify-center shadow-sm">
-                    <span className="text-2xl filter drop-shadow-sm">⚙️</span>
-                  </div>
+                  <>
+                    <div className="bg-white rounded-[14px] border-[3px] border-[#D97706] w-[48px] h-[40px] flex items-center justify-center shadow-sm mb-1.5">
+                      <span className="text-[26px] filter drop-shadow-sm select-none leading-none pt-1">⚙️</span>
+                    </div>
+                    <span className="text-white font-black text-[12px] tracking-wide drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)] leading-none">Settings</span>
+                  </>
                 ) : (
-                  <div className="flex items-center justify-center h-10">
-                    <span className="text-3xl text-amber-400 filter drop-shadow-sm">⚙️</span>
-                  </div>
-                )}
-                {activeTab === 'SETTINGS' && (
-                  <span className="text-white font-black text-[11px] tracking-wide mt-0.5 drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]">
-                    Settings
-                  </span>
+                  <span className="text-[34px] filter drop-shadow-sm select-none">⚙️</span>
                 )}
               </button>
             </div>
@@ -995,7 +989,7 @@ export default function App() {
             SCREEN 3: MAIN 3D BOARD GAME SCREEN
            ======================================================== */}
         {screen === 'GAME' && (
-          <div className="w-full h-full flex-1 flex flex-col bg-[#bfe0f7] overflow-hidden relative select-none">
+          <div className="w-full h-full flex-1 flex flex-col bg-[#D4D8DC] overflow-hidden relative select-none">
             {/* FLOATING TOP ARCADE HUD (MATCHING REFERENCE SCREENSHOTS frame_05.jpg & frame_06.jpg) */}
             <div className="absolute top-3 left-4 right-4 z-30 pointer-events-none flex items-center justify-between select-none">
               {/* Left: Back to Home button (invisible touch target matching frame_05.jpg & frame_06.jpg) */}
@@ -1048,6 +1042,7 @@ export default function App() {
                   isCompleted={!!victoryData || gameState.status === GameStatus.COMPLETED}
                   onParkingEvaluated={handleParkingEvaluated}
                   graphicsQuality={graphicsQuality}
+                  customizationVersion={customizationVersion}
                 />
               </ArenaErrorBoundary>
             </div>
@@ -1206,76 +1201,77 @@ export default function App() {
           onSave={handleSaveProfile}
         />
 
-        {/* 00. LEVEL INTRO PRE-FLIGHT MODAL */}
+        {/* 00. LEVEL INTRO PRE-FLIGHT MODAL (BLUE THEME) */}
         {levelIntro && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-4 animate-in fade-in duration-200">
-            <div className="w-full max-w-sm game-modal-3d border-2 border-emerald-400/80 rounded-[36px] p-6 text-center shadow-2xl relative overflow-hidden">
-              {/* World District & Game Mode Pills */}
-              <div className="flex items-center justify-center gap-1.5 flex-wrap mb-2">
-                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-sky-500/20 border border-sky-400/30 text-sky-300 text-xs font-black uppercase tracking-wider">
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+            <div className="w-full max-w-sm busjam-modal-card pt-10 pb-6 px-6 text-center relative">
+              {/* Header Tab */}
+              <div className="absolute -top-5 left-1/2 -translate-x-1/2 busjam-modal-header-tab">
+                <span className="text-white font-black text-xl tracking-wide drop-shadow-[0_2px_2px_rgba(0,0,0,0.8)]">
+                  Level {levelIntro.id}
+                </span>
+              </div>
+              {/* Close X */}
+              <button
+                onClick={() => setLevelIntro(null)}
+                className="absolute -right-3 -top-3 w-8 h-8 bg-gradient-to-b from-red-500 to-red-700 rounded-full border-2 border-yellow-400 flex items-center justify-center shadow-lg active:scale-90 transition-transform"
+              >
+                <span className="text-white font-black text-xl leading-none">×</span>
+              </button>
+
+              {/* World & Mode pills */}
+              <div className="flex items-center justify-center gap-1.5 flex-wrap mb-3">
+                <div className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-sky-400/25 border border-sky-300/50 text-sky-200 text-xs font-black uppercase tracking-wider">
                   <span>{getWorldConfig(levelIntro.world).icon}</span>
                   <span>{getWorldConfig(levelIntro.world).name}</span>
                 </div>
-                <div className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-500/20 border border-amber-400/30 text-amber-300 text-xs font-black uppercase tracking-wider">
+                <div className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-amber-400/25 border border-amber-300/50 text-amber-200 text-xs font-black uppercase tracking-wider">
                   <span>{GAME_MODE_CONFIGS[selectedGameMode].icon}</span>
                   <span>{GAME_MODE_CONFIGS[selectedGameMode].name}</span>
                 </div>
               </div>
 
-              <h2 className="text-2xl sm:text-3xl font-black text-white mb-0.5">
-                Level {levelIntro.id}
-              </h2>
-              <p className="text-xs text-slate-300 font-bold mb-4">
-                {levelIntro.name}
-              </p>
+              {/* Level Name */}
+              <p className="text-sky-100 font-bold text-sm mb-4 tracking-wide">{levelIntro.name}</p>
 
-              {/* Mission Objective Card */}
-              <div className="bg-amber-500/15 border border-amber-400/30 rounded-2xl p-3 mb-4 text-left">
-                <span className="text-[10px] uppercase font-black tracking-wider text-amber-400 block mb-0.5">
-                  Target Objective
-                </span>
-                <span className="text-xs sm:text-sm font-black text-white">
-                  {levelIntro.objective}
-                </span>
-              </div>
-
-              {/* Mission Stats */}
-              <div className="bg-slate-950/70 border border-slate-800 rounded-2xl p-3 mb-5 flex items-center justify-around shadow-inner">
-                <div>
-                  <span className="text-[10px] uppercase font-bold text-slate-400 block">Time</span>
-                  <span className="text-sm font-black text-sky-400">⏱️ {levelIntro.timeLimit}s</span>
+              {/* Mission Stats — cream inner card */}
+              <div className="bg-[#FFF8E7] border-2 border-[#D97706]/40 rounded-2xl p-4 mb-5 flex items-center justify-around shadow-inner">
+                <div className="text-center">
+                  <span className="text-[10px] uppercase font-black text-[#B45309] block">Time</span>
+                  <span className="text-sm font-black text-[#7C3AED]">⏱️ {levelIntro.timeLimit}s</span>
                 </div>
-                <div className="h-8 w-px bg-slate-800" />
-                <div>
-                  <span className="text-[10px] uppercase font-bold text-slate-400 block">Moves Par</span>
-                  <span className="text-sm font-black text-emerald-400">🎯 {levelIntro.parMoves}</span>
+                <div className="h-8 w-px bg-amber-200" />
+                <div className="text-center">
+                  <span className="text-[10px] uppercase font-black text-[#B45309] block">Par Moves</span>
+                  <span className="text-sm font-black text-[#065F46]">🎯 {levelIntro.parMoves}</span>
                 </div>
-                <div className="h-8 w-px bg-slate-800" />
-                <div>
-                  <span className="text-[10px] uppercase font-bold text-slate-400 block">Reward</span>
-                  <span className="text-sm font-black text-amber-400">🪙 +50</span>
+                <div className="h-8 w-px bg-amber-200" />
+                <div className="text-center">
+                  <span className="text-[10px] uppercase font-black text-[#B45309] block">Reward</span>
+                  <span className="text-sm font-black text-[#92400E]">🪙 +50</span>
                 </div>
               </div>
 
-              <div className="flex flex-col gap-2.5">
-                <button
-                  onClick={() => {
-                    handleLevelSelect(levelIntro.id, selectedDifficulty, selectedGameMode);
-                    setLevelIntro(null);
-                  }}
-                  className="w-full py-4 rounded-2xl game-btn game-btn-emerald shine-sweep text-white font-black text-sm flex items-center justify-center gap-2 shadow-lg"
-                >
-                  <Play className="w-5 h-5 fill-white" />
-                  <span>START PUZZLE</span>
-                </button>
-
-                <button
-                  onClick={() => setLevelIntro(null)}
-                  className="w-full py-2.5 rounded-2xl bg-transparent hover:bg-slate-800 text-slate-400 font-bold text-xs transition-colors"
-                >
-                  Cancel
-                </button>
+              {/* Objective */}
+              <div className="bg-[#1e3a8a]/80 border border-yellow-400/40 rounded-2xl p-3 mb-5 text-left">
+                <span className="text-[10px] uppercase font-black tracking-wider text-yellow-300 block mb-0.5">Objective</span>
+                <span className="text-xs font-bold text-white">{levelIntro.objective}</span>
               </div>
+
+              {/* Start Button — green */}
+              <button
+                onClick={() => {
+                  handleLevelSelect(levelIntro.id, selectedDifficulty, selectedGameMode);
+                  setLevelIntro(null);
+                }}
+                className="w-full py-3.5 bg-gradient-to-b from-[#84cc16] via-[#65a30d] to-[#4d7c0f] border-[3px] border-[#a3e635] rounded-2xl text-white font-black text-xl shadow-[0_5px_0_#14532d] active:translate-y-1 active:shadow-none transition-all flex items-center justify-center gap-2"
+                style={{ WebkitTextStroke: '1px #14532d' }}
+              >
+                <svg className="w-5 h-5 fill-white" viewBox="0 0 24 24">
+                  <path d="M5 3l14 9-14 9V3z"/>
+                </svg>
+                START LEVEL
+              </button>
             </div>
           </div>
         )}
@@ -1321,21 +1317,34 @@ export default function App() {
 
         {/* 2. GRIDLOCK MODAL */}
         {showGridlockModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-4 animate-in fade-in duration-200">
-            <div className="w-full max-w-sm game-modal-3d border-2 border-rose-500/80 rounded-[36px] p-6 text-center shadow-2xl">
-              <div className="w-16 h-16 rounded-3xl bg-rose-500/20 border-2 border-rose-500/40 flex items-center justify-center mx-auto mb-3 shadow-lg shadow-rose-500/30 animate-pulse">
-                <AlertTriangle className="w-8 h-8 text-rose-500" />
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+            <div className="w-80 busjam-modal-card pt-10 pb-6 px-6 text-center relative">
+              {/* Header Tab */}
+              <div className="absolute -top-5 left-1/2 -translate-x-1/2 busjam-modal-header-tab">
+                <span className="text-white font-black text-xl tracking-wide drop-shadow-[0_2px_2px_rgba(0,0,0,0.8)]">Stuck!</span>
               </div>
-              <h2 className="text-2xl font-black text-white mb-1">BAYS ARE JAMMED!</h2>
-              <p className="text-xs text-slate-300 mb-4">
-                All waiting bays are occupied, and none match the color of the front passenger in line.
+              {/* Close X */}
+              <button
+                onClick={() => setShowGridlockModal(false)}
+                className="absolute -right-3 -top-3 w-8 h-8 bg-gradient-to-b from-red-500 to-red-700 rounded-full border-2 border-yellow-400 flex items-center justify-center shadow-lg active:scale-90 transition-transform"
+              >
+                <span className="text-white font-black text-xl leading-none">×</span>
+              </button>
+
+              {/* Icon */}
+              <div className="w-14 h-14 rounded-2xl bg-rose-500/25 border-2 border-rose-400/50 flex items-center justify-center mx-auto mb-3 animate-pulse">
+                <AlertTriangle className="w-7 h-7 text-rose-300" />
+              </div>
+              <h2 className="text-xl font-black text-white mb-1">BAYS ARE JAMMED!</h2>
+              <p className="text-xs text-sky-100/80 mb-5">
+                All waiting bays are occupied and none match the front passenger's color.
               </p>
 
-              <div className="flex flex-col gap-2.5">
-                {/* 1. Magnet Booster */}
+              {/* Actions — cream inner card */}
+              <div className="bg-[#FFF8E7] border-2 border-[#D97706]/40 rounded-2xl p-3 mb-4 flex flex-col gap-2.5 shadow-inner">
                 <button
                   onClick={() => handleUseBooster('passengerSwap')}
-                  className="w-full py-3.5 px-4 rounded-2xl game-btn game-btn-blue text-white font-black text-xs flex items-center justify-between shadow-md"
+                  className="w-full py-3 px-4 rounded-xl bg-gradient-to-b from-[#38bdf8] via-[#2563eb] to-[#1e40af] border-2 border-white text-white font-black text-xs flex items-center justify-between shadow-md active:translate-y-0.5"
                 >
                   <div className="flex items-center gap-2">
                     <Magnet className="w-4 h-4" />
@@ -1348,11 +1357,10 @@ export default function App() {
                   </span>
                 </button>
 
-                {/* 2. Extra Bay Booster */}
                 {gameState.unlockedDocksCount < 6 && (
                   <button
                     onClick={() => handleUseBooster('extraSpace')}
-                    className="w-full py-3 px-4 rounded-2xl game-btn game-btn-emerald text-white font-black text-xs flex items-center justify-between"
+                    className="w-full py-3 px-4 rounded-xl bg-gradient-to-b from-[#84cc16] via-[#65a30d] to-[#4d7c0f] border-2 border-[#a3e635] text-white font-black text-xs flex items-center justify-between shadow-md active:translate-y-0.5"
                   >
                     <div className="flex items-center gap-2">
                       <PlusCircle className="w-4 h-4" />
@@ -1366,50 +1374,67 @@ export default function App() {
                   </button>
                 )}
 
-                {/* 3. Undo Booster */}
                 <button
                   onClick={() => handleUseBooster('undo')}
-                  className="w-full py-3 px-4 rounded-2xl game-btn game-btn-amber text-slate-950 font-black text-xs flex items-center justify-between"
+                  className="w-full py-3 px-4 rounded-xl bg-gradient-to-b from-[#fbbf24] via-[#f59e0b] to-[#d97706] border-[3px] border-[#b45309] text-white font-black text-xs flex items-center justify-between shadow-md active:translate-y-0.5"
                 >
                   <div className="flex items-center gap-2">
                     <Undo2 className="w-4 h-4" />
                     <span>Undo Last Move</span>
                   </div>
-                  <span className="text-[10px] bg-black/40 text-amber-300 px-2 py-0.5 rounded-full font-black">
+                  <span className="text-[10px] bg-black/40 px-2 py-0.5 rounded-full font-black">
                     {gameState.availableBoosters.undo > 0
                       ? `${gameState.availableBoosters.undo} Left`
                       : '50 🪙'}
                   </span>
                 </button>
-
-                {/* 4. Restart Level */}
-                <button
-                  onClick={() => {
-                    setShowGridlockModal(false);
-                    controller.loadLevel(gameState.levelId);
-                  }}
-                  className="w-full py-2.5 rounded-2xl game-btn game-btn-dark text-slate-300 font-bold text-xs"
-                >
-                  Restart Level
-                </button>
               </div>
+
+              {/* Restart — orange button */}
+              <button
+                onClick={() => {
+                  setShowGridlockModal(false);
+                  controller.loadLevel(gameState.levelId);
+                }}
+                className="w-full py-3 bg-gradient-to-b from-[#fbbf24] via-[#f59e0b] to-[#d97706] border-[3px] border-[#b45309] rounded-2xl text-white font-black text-xl shadow-[0_4px_0_#92400e] active:translate-y-1 active:shadow-none transition-all flex items-center justify-center"
+                style={{ WebkitTextStroke: '1px #b45309' }}
+              >
+                Restart Level
+              </button>
             </div>
           </div>
         )}
 
         {/* 3. OUT OF MOVES MODAL */}
         {showOutOfMovesModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-4">
-            <div className="w-full max-w-sm game-modal-3d border-2 border-red-500/80 rounded-[36px] p-6 text-center shadow-2xl">
-              <div className="w-16 h-16 rounded-3xl bg-red-500/20 border-2 border-red-500/40 flex items-center justify-center mx-auto mb-3 shadow-lg shadow-red-500/30 animate-pulse">
-                <RotateCcw className="w-8 h-8 text-red-500" />
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+            <div className="w-80 busjam-modal-card pt-10 pb-6 px-6 text-center relative">
+              {/* Header Tab */}
+              <div className="absolute -top-5 left-1/2 -translate-x-1/2 busjam-modal-header-tab">
+                <span className="text-white font-black text-xl tracking-wide drop-shadow-[0_2px_2px_rgba(0,0,0,0.8)]">Out of Moves!</span>
               </div>
-              <h2 className="text-2xl font-black text-white mb-1">OUT OF MOVES!</h2>
-              <p className="text-xs text-slate-300 mb-4">
-                You used all allocated puzzle moves before loading all passengers.
+              {/* Close X */}
+              <button
+                onClick={() => {
+                  setShowOutOfMovesModal(false);
+                  controller.loadLevel(gameState.levelId);
+                }}
+                className="absolute -right-3 -top-3 w-8 h-8 bg-gradient-to-b from-red-500 to-red-700 rounded-full border-2 border-yellow-400 flex items-center justify-center shadow-lg active:scale-90 transition-transform"
+              >
+                <span className="text-white font-black text-xl leading-none">×</span>
+              </button>
+
+              {/* Icon */}
+              <div className="w-14 h-14 rounded-2xl bg-red-500/25 border-2 border-red-400/50 flex items-center justify-center mx-auto mb-3 animate-pulse">
+                <RotateCcw className="w-7 h-7 text-red-300" />
+              </div>
+              <h2 className="text-xl font-black text-white mb-1">OUT OF MOVES!</h2>
+              <p className="text-xs text-sky-100/80 mb-5">
+                You used all moves before loading all passengers.
               </p>
 
-              <div className="flex flex-col gap-2.5">
+              {/* Cream inner card */}
+              <div className="bg-[#FFF8E7] border-2 border-[#D97706]/40 rounded-2xl p-3 mb-4 flex flex-col gap-2.5 shadow-inner">
                 <button
                   onClick={() => {
                     if (gameState.coins >= 100) {
@@ -1420,59 +1445,68 @@ export default function App() {
                       setShowShopModal(true);
                     }
                   }}
-                  className="w-full py-3.5 px-4 rounded-2xl game-btn game-btn-amber text-slate-950 font-black text-xs flex items-center justify-between shadow-lg"
+                  className="w-full py-3 px-4 rounded-xl bg-gradient-to-b from-[#fbbf24] via-[#f59e0b] to-[#d97706] border-[3px] border-[#b45309] text-white font-black text-xs flex items-center justify-between shadow-md active:translate-y-0.5"
                 >
                   <div className="flex items-center gap-2">
                     <Coins className="w-4 h-4" />
                     <span>Get +5 Moves</span>
                   </div>
-                  <span className="text-[11px] bg-slate-950 text-amber-300 px-2.5 py-0.5 rounded-full font-black">
-                    100 🪙
-                  </span>
-                </button>
-
-                <button
-                  onClick={() => {
-                    setShowOutOfMovesModal(false);
-                    controller.loadLevel(gameState.levelId);
-                  }}
-                  className="w-full py-2.5 rounded-2xl game-btn game-btn-dark text-slate-300 font-bold text-xs"
-                >
-                  Try Again
+                  <span className="text-[10px] bg-black/40 px-2 py-0.5 rounded-full font-black">100 🪙</span>
                 </button>
               </div>
+
+              <button
+                onClick={() => {
+                  setShowOutOfMovesModal(false);
+                  controller.loadLevel(gameState.levelId);
+                }}
+                className="w-full py-3 bg-gradient-to-b from-[#84cc16] via-[#65a30d] to-[#4d7c0f] border-[3px] border-[#a3e635] rounded-2xl text-white font-black text-xl shadow-[0_5px_0_#14532d] active:translate-y-1 active:shadow-none transition-all flex items-center justify-center"
+                style={{ WebkitTextStroke: '1px #14532d' }}
+              >
+                Try Again
+              </button>
             </div>
           </div>
         )}
 
-        {/* 3.5. OUT OF TIME MODAL */}
+        {/* 3.5. OUT OF TIME MODAL (BLUE THEME) */}
         {showOutOfTimeModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-4">
-            <div className="w-full max-w-sm game-modal-3d border-2 border-rose-500/80 rounded-[36px] p-6 text-center shadow-2xl">
-              {/* Pulsing Timer Icon */}
-              <div className="relative w-16 h-16 rounded-3xl bg-rose-500/20 border-2 border-rose-500/50 flex items-center justify-center mx-auto mb-3 shadow-lg shadow-rose-500/30">
-                <Timer className="w-8 h-8 text-rose-500 animate-spin" />
-                <span className="absolute -bottom-1 -right-1 px-1.5 py-0.5 rounded-full bg-rose-600 text-[10px] font-black text-white border border-rose-300 shadow">
-                  00:00
-                </span>
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+            <div className="w-80 busjam-modal-card pt-10 pb-6 px-6 text-center relative">
+              {/* Header Tab */}
+              <div className="absolute -top-5 left-1/2 -translate-x-1/2 busjam-modal-header-tab">
+                <span className="text-white font-black text-xl tracking-wide drop-shadow-[0_2px_2px_rgba(0,0,0,0.8)]">Time's Up!</span>
               </div>
+              {/* Close X */}
+              <button
+                onClick={() => {
+                  sounds.playClick();
+                  setShowOutOfTimeModal(false);
+                  controller.loadLevel(gameState.levelId);
+                }}
+                className="absolute -right-3 -top-3 w-8 h-8 bg-gradient-to-b from-red-500 to-red-700 rounded-full border-2 border-yellow-400 flex items-center justify-center shadow-lg active:scale-90 transition-transform"
+              >
+                <span className="text-white font-black text-xl leading-none">×</span>
+              </button>
 
-              <h2 className="text-2xl font-black text-white mb-1 tracking-wide">OUT OF TIME!</h2>
-              <p className="text-xs font-medium text-slate-300 mb-4 leading-relaxed">
-                The terminal clock hit zero before all passengers could board! Keep your progress by purchasing extra time with coins, or restart the level.
+              {/* Icon */}
+              <div className="relative w-14 h-14 rounded-2xl bg-rose-500/25 border-2 border-rose-400/50 flex items-center justify-center mx-auto mb-3">
+                <Timer className="w-7 h-7 text-rose-300 animate-spin" />
+                <span className="absolute -bottom-1 -right-1 px-1.5 py-0.5 rounded-full bg-rose-600 text-[10px] font-black text-white border border-rose-300 shadow">00:00</span>
+              </div>
+              <h2 className="text-xl font-black text-white mb-1">OUT OF TIME!</h2>
+              <p className="text-xs text-sky-100/80 mb-3">
+                The terminal clock hit zero before all passengers boarded!
               </p>
 
-              {/* Current Coins Status Bar */}
-              <div className="bg-slate-950/70 border border-slate-800 rounded-2xl p-2.5 mb-4 flex items-center justify-between px-4">
-                <span className="text-xs font-bold text-slate-400">Your Coin Balance</span>
-                <span className="text-sm font-black text-amber-300 flex items-center gap-1.5">
-                  <span className="animate-spin-3d">🪙</span>
-                  {gameState.coins.toLocaleString()}
-                </span>
+              {/* Coin balance row */}
+              <div className="flex items-center justify-between bg-[#1e3a8a]/70 border border-yellow-400/30 rounded-xl px-4 py-2 mb-4">
+                <span className="text-xs font-bold text-sky-200">Your Balance</span>
+                <span className="text-sm font-black text-yellow-300">🪙 {gameState.coins.toLocaleString()}</span>
               </div>
 
-              <div className="flex flex-col gap-2.5">
-                {/* 1. Buy +30 Seconds */}
+              {/* Cream inner card */}
+              <div className="bg-[#FFF8E7] border-2 border-[#D97706]/40 rounded-2xl p-3 mb-4 flex flex-col gap-2.5 shadow-inner">
                 <button
                   onClick={() => {
                     const cost = 80;
@@ -1485,25 +1519,22 @@ export default function App() {
                       setShowShopModal(true);
                     }
                   }}
-                  className="w-full py-3.5 px-4 rounded-2xl game-btn game-btn-amber text-slate-950 font-black text-xs flex items-center justify-between shadow-lg"
+                  className="w-full py-3 px-4 rounded-xl bg-gradient-to-b from-[#fbbf24] via-[#f59e0b] to-[#d97706] border-[3px] border-[#b45309] text-white font-black text-xs flex items-center justify-between shadow-md active:translate-y-0.5"
                 >
                   <div className="flex items-center gap-2.5">
-                    <Hourglass className="w-4 h-4 text-slate-950" />
+                    <Hourglass className="w-4 h-4" />
                     <div className="text-left">
                       <div className="font-black text-xs leading-tight">Get +30 Seconds</div>
                       <div className="text-[10px] text-amber-950/70 font-semibold">Resume right here</div>
                     </div>
                   </div>
-                  <span
-                    className={`text-[11px] px-2.5 py-1 rounded-full font-black ${
-                      gameState.coins >= 80 ? 'bg-slate-950 text-amber-300' : 'bg-rose-700 text-white'
-                    }`}
-                  >
+                  <span className={`text-[11px] px-2.5 py-1 rounded-full font-black ${
+                    gameState.coins >= 80 ? 'bg-black/40 text-white' : 'bg-rose-700 text-white'
+                  }`}>
                     {gameState.coins >= 80 ? '80 🪙' : 'Need 80 🪙'}
                   </span>
                 </button>
 
-                {/* 2. Buy +60 Seconds (Mega Boost) */}
                 <button
                   onClick={() => {
                     const cost = 140;
@@ -1516,77 +1547,73 @@ export default function App() {
                       setShowShopModal(true);
                     }
                   }}
-                  className="w-full py-3 px-4 rounded-2xl game-btn game-btn-emerald text-white font-black text-xs flex items-center justify-between shadow-md"
+                  className="w-full py-3 px-4 rounded-xl bg-gradient-to-b from-[#38bdf8] via-[#2563eb] to-[#1e40af] border-2 border-white text-white font-black text-xs flex items-center justify-between shadow-md active:translate-y-0.5"
                 >
                   <div className="flex items-center gap-2.5">
-                    <div className="w-7 h-7 rounded-lg bg-black/20 flex items-center justify-center font-black text-white">
-                      +60s
-                    </div>
+                    <div className="w-7 h-7 rounded-lg bg-black/20 flex items-center justify-center font-black text-white text-[10px]">+60s</div>
                     <div className="text-left">
-                      <div className="font-black text-xs text-white leading-tight">Get +60 Seconds (Mega Boost)</div>
-                      <div className="text-[10px] text-emerald-100 font-semibold">Double time extension</div>
+                      <div className="font-black text-xs text-white leading-tight">Get +60 Seconds (Mega)</div>
+                      <div className="text-[10px] text-sky-200 font-semibold">Double time extension</div>
                     </div>
                   </div>
-                  <span
-                    className={`text-[11px] px-2.5 py-1 rounded-full font-black ${
-                      gameState.coins >= 140 ? 'bg-slate-950 text-emerald-300' : 'bg-rose-700 text-white'
-                    }`}
-                  >
+                  <span className={`text-[11px] px-2.5 py-1 rounded-full font-black ${
+                    gameState.coins >= 140 ? 'bg-black/40 text-white' : 'bg-rose-700 text-white'
+                  }`}>
                     {gameState.coins >= 140 ? '140 🪙' : 'Need 140 🪙'}
                   </span>
                 </button>
-
-                {/* 3. Restart Level (Free) */}
-                <button
-                  onClick={() => {
-                    sounds.playClick();
-                    setShowOutOfTimeModal(false);
-                    controller.loadLevel(gameState.levelId);
-                  }}
-                  className="w-full py-2.5 rounded-2xl game-btn game-btn-dark text-slate-200 font-bold text-xs flex items-center justify-center gap-2"
-                >
-                  <RotateCcw className="w-3.5 h-3.5" />
-                  <span>Restart Level (Free)</span>
-                </button>
-
-                {/* 4. Choose Level */}
-                <button
-                  onClick={() => {
-                    sounds.playClick();
-                    setShowOutOfTimeModal(false);
-                    setScreen('LEVEL_SELECT');
-                  }}
-                  className="w-full py-2 rounded-2xl bg-transparent hover:bg-slate-800 text-slate-400 font-medium text-xs transition-colors"
-                >
-                  Choose Different Level
-                </button>
               </div>
+
+              {/* Restart — green button */}
+              <button
+                onClick={() => {
+                  sounds.playClick();
+                  setShowOutOfTimeModal(false);
+                  controller.loadLevel(gameState.levelId);
+                }}
+                className="w-full py-3 bg-gradient-to-b from-[#84cc16] via-[#65a30d] to-[#4d7c0f] border-[3px] border-[#a3e635] rounded-2xl text-white font-black text-xl shadow-[0_5px_0_#14532d] active:translate-y-1 active:shadow-none transition-all flex items-center justify-center mb-3"
+                style={{ WebkitTextStroke: '1px #14532d' }}
+              >
+                Restart Level
+              </button>
+
+              {/* Choose Different Level Link (Goes to Journey) */}
+              <button
+                onClick={() => {
+                  sounds.playClick();
+                  setShowOutOfTimeModal(false);
+                  setScreen('JOURNEY');
+                }}
+                className="text-sky-200 font-bold text-[13px] tracking-wide hover:text-white transition-colors"
+              >
+                Choose Different Level
+              </button>
             </div>
           </div>
         )}
 
         {/* 4. SHOP MODAL */}
         {showShopModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-4">
-            <div className="w-full max-w-sm game-modal-3d border-2 border-amber-400/80 rounded-[36px] p-6 shadow-2xl">
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-2">
-                  <ShoppingBag className="w-5 h-5 text-amber-400" />
-                  <h3 className="font-black text-white text-base">Booster Supplies</h3>
-                </div>
-                <button
-                  onClick={() => setShowShopModal(false)}
-                  className="w-8 h-8 rounded-xl game-btn game-btn-dark text-slate-400 flex items-center justify-center text-xs font-bold"
-                >
-                  ✕
-                </button>
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+            <div className="w-80 busjam-modal-card pt-10 pb-6 px-5 relative">
+              {/* Header Tab */}
+              <div className="absolute -top-5 left-1/2 -translate-x-1/2 busjam-modal-header-tab">
+                <span className="text-white font-black text-xl tracking-wide drop-shadow-[0_2px_2px_rgba(0,0,0,0.8)]">Booster Shop</span>
               </div>
+              {/* Close X */}
+              <button
+                onClick={() => setShowShopModal(false)}
+                className="absolute -right-3 -top-3 w-8 h-8 bg-gradient-to-b from-red-500 to-red-700 rounded-full border-2 border-yellow-400 flex items-center justify-center shadow-lg active:scale-90 transition-transform"
+              >
+                <span className="text-white font-black text-xl leading-none">×</span>
+              </button>
 
-              <div className="space-y-2.5 mb-4">
-                <div className="p-3 bg-slate-950/70 border border-slate-800 rounded-2xl flex items-center justify-between">
+              {/* Cream inner card with items */}
+              <div className="bg-[#FFF8E7] border-2 border-[#D97706]/40 rounded-2xl p-3 mb-4 flex flex-col gap-2.5 shadow-inner">
+                <div className="flex items-center justify-between py-1.5">
                   <div>
-                    <div className="text-xs font-black text-white">Hint Booster</div>
-                    <div className="text-[10px] text-slate-400">Highlights optimal move</div>
+                    <div className="text-xs font-black text-[#1E3A8A]">Hint Booster</div>
+                    <div className="text-[10px] text-[#78350F]/70">Highlights optimal move</div>
                   </div>
                   <button
                     onClick={() => {
@@ -1596,16 +1623,16 @@ export default function App() {
                         gameState.availableBoosters.hint++;
                       }
                     }}
-                    className="px-3 py-1.5 rounded-xl game-btn game-btn-amber text-slate-950 font-black text-xs"
+                    className="bg-gradient-to-b from-[#84cc16] to-[#4d7c0f] border-2 border-[#bef264] text-white font-black text-xs px-3 py-1.5 rounded-xl shadow-md active:translate-y-0.5"
                   >
                     70 🪙
                   </button>
                 </div>
-
-                <div className="p-3 bg-slate-950/70 border border-slate-800 rounded-2xl flex items-center justify-between">
+                <div className="h-px bg-amber-200" />
+                <div className="flex items-center justify-between py-1.5">
                   <div>
-                    <div className="text-xs font-black text-white">Shuffle Directions</div>
-                    <div className="text-[10px] text-slate-400">Rotates locked vehicles</div>
+                    <div className="text-xs font-black text-[#1E3A8A]">Shuffle Directions</div>
+                    <div className="text-[10px] text-[#78350F]/70">Rotates locked vehicles</div>
                   </div>
                   <button
                     onClick={() => {
@@ -1615,16 +1642,16 @@ export default function App() {
                         gameState.availableBoosters.shuffle++;
                       }
                     }}
-                    className="px-3 py-1.5 rounded-xl game-btn game-btn-amber text-slate-950 font-black text-xs"
+                    className="bg-gradient-to-b from-[#84cc16] to-[#4d7c0f] border-2 border-[#bef264] text-white font-black text-xs px-3 py-1.5 rounded-xl shadow-md active:translate-y-0.5"
                   >
                     80 🪙
                   </button>
                 </div>
-
-                <div className="p-3 bg-slate-950/70 border border-slate-800 rounded-2xl flex items-center justify-between">
+                <div className="h-px bg-amber-200" />
+                <div className="flex items-center justify-between py-1.5">
                   <div>
-                    <div className="text-xs font-black text-white">Queue Magnet</div>
-                    <div className="text-[10px] text-slate-400">Sorts passenger line</div>
+                    <div className="text-xs font-black text-[#1E3A8A]">Queue Magnet</div>
+                    <div className="text-[10px] text-[#78350F]/70">Sorts passenger line</div>
                   </div>
                   <button
                     onClick={() => {
@@ -1634,16 +1661,16 @@ export default function App() {
                         gameState.availableBoosters.passengerSwap++;
                       }
                     }}
-                    className="px-3 py-1.5 rounded-xl game-btn game-btn-amber text-slate-950 font-black text-xs"
+                    className="bg-gradient-to-b from-[#84cc16] to-[#4d7c0f] border-2 border-[#bef264] text-white font-black text-xs px-3 py-1.5 rounded-xl shadow-md active:translate-y-0.5"
                   >
                     90 🪙
                   </button>
                 </div>
-
-                <div className="p-3 bg-slate-950/70 border border-slate-800 rounded-2xl flex items-center justify-between">
+                <div className="h-px bg-amber-200" />
+                <div className="flex items-center justify-between py-1.5">
                   <div>
-                    <div className="text-xs font-black text-white">+30s Extra Time</div>
-                    <div className="text-[10px] text-slate-400">Adds 30s to level countdown</div>
+                    <div className="text-xs font-black text-[#1E3A8A]">+30s Extra Time</div>
+                    <div className="text-[10px] text-[#78350F]/70">Adds 30s to countdown</div>
                   </div>
                   <button
                     onClick={() => {
@@ -1652,22 +1679,24 @@ export default function App() {
                         controller.buyExtraTime(30, 80);
                       }
                     }}
-                    className="px-3 py-1.5 rounded-xl game-btn game-btn-amber text-slate-950 font-black text-xs"
+                    className="bg-gradient-to-b from-[#84cc16] to-[#4d7c0f] border-2 border-[#bef264] text-white font-black text-xs px-3 py-1.5 rounded-xl shadow-md active:translate-y-0.5"
                   >
                     80 🪙
                   </button>
                 </div>
               </div>
 
+              {/* Claim free coins — orange button */}
               <button
                 onClick={() => {
                   sounds.playWin();
                   controller.addCoins(500);
                 }}
-                className="w-full py-3 rounded-2xl game-btn game-btn-emerald shine-sweep text-white text-xs font-black flex items-center justify-center gap-2"
+                className="w-full py-3 bg-gradient-to-b from-[#fbbf24] via-[#f59e0b] to-[#d97706] border-[3px] border-[#b45309] rounded-2xl text-white font-black text-base shadow-[0_4px_0_#92400e] active:translate-y-1 active:shadow-none transition-all flex items-center justify-center gap-2"
+                style={{ WebkitTextStroke: '0.5px #b45309' }}
               >
                 <Gift className="w-4 h-4 text-white" />
-                <span>Claim +500 Free Bonus Coins</span>
+                Claim +500 Free Coins
               </button>
             </div>
           </div>
@@ -1706,10 +1735,12 @@ export default function App() {
           isOpen={showGarageModal}
           onClose={() => {
             setShowGarageModal(false);
+            setCustomizationVersion((v) => v + 1);
             setProgress({ ...PlayerProgress.get() });
             controller.refreshCoinsFromStorage();
           }}
           onCustomizationChanged={() => {
+            setCustomizationVersion((v) => v + 1);
             setProgress({ ...PlayerProgress.get() });
             controller.refreshCoinsFromStorage();
           }}

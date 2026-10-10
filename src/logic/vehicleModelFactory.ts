@@ -1,4 +1,4 @@
-import * as THREE from 'three';
+﻿import * as THREE from 'three';
 import { VehicleType, VehicleStateType } from './types.ts';
 import { LiveryConfig, UnderglowConfig, RimConfig } from './garageCustomization.ts';
 
@@ -179,13 +179,13 @@ export function buildDioramaVehicleMesh(options: VehicleFactoryOptions): Vehicle
   });
 
   const glassMat = new THREE.MeshPhysicalMaterial({
-    color: 0x0a1120,
-    roughness: 0.03,
-    metalness: 0.15,
+    color: 0x38bdf8,
+    roughness: 0.08,
+    metalness: 0.08,
     clearcoat: 1.0,
-    clearcoatRoughness: 0.05,
+    clearcoatRoughness: 0.04,
     transparent: true,
-    opacity: 0.88,
+    opacity: 0.90,
   });
 
   const headlightMat = new THREE.MeshStandardMaterial({
@@ -248,7 +248,7 @@ export function buildDioramaVehicleMesh(options: VehicleFactoryOptions): Vehicle
 
     // Greenhouse Cabin
     const cabinGeo = new THREE.BoxGeometry(width3D * 0.88, height3D * 0.48, length3D * 0.52);
-    const cabin = new THREE.Mesh(cabinGeo, darkTrimMat);
+    const cabin = new THREE.Mesh(cabinGeo, bodyMat);
     cabin.position.set(0, height3D * 0.38, 0.02);
     cabin.castShadow = true;
     vGroup.add(cabin);
@@ -292,13 +292,14 @@ export function buildDioramaVehicleMesh(options: VehicleFactoryOptions): Vehicle
       vGroup.add(sideWin);
     });
 
-    // Sporty Rear Lip Spoiler
+    // Sporty Rear Lip Spoiler (Body-colored matching frame_01.jpg)
     [-width3D * 0.32, width3D * 0.32].forEach((wsX) => {
-      const strut = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.16, 0.06), darkTrimMat);
+      const strut = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.16, 0.06), bodyMat);
       strut.position.set(wsX, height3D * 0.30, length3D * 0.45);
       vGroup.add(strut);
     });
-    const wingBlade = new THREE.Mesh(new THREE.BoxGeometry(width3D * 0.90, 0.04, 0.18), darkTrimMat);
+
+    const wingBlade = new THREE.Mesh(new THREE.BoxGeometry(width3D * 0.90, 0.04, 0.18), bodyMat);
     wingBlade.position.set(0, height3D * 0.38, length3D * 0.45);
     wingBlade.castShadow = true;
     vGroup.add(wingBlade);
@@ -319,84 +320,105 @@ export function buildDioramaVehicleMesh(options: VehicleFactoryOptions): Vehicle
       vGroup.add(tip);
     });
 
-  } else if (isVan) {
-    // --- COMMERCIAL CARGO / DELIVERY VAN (Length 2) ---
-    // Tall Boxy Main Body
-    const vanBody = new THREE.Mesh(
-      new THREE.BoxGeometry(width3D, height3D * 0.72, length3D),
-      bodyMat
-    );
-    vanBody.position.y = 0;
-    vanBody.castShadow = true;
-    vanBody.receiveShadow = true;
-    vanBody.userData = { vehicleId, originalColor: colorHex };
-    vGroup.add(vanBody);
+  } else if (isVan || isBus) {
+    // --- STYLIZED 3D TOY JELLY-BEAN BUS/VAN (Matching Reference Image) ---
+    // Create a highly rounded profile extruded into a chubby body
+    const r = 0.35; // Large bevel radius for jelly look
+    const depth = width3D - r * 2;
+    const l = length3D;
+    const h = height3D * 0.95;
 
-    // Short Front Hood
-    const vanHood = new THREE.Mesh(
-      new THREE.BoxGeometry(width3D * 0.96, height3D * 0.34, length3D * 0.22),
-      bodyMat
-    );
-    vanHood.position.set(0, -height3D * 0.12, -length3D * 0.48);
-    vanHood.castShadow = true;
-    vGroup.add(vanHood);
+    const shape = new THREE.Shape();
+    shape.moveTo(-l/2 + r, -h/2);
+    shape.lineTo(l/2 - r, -h/2);
+    shape.quadraticCurveTo(l/2, -h/2, l/2, -h/2 + r);
+    shape.lineTo(l/2, h/2 - r);
+    shape.quadraticCurveTo(l/2, h/2, l/2 - r, h/2);
+    shape.lineTo(-l/2 + r, h/2);
+    shape.quadraticCurveTo(-l/2, h/2, -l/2, h/2 - r);
+    shape.lineTo(-l/2, -h/2 + r);
+    shape.quadraticCurveTo(-l/2, -h/2, -l/2 + r, -h/2);
 
-    // Upright Windshield
-    const vanWs = new THREE.Mesh(
-      new THREE.BoxGeometry(width3D * 0.88, height3D * 0.42, 0.06),
-      glassMat
-    );
-    vanWs.position.set(0, height3D * 0.24, -length3D * 0.40);
-    vanWs.rotation.x = -0.16;
-    vGroup.add(vanWs);
+    const extrudeSettings = { depth, bevelEnabled: true, bevelSegments: 8, steps: 1, bevelSize: r, bevelThickness: r };
+    const busGeo = new THREE.ExtrudeGeometry(shape, extrudeSettings);
+    busGeo.center();
+    busGeo.rotateY(Math.PI / 2);
 
-    // Front Windshield Wipers
-    [-0.22, 0.20].forEach((wx) => {
-      const wiper = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.18, 0.02), darkTrimMat);
-      wiper.position.set(wx, height3D * 0.15, -length3D * 0.44);
-      wiper.rotation.z = -0.32;
-      vGroup.add(wiper);
-    });
+    const busBody = new THREE.Mesh(busGeo, bodyMat);
+    busBody.position.y = 0.15; // Lift up slightly
+    busBody.castShadow = true;
+    busBody.receiveShadow = true;
+    busBody.userData = { vehicleId, originalColor: colorHex };
+    vGroup.add(busBody);
 
-    // Driver & Passenger Side Windows
-    [-width3D * 0.505, width3D * 0.505].forEach((xSide) => {
-      const cabWin = new THREE.Mesh(
-        new THREE.BoxGeometry(0.04, height3D * 0.36, length3D * 0.28),
+    // Huge Panoramic Front Windshield (Dark and shiny, matching reference)
+    const wsGeo = new THREE.PlaneGeometry(width3D * 0.75, height3D * 0.5);
+    const busWs = new THREE.Mesh(wsGeo, glassMat);
+    busWs.position.set(0, 0.25, -length3D * 0.5 - r * 0.96);
+    busWs.rotation.x = -0.05;
+    vGroup.add(busWs);
+
+    // Simple Side Windows (Black shiny strips)
+    [-width3D * 0.5 - r * 0.96, width3D * 0.5 + r * 0.96].forEach((xSide) => {
+      const sideGlass = new THREE.Mesh(
+        new THREE.PlaneGeometry(length3D * 0.65, height3D * 0.45),
         glassMat
       );
-      cabWin.position.set(xSide, height3D * 0.24, -length3D * 0.22);
-      vGroup.add(cabWin);
+      sideGlass.position.set(xSide, 0.25, 0);
+      sideGlass.rotation.y = xSide > 0 ? Math.PI / 2 : -Math.PI / 2;
+      vGroup.add(sideGlass);
+      
+      // Window mullions (vertical dividers)
+      const numWindows = isBus ? 4 : 3;
+      for (let i = 1; i < numWindows; i++) {
+        const zPos = -length3D * 0.325 + (i / numWindows) * length3D * 0.65;
+        const pillarGeo = new THREE.BoxGeometry(0.04, height3D * 0.46, 0.04);
+        const pillar = new THREE.Mesh(pillarGeo, bodyMat);
+        pillar.position.set(xSide > 0 ? xSide + 0.01 : xSide - 0.01, 0.25, zPos);
+        vGroup.add(pillar);
+      }
     });
 
-    // Sliding Cargo Door Details on Right Side (+X)
-    const doorFrame = new THREE.Mesh(
-      new THREE.BoxGeometry(0.03, height3D * 0.55, length3D * 0.42),
-      darkTrimMat
-    );
-    doorFrame.position.set(width3D * 0.505, 0, 0.15);
-    const doorHandle = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.04, 0.10), chromeMat);
-    doorHandle.position.set(width3D * 0.525, 0.02, 0.02);
-    vGroup.add(doorFrame, doorHandle);
+    // Rear Window
+    const rearWinGeo = new THREE.PlaneGeometry(width3D * 0.75, height3D * 0.35);
+    const rearWin = new THREE.Mesh(rearWinGeo, glassMat);
+    rearWin.position.set(0, 0.2, length3D * 0.5 + r * 0.96);
+    rearWin.rotation.y = Math.PI;
+    vGroup.add(rearWin);
 
-    // Rear Dual Cargo Doors
-    const rearSplit = new THREE.Mesh(
-      new THREE.BoxGeometry(0.04, height3D * 0.60, 0.04),
-      darkTrimMat
-    );
-    rearSplit.position.set(0, 0.05, length3D * 0.505);
-    vGroup.add(rearSplit);
+    // Custom Garage Livery Decals for Bus
+    if (liveryConfig) {
+      if (liveryConfig.patternType === 'racing_stripes') {
+        [-0.32, 0.32].forEach((xOff) => {
+          const stripe = new THREE.Mesh(
+            new THREE.BoxGeometry(0.16, 0.02, length3D * 0.90),
+            new THREE.MeshBasicMaterial({ color: liveryConfig.stripeColor })
+          );
+          stripe.position.set(xOff, height3D * 0.5 - 0.05, 0);
+          vGroup.add(stripe);
+        });
+      }
+    }
 
-    // Roof Cargo Utility Rails
-    [-width3D * 0.42, width3D * 0.42].forEach((xRail) => {
-      const rail = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.08, length3D * 0.65), darkTrimMat);
-      rail.position.set(xRail, height3D * 0.40, 0.05);
-      vGroup.add(rail);
-    });
+    // Underglow Neon for Bus
+    if (underglowConfig && underglowConfig.intensity > 0) {
+      const ugLight = new THREE.PointLight(underglowConfig.colorHex, underglowConfig.intensity * 1.5, 4.0);
+      ugLight.position.set(0, -height3D * 0.32, 0);
+      vGroup.add(ugLight);
 
-    // Heavy Front Bumper
-    const vanBumper = new THREE.Mesh(new THREE.BoxGeometry(width3D * 1.02, 0.22, 0.18), darkTrimMat);
-    vanBumper.position.set(0, -height3D * 0.26, -length3D * 0.52);
-    vGroup.add(vanBumper);
+      const ugPlate = new THREE.Mesh(
+        new THREE.PlaneGeometry(width3D * 0.92, length3D * 0.88),
+        new THREE.MeshBasicMaterial({
+          color: underglowConfig.colorHex,
+          transparent: true,
+          opacity: 0.65,
+          depthWrite: false,
+        })
+      );
+      ugPlate.rotation.x = -Math.PI / 2;
+      ugPlate.position.y = -height3D * 0.36;
+      vGroup.add(ugPlate);
+    }
 
   } else if (isTruck) {
     // --- HEAVY-DUTY CAB-OVER CARGO TRUCK (Length 3) ---
@@ -478,203 +500,24 @@ export function buildDioramaVehicleMesh(options: VehicleFactoryOptions): Vehicle
     vGroup.add(truckBumper);
 
   } else {
-    // --- STYLIZED 3D TOY TRANSIT COACH BUS (Length 3, matching Reference Image 5) ---
-    // Main Curved Toy Chassis
-    const busBody = new THREE.Mesh(
-      new THREE.BoxGeometry(width3D, height3D * 0.72, length3D),
-      bodyMat
-    );
-    busBody.position.y = 0;
-    busBody.castShadow = true;
-    busBody.receiveShadow = true;
-    busBody.userData = { vehicleId, originalColor: colorHex };
-    vGroup.add(busBody);
-
-    // Front Aerodynamic Curved Snout Cap
-    const frontRoofCap = new THREE.Mesh(
-      new THREE.CylinderGeometry(width3D * 0.49, width3D * 0.49, 0.22, 16, 1, false, 0, Math.PI),
-      bodyMat
-    );
-    frontRoofCap.rotation.z = Math.PI / 2;
-    frontRoofCap.position.set(0, height3D * 0.36, -length3D * 0.48);
-    vGroup.add(frontRoofCap);
-
-    // Inset Destination Sign Plaque Box (Matching Image 5)
-    const marqueeBorder = new THREE.Mesh(
-      new THREE.BoxGeometry(width3D * 0.82, 0.18, 0.08),
-      whiteFrameMat
-    );
-    marqueeBorder.position.set(0, height3D * 0.42, -length3D * 0.48);
-    const marqueeLed = new THREE.Mesh(
-      new THREE.BoxGeometry(width3D * 0.74, 0.12, 0.09),
-      new THREE.MeshStandardMaterial({
-        color: 0x38bdf8,
-        emissive: 0x38bdf8,
-        emissiveIntensity: 1.8,
-      })
-    );
-    marqueeLed.position.set(0, height3D * 0.42, -length3D * 0.48);
-    vGroup.add(marqueeBorder, marqueeLed);
-
-    // Curved Panoramic Front Windshield (-Z)
-    const busWs = new THREE.Mesh(
-      new THREE.BoxGeometry(width3D * 0.92, height3D * 0.42, 0.08),
-      glassMat
-    );
-    busWs.position.set(0, height3D * 0.18, -length3D * 0.48);
-    busWs.rotation.x = -0.14;
-    vGroup.add(busWs);
-
-    // Front Windshield Wipers (Matching Image 5)
-    [-0.24, 0.24].forEach((wx) => {
-      const wiper = new THREE.Mesh(
-        new THREE.BoxGeometry(0.025, 0.24, 0.025),
-        darkTrimMat
-      );
-      wiper.position.set(wx, height3D * 0.08, -length3D * 0.52);
-      wiper.rotation.z = wx < 0 ? -0.38 : 0.38;
-      vGroup.add(wiper);
-    });
-
-    // White Framed Panoramic Side Windows (Matching Image 5)
-    [-width3D * 0.505, width3D * 0.505].forEach((xSide) => {
-      // White Outer Border Trim (Matching Image 5)
-      const frameTrim = new THREE.Mesh(
-        new THREE.BoxGeometry(0.045, height3D * 0.40, length3D * 0.80),
-        whiteFrameMat
-      );
-      frameTrim.position.set(xSide, height3D * 0.18, 0.02);
-      vGroup.add(frameTrim);
-
-      // Inset Tinted Panoramic Window Glass
-      const sideGlass = new THREE.Mesh(
-        new THREE.BoxGeometry(0.05, height3D * 0.34, length3D * 0.76),
-        glassMat
-      );
-      sideGlass.position.set(xSide, height3D * 0.18, 0.02);
-      vGroup.add(sideGlass);
-
-      // Vertical Window Mullions
-      [-0.8, -0.2, 0.4].forEach((zPillar) => {
-        const pillar = new THREE.Mesh(
-          new THREE.BoxGeometry(0.06, height3D * 0.35, 0.05),
-          whiteFrameMat
-        );
-        pillar.position.set(xSide, height3D * 0.18, zPillar);
-        vGroup.add(pillar);
-      });
-    });
-
-    // Molded Double Folding Passenger Doors on Right Side (+X) (Matching Image 5)
-    const doorFrame = new THREE.Mesh(
-      new THREE.BoxGeometry(0.05, height3D * 0.62, 0.52),
-      whiteFrameMat
-    );
-    doorFrame.position.set(width3D * 0.505, -height3D * 0.02, -length3D * 0.28);
-    vGroup.add(doorFrame);
-
-    // Double Door Glass Panes
-    [-0.12, 0.12].forEach((zPane) => {
-      const dPane = new THREE.Mesh(
-        new THREE.BoxGeometry(0.06, height3D * 0.48, 0.18),
-        glassMat
-      );
-      dPane.position.set(width3D * 0.505, -height3D * 0.02, -length3D * 0.28 + zPane);
-      vGroup.add(dPane);
-    });
-
-    // Rear Observation Window
-    const rearWin = new THREE.Mesh(
-      new THREE.BoxGeometry(width3D * 0.84, height3D * 0.36, 0.06),
-      glassMat
-    );
-    rearWin.position.set(0, height3D * 0.18, length3D * 0.49);
-    vGroup.add(rearWin);
-
-    // Aerodynamic Climate Control AC Pod on Roof (Matching Image 5)
-    const acPodBase = new THREE.Mesh(
-      new THREE.BoxGeometry(width3D * 0.70, 0.16, 0.85),
-      bodyMat
-    );
-    acPodBase.position.set(0, height3D * 0.42, 0.1);
-    acPodBase.castShadow = true;
-    vGroup.add(acPodBase);
-
-    // Beveled Stepped Top on AC Pod
-    const acPodTop = new THREE.Mesh(
-      new THREE.BoxGeometry(width3D * 0.58, 0.08, 0.75),
-      whiteFrameMat
-    );
-    acPodTop.position.set(0, height3D * 0.50, 0.1);
-    vGroup.add(acPodTop);
-
-    // Custom Garage Livery Decals for Bus
-    if (liveryConfig) {
-      if (liveryConfig.patternType === 'racing_stripes') {
-        [-0.32, 0.32].forEach((xOff) => {
-          const stripe = new THREE.Mesh(
-            new THREE.BoxGeometry(0.16, 0.02, length3D * 0.90),
-            new THREE.MeshBasicMaterial({ color: liveryConfig.stripeColor })
-          );
-          stripe.position.set(xOff, height3D * 0.37, 0);
-          vGroup.add(stripe);
-        });
-      } else if (liveryConfig.patternType === 'cyber_circuit') {
-        [-width3D * 0.51, width3D * 0.51].forEach((xSide) => {
-          const cLine = new THREE.Mesh(
-            new THREE.BoxGeometry(0.02, 0.08, length3D * 0.85),
-            new THREE.MeshBasicMaterial({ color: liveryConfig.stripeColor })
-          );
-          cLine.position.set(xSide, 0.08, 0);
-          vGroup.add(cLine);
-        });
-      } else if (liveryConfig.patternType === 'gold_chrome') {
-        const goldCrown = new THREE.Mesh(
-          new THREE.BoxGeometry(0.40, 0.08, length3D * 0.32),
-          new THREE.MeshStandardMaterial({ color: 0xfef08a, metalness: 0.95, roughness: 0.08 })
-        );
-        goldCrown.position.set(0, height3D * 0.42, 0);
-        vGroup.add(goldCrown);
-      }
-    }
-
-    // Underglow Neon for Bus
-    if (underglowConfig && underglowConfig.intensity > 0) {
-      const ugLight = new THREE.PointLight(underglowConfig.colorHex, underglowConfig.intensity * 1.5, 4.0);
-      ugLight.position.set(0, -height3D * 0.32, 0);
-      vGroup.add(ugLight);
-
-      const ugPlate = new THREE.Mesh(
-        new THREE.PlaneGeometry(width3D * 0.92, length3D * 0.88),
-        new THREE.MeshBasicMaterial({
-          color: underglowConfig.colorHex,
-          transparent: true,
-          opacity: 0.65,
-          depthWrite: false,
-        })
-      );
-      ugPlate.rotation.x = -Math.PI / 2;
-      ugPlate.position.y = -height3D * 0.36;
-      vGroup.add(ugPlate);
-    }
+    // Already handled in the combined isVan || isBus block.
+    // If anything else falls through, it uses the truck chassis for now.
   }
 
   // 4. BOLD ICONIC WHITE DIRECTIONAL ROOF ARROW (Matching Reference Gameplay Screenshots)
   const arrowGroup = new THREE.Group();
-  // Set roof elevation to sit proudly on top of each vehicle contour
-  const roofY = isBus
-    ? height3D * 0.63
-    : isVan
-    ? height3D * 0.53
+  // Set roof elevation to sit proudly and flush on top of each vehicle contour
+  const roofY = (isBus || isVan)
+    ? height3D * 0.36 + 0.015
     : isTruck
-    ? height3D * 0.61
-    : height3D * 0.64;
+    ? height3D * 0.42 + 0.015
+    : height3D * 0.62 + 0.015;
   arrowGroup.position.set(0, roofY, 0);
 
   const totalLen = length3D * 0.65;
   const headLen = totalLen * 0.46;
-  const stemW = width3D * 0.36;
-  const headW = width3D * 0.74;
+  const stemW = width3D * 0.40;
+  const headW = width3D * 0.76;
   const stemHalfW = stemW / 2;
   const headHalfW = headW / 2;
 
@@ -701,14 +544,14 @@ export function buildDioramaVehicleMesh(options: VehicleFactoryOptions): Vehicle
   outlineShape.lineTo(-headHalfW - expand, -totalLen / 2 + headLen);
   outlineShape.closePath();
 
-  const outlineGeo = new THREE.ExtrudeGeometry(outlineShape, { depth: 0.025, bevelEnabled: false });
+  const outlineGeo = new THREE.ExtrudeGeometry(outlineShape, { depth: 0.015, bevelEnabled: false });
   outlineGeo.rotateX(Math.PI / 2);
   const outlineMesh = new THREE.Mesh(outlineGeo, darkTrimMat);
-  outlineMesh.position.y = 0.01;
+  outlineMesh.position.y = 0.005;
   arrowGroup.add(outlineMesh);
 
   // Pure Brilliant White Arrow Surface
-  const arrowGeo = new THREE.ExtrudeGeometry(arrowShape, { depth: 0.045, bevelEnabled: false });
+  const arrowGeo = new THREE.ExtrudeGeometry(arrowShape, { depth: 0.03, bevelEnabled: false });
   arrowGeo.rotateX(Math.PI / 2);
   const thickArrowMat = new THREE.MeshStandardMaterial({
     color: 0xffffff,
@@ -745,16 +588,18 @@ export function buildDioramaVehicleMesh(options: VehicleFactoryOptions): Vehicle
     vGroup.add(seatedGroup);
   }
 
-  // 6. Side Wing Mirrors with Molded Curved Arms (Matching Image 5)
+  // 6. Side Wing Mirrors with Molded Curved Arms (Matching frame_01.jpg)
   [-width3D * 0.52, width3D * 0.52].forEach((xMirror) => {
     const mirrorArm = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.03, 0.08), darkTrimMat);
-    mirrorArm.position.set(xMirror, height3D * 0.24, -length3D * 0.35);
+    const mZ = isCar ? -length3D * 0.22 : -length3D * 0.35;
+    const mY = isCar ? height3D * 0.28 : height3D * 0.22;
+    mirrorArm.position.set(xMirror, mY, mZ);
 
     const mirrorHead = new THREE.Mesh(
-      new THREE.BoxGeometry(0.08, 0.18, 0.14),
-      isBus ? bodyMat : darkTrimMat
+      new THREE.BoxGeometry(0.08, 0.16, 0.12),
+      bodyMat
     );
-    mirrorHead.position.set(xMirror > 0 ? xMirror + 0.05 : xMirror - 0.05, height3D * 0.22, -length3D * 0.35);
+    mirrorHead.position.set(xMirror > 0 ? xMirror + 0.04 : xMirror - 0.04, mY, mZ);
     vGroup.add(mirrorArm, mirrorHead);
   });
 
@@ -817,10 +662,10 @@ export function buildDioramaVehicleMesh(options: VehicleFactoryOptions): Vehicle
     vGroup.add(selectRing);
   }
 
-  // 11. Stylized Multi-Lug Toy Wheels (Matching Image 5)
-  const rimColor = isBus && rimConfig ? rimConfig.colorHex : 0xf1f5f9;
-  const rimRoughness = isBus && rimConfig ? rimConfig.roughness : 0.18;
-  const rimMetalness = isBus && rimConfig ? rimConfig.metalness : 0.82;
+  // 11. Stylized Multi-Lug Toy Wheels (Matching frame_01.jpg & frame_05.jpg)
+  const rimColor = rimConfig ? rimConfig.colorHex : 0xf1f5f9;
+  const rimRoughness = rimConfig ? rimConfig.roughness : 0.18;
+  const rimMetalness = rimConfig ? rimConfig.metalness : 0.82;
 
   const wx = width3D * 0.52;
   const wz = length3D * 0.32;

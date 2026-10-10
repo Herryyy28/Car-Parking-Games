@@ -43,6 +43,15 @@ import {
   Check,
   Disc,
 } from 'lucide-react';
+const SHARED_PUFF_GEO = new THREE.SphereGeometry(1, 6, 6);
+const SHARED_PUFF_MAT = new THREE.MeshBasicMaterial({
+  color: 0x94a3b8,
+  transparent: true,
+  opacity: 0.55,
+  depthWrite: false,
+});
+const SHARED_MATRIX = new THREE.Matrix4();
+const SHARED_QUATERNION = new THREE.Quaternion();
 
 interface BusMadnessArenaProps {
   gameState: GameState;
@@ -59,6 +68,7 @@ interface BusMadnessArenaProps {
   onConfettiComplete?: () => void;
   onParkingEvaluated?: (grade: ParkingGrade) => void;
   graphicsQuality?: GraphicsQuality;
+  customizationVersion?: number;
 }
 
 function getDockPositions(count: number = 1): number[] {
@@ -165,163 +175,57 @@ function createArticulatedHumanoid(colorHex: string, scale = 1.0, isVip = false)
   const root = new THREE.Group();
   root.scale.set(scale, scale, scale);
 
-  // Soft Ground Contact Shadow
   const shadowGeo = new THREE.CircleGeometry(0.32, 12);
-  const shadowMat = new THREE.MeshBasicMaterial({
-    color: 0x000000,
-    transparent: true,
-    opacity: 0.38,
-    depthWrite: false,
-  });
+  const shadowMat = new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.38, depthWrite: false });
   const shadow = new THREE.Mesh(shadowGeo, shadowMat);
   shadow.rotation.x = -Math.PI / 2;
   shadow.position.y = 0.02;
   root.add(shadow);
 
-  // Hips Pivot
   const hips = new THREE.Group();
-  hips.position.y = 0.42;
+  hips.position.y = 0.45;
   root.add(hips);
 
-  // Torso / Jacket in passenger team color (Golden shimmer for VIPs)
-  const torsoColor = isVip ? 0xfacc15 : new THREE.Color(colorHex);
-  const torsoMat = new THREE.MeshStandardMaterial({
-    color: torsoColor,
-    roughness: isVip ? 0.15 : 0.35,
-    metalness: isVip ? 0.85 : 0.15,
+  // High-gloss jelly material matching reference screenshot
+  const jellyMat = new THREE.MeshStandardMaterial({
+    color: isVip ? 0xfacc15 : new THREE.Color(colorHex),
+    roughness: 0.12,
+    metalness: 0.05,
     emissive: isVip ? 0xf59e0b : 0x000000,
     emissiveIntensity: isVip ? 0.4 : 0,
   });
-  const torsoGeo = new THREE.BoxGeometry(0.38, 0.46, 0.28);
-  const torso = new THREE.Mesh(torsoGeo, torsoMat);
-  torso.position.y = 0.23;
+
+  // Pill-shaped body (Capsule)
+  const bodyGeo = new THREE.CapsuleGeometry(0.22, 0.3, 16, 16);
+  const torso = new THREE.Mesh(bodyGeo, jellyMat);
+  torso.position.y = -0.05;
   torso.castShadow = true;
   hips.add(torso);
 
-  // Commuter Backpack on rear (+Z is back)
-  const backpackMat = new THREE.MeshStandardMaterial({
-    color: isVip ? 0xb45309 : 0x1e293b,
-    roughness: 0.6,
-  });
-  const backpack = new THREE.Mesh(new THREE.BoxGeometry(0.26, 0.32, 0.16), backpackMat);
-  backpack.position.set(0, 0.22, 0.20);
-  backpack.castShadow = true;
-  hips.add(backpack);
-
-  // Head Group (Neck / Head / Cap / Face)
+  // Round head sphere
   const head = new THREE.Group();
-  head.position.set(0, 0.52, 0);
-
-  // Stylized Face
-  const skinMat = new THREE.MeshStandardMaterial({ color: 0xffedd5, roughness: 0.4 });
-  const headGeo = new THREE.SphereGeometry(0.22, 16, 14);
-  const headMesh = new THREE.Mesh(headGeo, skinMat);
+  head.position.set(0, 0.38, 0);
+  const headGeo = new THREE.SphereGeometry(0.26, 24, 24);
+  const headMesh = new THREE.Mesh(headGeo, jellyMat);
   headMesh.castShadow = true;
   head.add(headMesh);
-
-  // Sporty Baseball Cap / Crown for VIP
-  const capMat = new THREE.MeshStandardMaterial({
-    color: isVip ? 0xfef08a : 0x0f172a,
-    metalness: isVip ? 0.9 : 0,
-    roughness: isVip ? 0.1 : 0.5,
-  });
-  const capCrown = new THREE.Mesh(new THREE.CylinderGeometry(0.23, 0.24, 0.1, 14), capMat);
-  capCrown.position.y = 0.12;
-  const visor = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.03, 0.18), capMat);
-  visor.position.set(0, 0.09, -0.22);
-  head.add(capCrown, visor);
+  hips.add(head);
 
   // Floating Golden Crown for VIP Passengers
   if (isVip) {
-    const crownMat = new THREE.MeshStandardMaterial({
-      color: 0xfacc15,
-      emissive: 0xfbbf24,
-      emissiveIntensity: 1.8,
-      metalness: 0.95,
-      roughness: 0.08,
-    });
+    const crownMat = new THREE.MeshStandardMaterial({ color: 0xfacc15, emissive: 0xfbbf24, emissiveIntensity: 1.8, metalness: 0.95, roughness: 0.08 });
     const crown = new THREE.Mesh(new THREE.ConeGeometry(0.16, 0.24, 5), crownMat);
-    crown.position.set(0, 0.36, 0);
+    crown.position.set(0, 0.4, 0);
     crown.rotation.x = Math.PI;
     head.add(crown);
   }
 
-  // Expressive Chibi Eyes with highlights
-  const eyeWhiteMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
-  const pupilMat = new THREE.MeshBasicMaterial({ color: 0x0f172a });
-  const shineMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
-
-  [-0.08, 0.08].forEach((xEye) => {
-    const eyeWhite = new THREE.Mesh(new THREE.SphereGeometry(0.045, 8, 8), eyeWhiteMat);
-    eyeWhite.position.set(xEye, 0.02, -0.20);
-    const pupil = new THREE.Mesh(new THREE.SphereGeometry(0.028, 6, 6), pupilMat);
-    pupil.position.set(xEye, 0.02, -0.23);
-    const shine = new THREE.Mesh(new THREE.SphereGeometry(0.012, 4, 4), shineMat);
-    shine.position.set(xEye + 0.012, 0.032, -0.245);
-    head.add(eyeWhite, pupil, shine);
-  });
-
-  // Cheerful Smile
-  const smileGeo = new THREE.TorusGeometry(0.04, 0.012, 6, 8, Math.PI);
-  const smileMat = new THREE.MeshBasicMaterial({ color: 0xbe123c });
-  const smile = new THREE.Mesh(smileGeo, smileMat);
-  smile.rotation.x = Math.PI;
-  smile.position.set(0, -0.08, -0.21);
-  head.add(smile);
-
-  hips.add(head);
-
-  // Arms with Shoulders (pivot at x: ±0.24, y: 0.38)
-  const armGeo = new THREE.CylinderGeometry(0.07, 0.065, 0.34, 8);
-  const handGeo = new THREE.SphereGeometry(0.06, 8, 8);
-
+  // Dummy groups to satisfy HumanoidRig interface without crashing animation loop
   const leftArm = new THREE.Group();
-  leftArm.position.set(-0.24, 0.38, 0);
-  const lArmMesh = new THREE.Mesh(armGeo, torsoMat);
-  lArmMesh.position.y = -0.17;
-  const lHand = new THREE.Mesh(handGeo, skinMat);
-  lHand.position.y = -0.34;
-  leftArm.add(lArmMesh, lHand);
-  hips.add(leftArm);
-
   const rightArm = new THREE.Group();
-  rightArm.position.set(0.24, 0.38, 0);
-  const rArmMesh = new THREE.Mesh(armGeo, torsoMat);
-  rArmMesh.position.y = -0.17;
-  const rHand = new THREE.Mesh(handGeo, skinMat);
-  rHand.position.y = -0.34;
-  rightArm.add(rArmMesh, rHand);
-  hips.add(rightArm);
-
-  // Legs with Hips & Shoes
-  const pantsMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.6 });
-  const shoeMat = new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.4 });
-  const soleMat = new THREE.MeshStandardMaterial({ color: new THREE.Color(colorHex), roughness: 0.3 });
-  const legGeo = new THREE.CylinderGeometry(0.075, 0.065, 0.36, 8);
-  const shoeGeo = new THREE.BoxGeometry(0.14, 0.09, 0.22);
-  const soleGeo = new THREE.BoxGeometry(0.15, 0.03, 0.23);
-
   const leftLeg = new THREE.Group();
-  leftLeg.position.set(-0.11, 0, 0);
-  const lLegMesh = new THREE.Mesh(legGeo, pantsMat);
-  lLegMesh.position.y = -0.18;
-  const lShoe = new THREE.Mesh(shoeGeo, shoeMat);
-  lShoe.position.set(0, -0.34, -0.04);
-  const lSole = new THREE.Mesh(soleGeo, soleMat);
-  lSole.position.set(0, -0.39, -0.04);
-  leftLeg.add(lLegMesh, lShoe, lSole);
-  hips.add(leftLeg);
-
   const rightLeg = new THREE.Group();
-  rightLeg.position.set(0.11, 0, 0);
-  const rLegMesh = new THREE.Mesh(legGeo, pantsMat);
-  rLegMesh.position.y = -0.18;
-  const rShoe = new THREE.Mesh(shoeGeo, shoeMat);
-  rShoe.position.set(0, -0.34, -0.04);
-  const rSole = new THREE.Mesh(soleGeo, soleMat);
-  rSole.position.set(0, -0.39, -0.04);
-  rightLeg.add(rLegMesh, rShoe, rSole);
-  hips.add(rightLeg);
+  hips.add(leftArm, rightArm, leftLeg, rightLeg);
 
   return { root, hips, torso, head, leftArm, rightArm, leftLeg, rightLeg, shadow, colorHex };
 }
@@ -385,13 +289,13 @@ function createAirportSignTexture(): THREE.CanvasTexture {
   ctx.font = '900 62px system-ui, sans-serif';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.fillText('★', 140, 110);
-  ctx.fillText('★', 175, 160);
+  ctx.fillText('â˜…', 140, 110);
+  ctx.fillText('â˜…', 175, 160);
 
   // White airplane silhouette flying through
   ctx.font = '900 80px system-ui, sans-serif';
   ctx.fillStyle = '#ffffff';
-  ctx.fillText('✈', 590, 85);
+  ctx.fillText('âœˆ', 590, 85);
 
   // "Airport" 3D script text in hot pink with thick white border
   ctx.font = '900 124px "Fredoka", "Arial Rounded MT Bold", cursive, sans-serif';
@@ -464,6 +368,7 @@ export const BusMadnessArena: React.FC<BusMadnessArenaProps> = ({
   onConfettiComplete,
   onParkingEvaluated,
   graphicsQuality = 'HIGH',
+  customizationVersion = 0,
 }) => {
   const mountRef = useRef<HTMLDivElement>(null);
   const gameStateRef = useRef(gameState);
@@ -567,9 +472,9 @@ export const BusMadnessArena: React.FC<BusMadnessArenaProps> = ({
 
     const scene = new THREE.Scene();
     sceneRef.current = scene;
-    scene.background = new THREE.Color(0xbfe0f7);
-    // Linear fog: only softens distant background horizons (85 to 200 units)
-    scene.fog = new THREE.Fog(0xbfe0f7, 85, 200);
+    scene.background = new THREE.Color(0xc5cedf);
+    // Linear fog: matches play surface color #C5CEDF seamlessly
+    scene.fog = new THREE.Fog(0xc5cedf, 85, 200);
 
     const camera = new THREE.PerspectiveCamera(50, width / height, 0.5, 180);
     camera.position.set(0, 34, 30);
@@ -593,7 +498,7 @@ export const BusMadnessArena: React.FC<BusMadnessArenaProps> = ({
     rendererRef.current = renderer;
     renderer.setSize(width, height, true);
     const isHighQuality = graphicsQuality === 'HIGH';
-    renderer.setPixelRatio(isHighQuality ? Math.min(window.devicePixelRatio, 2.5) : Math.min(window.devicePixelRatio, 1.5));
+    renderer.setPixelRatio(isHighQuality ? Math.min(window.devicePixelRatio, 2.0) : Math.min(window.devicePixelRatio, 1.25));
     renderer.shadowMap.enabled = isHighQuality;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -906,10 +811,10 @@ export const BusMadnessArena: React.FC<BusMadnessArenaProps> = ({
     const perimeterCurb = OrganicRoadSystem.createRaisedCurbMesh(parkingLotCurve, 0.2, 0.45, 0.22, 48, 0x475569);
     naturalRoadGroup.add(perimeterCurb);
 
-    // 1. Organic light diorama puzzle ground matching frame_05.jpg & frame_06.jpg
+    // 1. Organic light diorama puzzle ground matching frame_01.jpg & frame_05.jpg
     const asphaltPadGeo = new THREE.BoxGeometry(padWidth, 0.18, padDepth);
     const asphaltPadMat = new THREE.MeshStandardMaterial({
-      color: 0xd6dce5, // smooth light slate grey diorama floor matching frame_05.jpg
+      color: 0xc5cedf, // smooth light slate grey diorama floor matching frame_01.jpg
       roughness: 0.65,
       metalness: 0.04,
     });
@@ -918,10 +823,10 @@ export const BusMadnessArena: React.FC<BusMadnessArenaProps> = ({
     puzzlePad.receiveShadow = true;
     naturalRoadGroup.add(puzzlePad);
 
-    // Beveled Concrete Outer Curb Perimeter framing the game board like a miniature diorama
+    // Beveled Concrete Outer Curb Perimeter framing the game board seamlessly
     const curbBorderGeo = new THREE.BoxGeometry(padWidth + 0.5, 0.22, padDepth + 0.5);
     const curbBorderMat = new THREE.MeshStandardMaterial({
-      color: 0xc2cdda, // crisp light concrete curb
+      color: 0xc5cedf, // seamless play floor matching frame_01.jpg
       roughness: 0.5,
       metalness: 0.05,
     });
@@ -1550,15 +1455,18 @@ export const BusMadnessArena: React.FC<BusMadnessArenaProps> = ({
         if (anim.type === 'bump') {
           if (anim.progress < 0.35) {
             const t = anim.progress / 0.35;
-            group.position.x = anim.startPos.x + anim.forwardDir.x * 0.45 * t;
-            group.position.z = anim.startPos.z + anim.forwardDir.z * 0.45 * t;
-            // Small chassis squat on sudden bump
-            group.rotation.x = 0.05 * Math.sin(t * Math.PI);
+            const easeT = Math.sin((t * Math.PI) / 2); // Ease out
+            group.position.x = anim.startPos.x + anim.forwardDir.x * 0.45 * easeT;
+            group.position.z = anim.startPos.z + anim.forwardDir.z * 0.45 * easeT;
+            // Exaggerated chassis squat on bump
+            group.rotation.x = 0.08 * Math.sin(t * Math.PI);
           } else if (anim.progress < 1.0) {
             const t = (anim.progress - 0.35) / 0.65;
-            group.position.x = anim.startPos.x + anim.forwardDir.x * 0.45 * (1 - t);
-            group.position.z = anim.startPos.z + anim.forwardDir.z * 0.45 * (1 - t);
-            group.rotation.x = -0.03 * Math.sin((1 - t) * Math.PI);
+            // Soft bounce back (jelly effect)
+            const easeBack = Math.cos(t * Math.PI * 1.5) * (1 - t);
+            group.position.x = anim.startPos.x + anim.forwardDir.x * 0.45 * easeBack;
+            group.position.z = anim.startPos.z + anim.forwardDir.z * 0.45 * easeBack;
+            group.rotation.x = -0.05 * Math.sin(t * Math.PI) * (1 - t);
           } else {
             group.position.copy(anim.startPos);
             group.rotation.x = 0;
@@ -1679,7 +1587,8 @@ export const BusMadnessArena: React.FC<BusMadnessArenaProps> = ({
           }
         } else if (anim.type === 'depart') {
           const t = Math.min(anim.progress, 1);
-          const easeT = t * t * 1.5;
+          // Soft ease-in cubic for departure
+          const easeT = t * t * (3.0 - 2.0 * t) * 1.5; 
           group.position.x = anim.startPos.x + anim.forwardDir.x * 26 * easeT;
           group.position.z = anim.startPos.z + anim.forwardDir.z * 26 * easeT;
 
@@ -1688,7 +1597,8 @@ export const BusMadnessArena: React.FC<BusMadnessArenaProps> = ({
               tire.rotation.x += delta * 26;
             });
           }
-          group.rotation.x = -0.06 * Math.sin(t * Math.PI);
+          // Soft nose lift during rapid departure
+          group.rotation.x = -0.09 * Math.sin(t * Math.PI);
 
           // Headlights and turn signals illumination during departure
           if (group.userData?.brakeLightMat) {
@@ -1700,14 +1610,9 @@ export const BusMadnessArena: React.FC<BusMadnessArenaProps> = ({
 
           // Emit soft exhaust smoke puff particles
           if (Math.random() < 0.45 && anim.progress < 0.85) {
-            const puffGeo = new THREE.SphereGeometry(0.16 + Math.random() * 0.12, 6, 6);
-            const puffMat = new THREE.MeshBasicMaterial({
-              color: 0x94a3b8,
-              transparent: true,
-              opacity: 0.55,
-              depthWrite: false,
-            });
-            const puff = new THREE.Mesh(puffGeo, puffMat);
+            const puff = new THREE.Mesh(SHARED_PUFF_GEO, SHARED_PUFF_MAT);
+            const size = 0.16 + Math.random() * 0.12;
+            puff.scale.set(size, size, size);
             puff.position.set(
               group.position.x + (Math.random() - 0.5) * 0.3,
               0.42,
@@ -1790,8 +1695,8 @@ export const BusMadnessArena: React.FC<BusMadnessArenaProps> = ({
             onConfettiCompleteRef.current();
           }
         } else {
-          const matrix = new THREE.Matrix4();
-          const q = new THREE.Quaternion();
+          SHARED_MATRIX.identity();
+          SHARED_QUATERNION.identity();
 
           for (let i = 0; i < confetti.particles.length; i++) {
             const p = confetti.particles[i];
@@ -1814,9 +1719,9 @@ export const BusMadnessArena: React.FC<BusMadnessArenaProps> = ({
             p.rot.y += p.rotVel.y * delta;
             p.rot.z += p.rotVel.z * delta;
 
-            q.setFromEuler(p.rot);
-            matrix.compose(p.pos, q, p.scale);
-            confetti.mesh.setMatrixAt(i, matrix);
+            SHARED_QUATERNION.setFromEuler(p.rot);
+            SHARED_MATRIX.compose(p.pos, SHARED_QUATERNION, p.scale);
+            confetti.mesh.setMatrixAt(i, SHARED_MATRIX);
           }
           confetti.mesh.instanceMatrix.needsUpdate = true;
         }
@@ -1837,7 +1742,7 @@ export const BusMadnessArena: React.FC<BusMadnessArenaProps> = ({
       camera.updateProjectionMatrix();
       renderer.setSize(w, h, true);
       const isHQ = graphicsQuality === 'HIGH';
-      renderer.setPixelRatio(isHQ ? Math.min(window.devicePixelRatio, 2.5) : Math.min(window.devicePixelRatio, 1.5));
+      renderer.setPixelRatio(isHQ ? Math.min(window.devicePixelRatio, 2.0) : Math.min(window.devicePixelRatio, 1.25));
       dynamicCamera.setBoardDimensions(
         gameStateRef.current.gridRows || 7,
         gameStateRef.current.gridCols || 7,
@@ -2115,9 +2020,9 @@ export const BusMadnessArena: React.FC<BusMadnessArenaProps> = ({
         state: v.state,
         loadedPassengers: v.loadedPassengers,
         capacity: v.capacity,
-        liveryConfig: v.type === 'BUS' ? activeLiveryCfg : undefined,
-        underglowConfig: v.type === 'BUS' ? activeUnderglowCfg : undefined,
-        rimConfig: v.type === 'BUS' ? activeRimCfg : undefined,
+        liveryConfig: (v.type === 'BUS' || v.type === 'VAN') ? activeLiveryCfg : undefined,
+        underglowConfig: (v.type === 'BUS' || v.type === 'VAN') ? activeUnderglowCfg : undefined,
+        rimConfig: activeRimCfg,
       });
 
       const vGroup = rig.group;
@@ -2144,7 +2049,7 @@ export const BusMadnessArena: React.FC<BusMadnessArenaProps> = ({
       scene.add(vGroup);
       vehicleMeshesRef.current.set(v.id, vGroup);
     });
-  }, [gameState.vehicles]);
+  }, [gameState.vehicles, customizationVersion]);
 
   // Update Stickmen queue
   useEffect(() => {
@@ -2464,7 +2369,7 @@ export const BusMadnessArena: React.FC<BusMadnessArenaProps> = ({
                 : 'bg-slate-900/90 border-slate-600 text-slate-200 shadow-xl'
             }`}
           >
-            <span className="text-base">{parkingToast.grade === 'PERFECT' ? '🌟' : '👍'}</span>
+            <span className="text-base">{parkingToast.grade === 'PERFECT' ? 'ðŸŒŸ' : 'ðŸ‘'}</span>
             <span>{parkingToast.message}</span>
           </div>
         </div>
@@ -2508,7 +2413,7 @@ export const BusMadnessArena: React.FC<BusMadnessArenaProps> = ({
                   className="w-6 h-6 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white flex items-center justify-center font-bold text-xs transition-colors"
                   title="Close"
                 >
-                  ✕
+                  âœ•
                 </button>
               </div>
             </div>
@@ -2540,7 +2445,7 @@ export const BusMadnessArena: React.FC<BusMadnessArenaProps> = ({
                     </div>
                     {isActive && (
                       <span className="w-5 h-5 rounded-full bg-amber-400 text-slate-950 flex items-center justify-center text-xs font-black shadow-sm">
-                        ✓
+                        âœ“
                       </span>
                     )}
                   </button>
@@ -2577,7 +2482,7 @@ export const BusMadnessArena: React.FC<BusMadnessArenaProps> = ({
                       : 'bg-slate-800 text-slate-300 border-white/10 hover:bg-slate-700'
                   }`}
                 >
-                  {isAutoDirector ? '⚡ AUTO' : '🎮 MANUAL'}
+                  {isAutoDirector ? 'âš¡ AUTO' : 'ðŸŽ® MANUAL'}
                 </button>
                 <button
                   onClick={() => {
@@ -2587,7 +2492,7 @@ export const BusMadnessArena: React.FC<BusMadnessArenaProps> = ({
                   className="w-6 h-6 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white flex items-center justify-center font-bold text-xs transition-colors"
                   title="Close"
                 >
-                  ✕
+                  âœ•
                 </button>
               </div>
             </div>
@@ -2615,7 +2520,7 @@ export const BusMadnessArena: React.FC<BusMadnessArenaProps> = ({
                     <div className="flex-1 min-w-0">
                       <div className="font-bold text-xs">{meta.label}</div>
                       <div className="text-[10px] text-slate-400 truncate">
-                        {m === 'EXPLORATION' && '360° Free orbit & inspect'}
+                        {m === 'EXPLORATION' && '360Â° Free orbit & inspect'}
                         {m === 'VEHICLE_FOLLOW' && 'Dynamic bus chase view'}
                         {m === 'TURN_CAM' && 'Cornering drift perspective'}
                         {m === 'PARKING_CAM' && 'Top dock alignment view'}
@@ -2624,7 +2529,7 @@ export const BusMadnessArena: React.FC<BusMadnessArenaProps> = ({
                     </div>
                     {isActive && (
                       <span className="w-5 h-5 rounded-full bg-sky-400 text-slate-950 flex items-center justify-center text-xs font-black shadow-sm">
-                        ✓
+                        âœ“
                       </span>
                     )}
                   </button>
@@ -2672,7 +2577,7 @@ export const BusMadnessArena: React.FC<BusMadnessArenaProps> = ({
                   className="w-6 h-6 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white flex items-center justify-center font-bold text-xs transition-colors"
                   title="Close"
                 >
-                  ✕
+                  âœ•
                 </button>
               </div>
             </div>
@@ -2701,7 +2606,7 @@ export const BusMadnessArena: React.FC<BusMadnessArenaProps> = ({
                     </div>
                     {isActive && (
                       <span className="w-5 h-5 rounded-full bg-fuchsia-400 text-slate-950 flex items-center justify-center text-xs font-black shadow-sm">
-                        ✓
+                        âœ“
                       </span>
                     )}
                   </button>
@@ -2750,7 +2655,7 @@ export const BusMadnessArena: React.FC<BusMadnessArenaProps> = ({
             title="Atmosphere & Weather"
           >
             <span className="text-base sm:text-lg leading-none drop-shadow">
-              {WEATHER_CONDITIONS[currentWeather]?.icon || '⛅'}
+              {WEATHER_CONDITIONS[currentWeather]?.icon || 'â›…'}
             </span>
             <span className="text-[8px] sm:text-[9px] font-black tracking-wider text-white uppercase leading-none mt-0.5 drop-shadow-sm">
               SKY
